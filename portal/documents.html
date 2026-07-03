@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dokumente | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Ihre Dokumente im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Dokumente</h1>
+      <p class="dash-lead" id="docsLead">Wird geladen …</p>
+
+      <!-- Nutzer-Ansicht -->
+      <div id="docsUserView" style="display:none;">
+        <div class="doc-list" id="docsUserList"></div>
+      </div>
+
+      <!-- Admin-Ansicht -->
+      <div id="docsAdminView" style="display:none;">
+        <div class="dash-card">
+          <h2>Neues Dokument zuweisen</h2>
+          <form class="auth-form" id="newDocForm">
+            <select id="nd_recipient" required>
+              <option value="" disabled selected>Empfänger wählen *</option>
+            </select>
+            <select id="nd_tenancy">
+              <option value="">– keine Mietverhältnis-Zuordnung –</option>
+            </select>
+            <input id="nd_title" placeholder="Titel *" required>
+            <select id="nd_category">
+              <option value="uebergabeprotokoll">Übergabeprotokoll</option>
+              <option value="abrechnung">Abrechnung</option>
+              <option value="vertrag">Vertrag</option>
+              <option value="versicherung">Versicherung</option>
+              <option value="sonstiges" selected>Sonstiges</option>
+            </select>
+            <select id="nd_action">
+              <option value="view_only">Nur zur Information</option>
+              <option value="sign">Unterschreiben / Bestätigen</option>
+              <option value="fill">Ausfüllen</option>
+            </select>
+            <input type="file" id="nd_file" required>
+            <button type="submit" class="btn btn-primary" id="newDocSubmit">Hochladen &amp; zuweisen</button>
+            <p class="form-status" id="newDocStatus"></p>
+          </form>
+        </div>
+
+        <div class="dash-card">
+          <h2>Alle Dokumente</h2>
+          <table class="dash-table" id="docsAdminTable"></table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var profile;
+  var client;
+
+  var CATEGORY_TEXT = {
+    uebergabeprotokoll: 'Übergabeprotokoll', abrechnung: 'Abrechnung', vertrag: 'Vertrag',
+    versicherung: 'Versicherung', sonstiges: 'Sonstiges'
+  };
+  var ACTION_TEXT = { view_only: 'Information', sign: 'Unterschreiben', fill: 'Ausfüllen' };
+
+  VeraDashboard.init('documents').then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+    document.getElementById('docsLead').textContent = profile.category === 'admin'
+      ? 'Dokumente hochladen und Nutzern zuweisen.'
+      : 'Ihre zugewiesenen Dokumente.';
+
+    if(profile.category === 'admin'){
+      document.getElementById('docsAdminView').style.display = 'block';
+      initAdminView();
+    } else {
+      document.getElementById('docsUserView').style.display = 'block';
+      loadUserDocuments();
+    }
+  });
+
+  async function openSignedUrl(path){
+    var res = await client.storage.from('documents').createSignedUrl(path, 60);
+    if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+  }
+
+  function wireOpenLinks(container){
+    container.querySelectorAll('.doc-open-link').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        openSignedUrl(a.getAttribute('data-path'));
+      });
+    });
+  }
+
+  async function loadUserDocuments(){
+    var res = await client.from('documents').select('*').order('created_at', { ascending:false });
+    renderUserDocs(res.data || []);
+  }
+
+  function renderUserDocs(docs){
+    var list = document.getElementById('docsUserList');
+    if(!docs.length){
+      list.innerHTML = '<p class="dash-empty">Noch keine Dokumente vorhanden.</p>';
+      return;
+    }
+    list.innerHTML = docs.map(function(d){
+      var action = '';
+      if(d.status === 'pending' && d.action_type === 'sign'){
+        action = '<button type="button" class="dash-btn-sm sign-btn" data-id="'+d.id+'">Bestätigen / Unterschreiben</button>';
+      } else if(d.status === 'pending' && d.action_type === 'fill'){
+        action = '<form class="fill-form" data-id="'+d.id+'">' +
+          '<textarea required placeholder="z.B. Zählerstände, Bemerkungen"></textarea>' +
+          '<button type="submit" class="dash-btn-sm">Absenden</button></form>';
+      } else if(d.status === 'completed'){
+        action = '<span class="status-badge active">Erledigt</span>';
+      } else {
+        action = '<span class="status-badge">Zur Information</span>';
+      }
+      return '<div class="doc-row">' +
+        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
+        '<span class="doc-meta">'+VeraDashboard.escapeHtml(CATEGORY_TEXT[d.category] || d.category)+' · '+VeraDashboard.formatDate(d.created_at)+'</span></div>' +
+        '<div class="dash-btn-row"><a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' + action + '</div>' +
+      '</div>';
+    }).join('');
+
+    wireOpenLinks(list);
+    list.querySelectorAll('.sign-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        btn.disabled = true;
+        btn.textContent = 'Wird bestätigt …';
+        try{ await VeraPortal.completeDocument(btn.getAttribute('data-id')); }
+        finally{ loadUserDocuments(); }
+      });
+    });
+    list.querySelectorAll('.fill-form').forEach(function(form){
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        var text = form.querySelector('textarea').value.trim();
+        if(!text) return;
+        var btn = form.querySelector('button');
+        btn.disabled = true; btn.textContent = 'Wird gesendet …';
+        try{ await VeraPortal.completeDocument(form.getAttribute('data-id'), text); }
+        finally{ loadUserDocuments(); }
+      });
+    });
+  }
+
+  async function initAdminView(){
+    var recipientSel = document.getElementById('nd_recipient');
+    var tenancySel = document.getElementById('nd_tenancy');
+
+    var res = await client.from('profiles')
+      .select('id, first_name, last_name, member_number, category')
+      .neq('category', 'admin')
+      .order('last_name');
+    var profiles = res.data || [];
+
+    recipientSel.innerHTML = '<option value="" disabled selected>Empfänger wählen *</option>' +
+      profiles.map(function(p){
+        return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+' ('+p.member_number+')</option>';
+      }).join('');
+
+    recipientSel.addEventListener('change', async function(){
+      var tRes = await client.from('tenancies')
+        .select('id, units(label, properties(label))')
+        .eq('tenant_profile_id', recipientSel.value);
+      var tenancies = tRes.data || [];
+      tenancySel.innerHTML = '<option value="">– keine Mietverhältnis-Zuordnung –</option>' +
+        tenancies.map(function(t){
+          var label = (t.units && t.units.properties) ? (t.units.properties.label + ' – ' + t.units.label) : t.id;
+          return '<option value="'+t.id+'">'+VeraDashboard.escapeHtml(label)+'</option>';
+        }).join('');
+    });
+
+    document.getElementById('newDocForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var recipientId = recipientSel.value;
+      var fileInput = document.getElementById('nd_file');
+      var file = fileInput.files[0];
+      var title = document.getElementById('nd_title').value.trim();
+      var statusEl = document.getElementById('newDocStatus');
+      var submitBtn = document.getElementById('newDocSubmit');
+
+      if(!recipientId || !title || !file){
+        statusEl.textContent = 'Bitte Empfänger, Titel und Datei angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Wird hochgeladen …';
+      statusEl.classList.add('show');
+
+      // Id first, client-side — the storage path needs it before either
+      // the upload or the row insert happens.
+      var docId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var filePath = recipientId + '/' + docId + '-' + safeName;
+
+      var upRes = await client.storage.from('documents').upload(filePath, file);
+      if(upRes.error){
+        statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
+        submitBtn.disabled = false;
+        return;
+      }
+
+      var insRes = await client.from('documents').insert({
+        id: docId,
+        title: title,
+        category: document.getElementById('nd_category').value,
+        file_path: filePath,
+        owner_profile_id: recipientId,
+        tenancy_id: tenancySel.value || null,
+        action_type: document.getElementById('nd_action').value,
+        created_by: profile.id
+      });
+
+      if(insRes.error){
+        await client.storage.from('documents').remove([filePath]);
+        statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
+        submitBtn.disabled = false;
+        return;
+      }
+
+      statusEl.textContent = 'Dokument erfolgreich zugewiesen.';
+      submitBtn.disabled = false;
+      document.getElementById('newDocForm').reset();
+      tenancySel.innerHTML = '<option value="">– keine Mietverhältnis-Zuordnung –</option>';
+      loadAdminDocsTable();
+    });
+
+    loadAdminDocsTable();
+  }
+
+  async function loadAdminDocsTable(){
+    // documents has three FKs into profiles (owner/created_by/completed_by)
+    // so the embed must name which one explicitly.
+    var res = await client.from('documents')
+      .select('*, owner:profiles!owner_profile_id(first_name,last_name,member_number)')
+      .order('created_at', { ascending:false });
+    var docs = res.data || [];
+    var table = document.getElementById('docsAdminTable');
+    if(!docs.length){
+      table.innerHTML = '<tr><td class="dash-empty">Noch keine Dokumente vorhanden.</td></tr>';
+      return;
+    }
+    table.innerHTML = '<tr><th>Empfänger</th><th>Titel</th><th>Typ</th><th>Aktion</th><th>Status</th><th></th></tr>' +
+      docs.map(function(d){
+        var owner = d.owner ? (d.owner.last_name + ' ' + d.owner.first_name) : '–';
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(owner)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(d.title)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[d.category] || d.category)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(ACTION_TEXT[d.action_type] || d.action_type)+'</td>' +
+          '<td><span class="status-badge '+(d.status==='completed'?'active':'pending')+'">'+(d.status==='completed'?'Erledigt':'Offen')+'</span></td>' +
+          '<td><a href="#" class="doc-open-link" data-path="'+d.file_path+'">Öffnen</a></td>' +
+        '</tr>';
+      }).join('');
+    wireOpenLinks(table);
+  }
+})();
+</script>
+</body>
+</html>

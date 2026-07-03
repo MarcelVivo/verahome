@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rechnungen | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Rechnungen im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Rechnungen</h1>
+      <p class="dash-lead">Übersicht Ihrer Rechnungen im Vera Portal.</p>
+
+      <div class="dash-card">
+        <h2>Rechnungen an mich</h2>
+        <table class="dash-table" id="receivedTable"></table>
+      </div>
+
+      <div class="dash-card" id="issueCard" style="display:none;">
+        <h2 id="issueCardHeading">Neue Rechnung</h2>
+        <p class="dash-lead" id="issueCardLead" style="display:none;">Entwurf korrigieren. Erst über "Senden" auf der Rechnungsseite wird sie tatsächlich verschickt.</p>
+        <form class="auth-form" id="newInvoiceForm">
+          <select id="inv_recipient" required></select>
+          <select id="inv_category">
+            <option value="miete">Miete</option>
+            <option value="nebenkosten">Nebenkosten</option>
+            <option value="schaden_reparatur">Schaden-Reparatur</option>
+            <option value="handwerkerrechnung">Handwerkerrechnung</option>
+            <option value="amtsrechnung">Amtsrechnung</option>
+            <option value="eigentuemerabrechnung">Eigentümerabrechnung</option>
+            <option value="sonstiges" selected>Sonstiges</option>
+          </select>
+          <input id="inv_due" type="date" placeholder="Fällig bis">
+          <textarea id="inv_note" placeholder="Notiz (optional)"></textarea>
+
+          <div id="lineItemsContainer"></div>
+          <button type="button" class="dash-btn-sm" id="addLineItemBtn">+ Position hinzufügen</button>
+          <div class="invoice-total-preview" id="invoiceTotalPreview">Total: CHF 0.00</div>
+
+          <details id="bankDetailsFieldset">
+            <summary>Zahlungsinformationen (werden auf allen Ihren Rechnungen angezeigt)</summary>
+            <input type="text" id="bank_iban" placeholder="IBAN" style="margin-top:10px;">
+            <input type="text" id="bank_name" placeholder="Bank">
+            <input type="text" id="bank_holder" placeholder="Kontoinhaber">
+          </details>
+
+          <div id="recurringOptions">
+            <label class="checkbox-row"><input type="checkbox" id="inv_recurring"> <span>Dauerauftrag einrichten (wiederkehrend, monatlich)</span></label>
+            <div id="recurringRuleFields" style="display:none;margin-top:8px;">
+              <select id="inv_recurring_rule">
+                <option value="ende_monat" selected>Ende Monat</option>
+                <option value="tag_des_monats">Am Tag des Monats</option>
+              </select>
+              <input type="number" id="inv_recurring_day" min="1" max="28" placeholder="Tag (1–28)" style="display:none;max-width:140px;margin-top:8px;">
+            </div>
+          </div>
+
+          <div class="dash-btn-row">
+            <button type="submit" class="btn btn-primary" id="saveInvoiceBtn">Rechnung als Entwurf speichern</button>
+            <a href="/portal/invoice-detail.html" class="btn btn-secondary-link" id="cancelEditBtn" style="display:none;">Abbrechen</a>
+          </div>
+          <p class="form-status" id="newInvoiceStatus"></p>
+        </form>
+      </div>
+
+      <div class="dash-card" id="recurringDueCard" style="display:none;">
+        <h2>Fällige Daueraufträge</h2>
+        <table class="dash-table" id="recurringDueTable"></table>
+      </div>
+
+      <div class="dash-card" id="recurringListCard" style="display:none;">
+        <h2>Meine Daueraufträge</h2>
+        <table class="dash-table" id="recurringListTable"></table>
+      </div>
+
+      <div class="dash-card" id="issuedCard" style="display:none;">
+        <h2>Rechnungen von mir</h2>
+        <table class="dash-table" id="issuedTable"></table>
+      </div>
+
+      <div class="dash-card" id="allInvoicesCard" style="display:none;">
+        <h2>Alle Rechnungen</h2>
+        <table class="dash-table" id="allInvoicesTable"></table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile, adminId;
+
+  var CATEGORY_TEXT = {
+    miete: 'Miete', nebenkosten: 'Nebenkosten', schaden_reparatur: 'Schaden-Reparatur',
+    handwerkerrechnung: 'Handwerkerrechnung', amtsrechnung: 'Amtsrechnung',
+    eigentuemerabrechnung: 'Eigentümerabrechnung', sonstiges: 'Sonstiges'
+  };
+  var STATUS_TEXT = { entwurf: 'Entwurf', offen: 'Offen', bezahlt: 'Bezahlt', storniert: 'Storniert' };
+  var STATUS_BADGE_CLASS = { entwurf: 'pending', offen: 'info', bezahlt: 'active', storniert: 'suspended' };
+
+  function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  var editInvoiceId = new URLSearchParams(window.location.search).get('edit');
+
+  VeraDashboard.init('invoices').then(async function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+
+    if(editInvoiceId){
+      if(!VeraDashboard.canIssueInvoices(profile)){ window.location.href = '/portal/invoices.html'; return; }
+      document.querySelectorAll('.dash-card').forEach(function(card){
+        if(card.id !== 'issueCard') card.style.display = 'none';
+      });
+      document.getElementById('issueCard').style.display = 'block';
+      document.getElementById('issueCardHeading').textContent = 'Rechnung korrigieren';
+      document.getElementById('issueCardLead').style.display = 'block';
+      document.getElementById('saveInvoiceBtn').textContent = 'Änderungen speichern';
+      document.getElementById('cancelEditBtn').style.display = 'inline-block';
+      document.getElementById('cancelEditBtn').href = '/portal/invoice-detail.html?id=' + editInvoiceId;
+      await initIssueForm();
+      return;
+    }
+
+    await loadReceived();
+
+    if(VeraDashboard.canIssueInvoices(profile)){
+      document.getElementById('issueCard').style.display = 'block';
+      document.getElementById('issuedCard').style.display = 'block';
+      document.getElementById('recurringDueCard').style.display = 'block';
+      document.getElementById('recurringListCard').style.display = 'block';
+      await initIssueForm();
+      await loadIssued();
+      await loadRecurring();
+    }
+    if(profile.category === 'admin'){
+      document.getElementById('allInvoicesCard').style.display = 'block';
+      await loadAllInvoices();
+    }
+  });
+
+  function renderInvoiceRow(inv, otherPartyLabel){
+    return '<tr>' +
+      '<td class="member-number">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
+      '<td>'+VeraDashboard.escapeHtml(otherPartyLabel)+'</td>' +
+      '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[inv.category]||inv.category)+'</td>' +
+      '<td>'+fmtCHF(inv.total)+'</td>' +
+      '<td><span class="status-badge '+STATUS_BADGE_CLASS[inv.status]+'">'+STATUS_TEXT[inv.status]+'</span></td>' +
+      '<td><a href="/portal/invoice-detail.html?id='+inv.id+'">Ansehen</a></td>' +
+    '</tr>';
+  }
+
+  async function loadReceived(){
+    var res = await client.from('invoices')
+      .select('*, issuer:profiles!issuer_profile_id(first_name,last_name,category)')
+      .eq('recipient_profile_id', profile.id)
+      .order('created_at', { ascending:false });
+    var invoices = res.data || [];
+    var table = document.getElementById('receivedTable');
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen erhalten.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Nr.</th><th>Von</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
+      invoices.map(function(inv){
+        var issuerLabel = (inv.issuer && inv.issuer.category !== 'admin') ? (inv.issuer.last_name+' '+inv.issuer.first_name) : 'Vera Home Immobilien';
+        return renderInvoiceRow(inv, issuerLabel);
+      }).join('');
+  }
+
+  async function loadIssued(){
+    var res = await client.from('invoices')
+      .select('*, recipient:profiles!recipient_profile_id(first_name,last_name)')
+      .eq('issuer_profile_id', profile.id)
+      .order('created_at', { ascending:false });
+    var invoices = res.data || [];
+    var table = document.getElementById('issuedTable');
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen gestellt.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Nr.</th><th>An</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
+      invoices.map(function(inv){
+        var recLabel = inv.recipient ? (inv.recipient.last_name+' '+inv.recipient.first_name) : '–';
+        return renderInvoiceRow(inv, recLabel);
+      }).join('');
+  }
+
+  async function loadAllInvoices(){
+    var res = await client.from('invoices')
+      .select('*, issuer:profiles!issuer_profile_id(first_name,last_name), recipient:profiles!recipient_profile_id(first_name,last_name)')
+      .order('created_at', { ascending:false });
+    var invoices = res.data || [];
+    var table = document.getElementById('allInvoicesTable');
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen vorhanden.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Nr.</th><th>Von</th><th>An</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
+      invoices.map(function(inv){
+        return '<tr>' +
+          '<td class="member-number">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(inv.issuer?inv.issuer.last_name+' '+inv.issuer.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(inv.recipient?inv.recipient.last_name+' '+inv.recipient.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[inv.category]||inv.category)+'</td>' +
+          '<td>'+fmtCHF(inv.total)+'</td>' +
+          '<td><span class="status-badge '+STATUS_BADGE_CLASS[inv.status]+'">'+STATUS_TEXT[inv.status]+'</span></td>' +
+          '<td><a href="/portal/invoice-detail.html?id='+inv.id+'">Ansehen</a></td>' +
+        '</tr>';
+      }).join('');
+  }
+
+  async function initIssueForm(){
+    var recipientSel = document.getElementById('inv_recipient');
+    var editingInvoice = null;
+
+    if(editInvoiceId){
+      var invRes = await client.from('invoices').select('*').eq('id', editInvoiceId).single();
+      if(invRes.error || !invRes.data || invRes.data.status !== 'entwurf' ||
+         (invRes.data.issuer_profile_id !== profile.id && profile.category !== 'admin')){
+        window.alert('Diese Rechnung kann nicht korrigiert werden (nicht gefunden, keine Berechtigung, oder bereits versendet).');
+        window.location.href = '/portal/invoices.html';
+        return;
+      }
+      editingInvoice = invRes.data;
+    }
+
+    if(profile.category === 'admin'){
+      var res = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').order('last_name');
+      recipientSel.innerHTML = '<option value="" disabled selected>Empfänger wählen *</option>' +
+        (res.data || []).map(function(p){
+          return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+' ('+p.member_number+')</option>';
+        }).join('');
+      if(editingInvoice) recipientSel.value = editingInvoice.recipient_profile_id;
+    } else {
+      adminId = await VeraPortal.getAdminId();
+      recipientSel.innerHTML = '<option value="'+adminId+'" selected>Vera Home Immobilien (Admin)</option>';
+      recipientSel.disabled = true;
+    }
+
+    if(editingInvoice){
+      document.getElementById('inv_category').value = editingInvoice.category;
+      document.getElementById('inv_due').value = editingInvoice.due_date || '';
+      document.getElementById('inv_note').value = editingInvoice.note || '';
+
+      // Bank details are profile-wide, not per-invoice, and a Dauerauftrag
+      // is only ever set up from the FIRST occurrence — neither belongs
+      // in "Korrigieren" mode.
+      document.getElementById('bankDetailsFieldset').style.display = 'none';
+      document.getElementById('recurringOptions').style.display = 'none';
+
+      var itemsRes = await client.from('invoice_line_items').select('*').eq('invoice_id', editInvoiceId).order('sort_order');
+      var items = itemsRes.data || [];
+      if(items.length){
+        items.forEach(function(li){ addLineItemRow(li.description, li.quantity, li.unit_price); });
+      } else {
+        addLineItemRow();
+      }
+    } else {
+      document.getElementById('bank_iban').value = profile.iban || '';
+      document.getElementById('bank_name').value = profile.bank_name || '';
+      document.getElementById('bank_holder').value = profile.bank_account_holder || '';
+      if(!profile.iban) document.getElementById('bankDetailsFieldset').setAttribute('open', '');
+
+      addLineItemRow();
+    }
+    updateTotalPreview();
+
+    document.getElementById('addLineItemBtn').addEventListener('click', function(){ addLineItemRow(); });
+
+    document.getElementById('inv_recurring').addEventListener('change', function(e){
+      document.getElementById('recurringRuleFields').style.display = e.target.checked ? 'block' : 'none';
+    });
+    document.getElementById('inv_recurring_rule').addEventListener('change', function(e){
+      document.getElementById('inv_recurring_day').style.display = e.target.value === 'tag_des_monats' ? 'inline-block' : 'none';
+    });
+
+    document.getElementById('newInvoiceForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      if(editingInvoice) updateInvoice(editingInvoice.id);
+      else submitInvoice();
+    });
+  }
+
+  function addLineItemRow(description, quantity, unitPrice){
+    var container = document.getElementById('lineItemsContainer');
+    var row = document.createElement('div');
+    row.className = 'line-item-row';
+    row.innerHTML =
+      '<input type="text" class="li-desc" placeholder="Beschreibung *" required value="'+(description?VeraDashboard.escapeHtml(description):'')+'">' +
+      '<input type="number" class="li-qty" placeholder="Menge" value="'+(quantity!=null?quantity:1)+'" min="0" step="0.01" style="max-width:90px;">' +
+      '<input type="number" class="li-price" placeholder="Einzelpreis" value="'+(unitPrice!=null?unitPrice:0)+'" min="0" step="0.01" style="max-width:120px;">' +
+      '<span class="line-item-total">CHF 0.00</span>' +
+      '<button type="button" class="remove-line-btn" title="Entfernen">✕</button>';
+    container.appendChild(row);
+
+    function recalc(){
+      var qty = parseFloat(row.querySelector('.li-qty').value) || 0;
+      var price = parseFloat(row.querySelector('.li-price').value) || 0;
+      row.querySelector('.line-item-total').textContent = fmtCHF(qty * price);
+      updateTotalPreview();
+    }
+    row.querySelector('.li-qty').addEventListener('input', recalc);
+    row.querySelector('.li-price').addEventListener('input', recalc);
+    row.querySelector('.remove-line-btn').addEventListener('click', function(){
+      row.remove();
+      updateTotalPreview();
+    });
+  }
+
+  function updateTotalPreview(){
+    var rows = document.querySelectorAll('#lineItemsContainer .line-item-row');
+    var total = 0;
+    rows.forEach(function(row){
+      var qty = parseFloat(row.querySelector('.li-qty').value) || 0;
+      var price = parseFloat(row.querySelector('.li-price').value) || 0;
+      total += qty * price;
+    });
+    document.getElementById('invoiceTotalPreview').textContent = 'Total: ' + fmtCHF(total);
+  }
+
+  function collectLineItems(){
+    var rows = document.querySelectorAll('#lineItemsContainer .line-item-row');
+    return Array.prototype.map.call(rows, function(row, idx){
+      return {
+        description: row.querySelector('.li-desc').value.trim(),
+        quantity: parseFloat(row.querySelector('.li-qty').value) || 0,
+        unit_price: parseFloat(row.querySelector('.li-price').value) || 0,
+        sort_order: idx
+      };
+    }).filter(function(li){ return li.description; });
+  }
+
+  /* New invoices always start as 'entwurf' (draft) — they are never sent
+     immediately. Sending happens as its own explicit step afterwards on
+     invoice-detail.html, so an issuer always gets a chance to review
+     (or come back and "Korrigieren") before the recipient ever sees it. */
+  async function submitInvoice(){
+    var statusEl = document.getElementById('newInvoiceStatus');
+    var recipientId = document.getElementById('inv_recipient').value;
+    var lineItems = collectLineItems();
+
+    if(!recipientId || !lineItems.length){
+      statusEl.textContent = 'Bitte Empfänger und mindestens eine Position mit Beschreibung angeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+
+    statusEl.textContent = 'Wird gespeichert …';
+    statusEl.classList.add('show');
+
+    var insRes = await client.from('invoices').insert({
+      issuer_profile_id: profile.id,
+      recipient_profile_id: recipientId,
+      category: document.getElementById('inv_category').value,
+      status: 'entwurf',
+      due_date: document.getElementById('inv_due').value || null,
+      note: document.getElementById('inv_note').value.trim() || null,
+      created_by: profile.id
+    }).select().single();
+
+    if(insRes.error){
+      statusEl.textContent = 'Fehler: ' + insRes.error.message;
+      return;
+    }
+
+    var invoiceId = insRes.data.id;
+    var itemsRes = await client.from('invoice_line_items').insert(
+      lineItems.map(function(li){ return Object.assign({ invoice_id: invoiceId }, li); })
+    );
+
+    if(itemsRes.error){
+      statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      return;
+    }
+
+    // Remember the issuer's own bank details for all future invoices —
+    // non-fatal if it fails, the invoice itself is already saved.
+    var bankRes = await client.from('profiles').update({
+      iban: document.getElementById('bank_iban').value.trim() || null,
+      bank_name: document.getElementById('bank_name').value.trim() || null,
+      bank_account_holder: document.getElementById('bank_holder').value.trim() || null
+    }).eq('id', profile.id);
+    if(bankRes.error) console.warn('Zahlungsinformationen konnten nicht gespeichert werden:', bankRes.error.message);
+
+    // Dauerauftrag: this invoice IS the current month's occurrence, so
+    // last_generated_period is stamped immediately — otherwise the new
+    // template would show up as "fällig" again in the very same month.
+    if(document.getElementById('inv_recurring').checked){
+      var rule = document.getElementById('inv_recurring_rule').value;
+      var day = rule === 'tag_des_monats' ? parseInt(document.getElementById('inv_recurring_day').value, 10) : null;
+      if(rule === 'tag_des_monats' && (!day || day < 1 || day > 28)){
+        console.warn('Ungültiger Tag — Dauerauftrag wurde nicht angelegt.');
+      } else {
+        var now = new Date();
+        var currentPeriod = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+        var recRes = await client.from('recurring_invoices').insert({
+          issuer_profile_id: profile.id,
+          recipient_profile_id: recipientId,
+          category: document.getElementById('inv_category').value,
+          note: document.getElementById('inv_note').value.trim() || null,
+          due_rule: rule,
+          due_day: day,
+          created_by: profile.id,
+          last_generated_period: currentPeriod
+        }).select().single();
+        if(!recRes.error){
+          await client.from('recurring_invoice_line_items').insert(
+            lineItems.map(function(li){
+              return { recurring_invoice_id: recRes.data.id, description: li.description, quantity: li.quantity, unit_price: li.unit_price, sort_order: li.sort_order };
+            })
+          );
+        } else {
+          console.warn('Dauerauftrag konnte nicht angelegt werden:', recRes.error.message);
+        }
+      }
+    }
+
+    window.location.href = '/portal/invoice-detail.html?id=' + invoiceId;
+  }
+
+  /* Correcting a draft: update the invoice's own fields, then replace
+     its line items wholesale (delete + re-insert) rather than diffing —
+     simplest correct approach, and cheap since drafts have few rows. */
+  async function updateInvoice(invoiceId){
+    var statusEl = document.getElementById('newInvoiceStatus');
+    var recipientId = document.getElementById('inv_recipient').value;
+    var lineItems = collectLineItems();
+
+    if(!recipientId || !lineItems.length){
+      statusEl.textContent = 'Bitte Empfänger und mindestens eine Position mit Beschreibung angeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+
+    statusEl.textContent = 'Wird gespeichert …';
+    statusEl.classList.add('show');
+
+    var updRes = await client.from('invoices').update({
+      recipient_profile_id: recipientId,
+      category: document.getElementById('inv_category').value,
+      due_date: document.getElementById('inv_due').value || null,
+      note: document.getElementById('inv_note').value.trim() || null
+    }).eq('id', invoiceId);
+
+    if(updRes.error){
+      statusEl.textContent = 'Fehler: ' + updRes.error.message;
+      return;
+    }
+
+    var delRes = await client.from('invoice_line_items').delete().eq('invoice_id', invoiceId);
+    if(delRes.error){
+      statusEl.textContent = 'Fehler beim Aktualisieren der Positionen: ' + delRes.error.message;
+      return;
+    }
+
+    var itemsRes = await client.from('invoice_line_items').insert(
+      lineItems.map(function(li){ return Object.assign({ invoice_id: invoiceId }, li); })
+    );
+    if(itemsRes.error){
+      statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      return;
+    }
+
+    window.location.href = '/portal/invoice-detail.html?id=' + invoiceId;
+  }
+
+  function computeOccurrenceDate(rule, day, ref){
+    var y = ref.getFullYear(), m = ref.getMonth();
+    return rule === 'ende_monat' ? new Date(y, m + 1, 0) : new Date(y, m, day);
+  }
+  function currentPeriodStr(ref){ return ref.getFullYear() + '-' + String(ref.getMonth()+1).padStart(2,'0'); }
+  function isDue(rec){
+    var today = new Date();
+    if(rec.last_generated_period === currentPeriodStr(today)) return false;
+    var occ = computeOccurrenceDate(rec.due_rule, rec.due_day, today);
+    return today >= new Date(occ.getFullYear(), occ.getMonth(), occ.getDate());
+  }
+  function dueRuleLabel(rec){
+    return rec.due_rule === 'ende_monat' ? 'Ende Monat' : 'Am ' + rec.due_day + '. des Monats';
+  }
+
+  async function loadRecurring(){
+    var res = await client.from('recurring_invoices')
+      .select('*, recipient:profiles!recipient_profile_id(first_name,last_name)')
+      .eq('issuer_profile_id', profile.id)
+      .order('created_at', { ascending:false });
+    var all = res.data || [];
+    var active = all.filter(function(r){ return r.active; });
+    renderRecurringDue(active.filter(isDue));
+    renderRecurringList(active);
+  }
+
+  function renderRecurringDue(rows){
+    var table = document.getElementById('recurringDueTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine fälligen Daueraufträge.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>An</th><th>Kategorie</th><th>Regel</th><th></th></tr>' +
+      rows.map(function(r){
+        return '<tr><td>'+VeraDashboard.escapeHtml(r.recipient?r.recipient.last_name+' '+r.recipient.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[r.category]||r.category)+'</td>' +
+          '<td>'+dueRuleLabel(r)+'</td>' +
+          '<td><button type="button" class="dash-btn-sm" data-recurring-id="'+r.id+'">Jetzt erstellen &amp; senden</button></td></tr>';
+      }).join('');
+    table.querySelectorAll('button[data-recurring-id]').forEach(function(btn){
+      btn.addEventListener('click', function(){ confirmRecurringOccurrence(btn.getAttribute('data-recurring-id'), btn); });
+    });
+  }
+
+  function renderRecurringList(rows){
+    var table = document.getElementById('recurringListTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine aktiven Daueraufträge.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>An</th><th>Kategorie</th><th>Regel</th><th></th></tr>' +
+      rows.map(function(r){
+        return '<tr><td>'+VeraDashboard.escapeHtml(r.recipient?r.recipient.last_name+' '+r.recipient.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[r.category]||r.category)+'</td>' +
+          '<td>'+dueRuleLabel(r)+'</td>' +
+          '<td><button type="button" class="dash-btn-sm danger" data-deactivate-id="'+r.id+'">Deaktivieren</button></td></tr>';
+      }).join('');
+    table.querySelectorAll('button[data-deactivate-id]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        if(!window.confirm('Diesen Dauerauftrag wirklich deaktivieren?')) return;
+        await client.from('recurring_invoices').update({ active:false }).eq('id', btn.getAttribute('data-deactivate-id'));
+        loadRecurring();
+      });
+    });
+  }
+
+  async function confirmRecurringOccurrence(recurringId, btn){
+    btn.disabled = true;
+    var res = await VeraPortal.generateRecurringInvoiceOccurrence(recurringId);
+    if(res.error){ window.alert('Fehler: ' + res.error.message); btn.disabled = false; return; }
+    var newInvoice = res.data;
+    try {
+      var emailRes = await VeraPortal.sendInvoiceEmail(newInvoice.id);
+      if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
+    } catch(e) { console.warn('E-Mail-Versand fehlgeschlagen:', e); }
+    window.alert('Rechnung ' + newInvoice.invoice_number + ' wurde erstellt.');
+    await loadRecurring();
+    if(document.getElementById('issuedCard').style.display !== 'none') await loadIssued();
+  }
+})();
+</script>
+</body>
+</html>

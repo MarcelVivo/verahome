@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Übersicht | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Ihr Vera Portal Konto.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1 id="dashGreeting">Übersicht</h1>
+      <p class="dash-lead">Willkommen im Vera Portal.</p>
+
+      <p class="dash-empty" id="dashLoading">Wird geladen …</p>
+
+      <div id="dashContent" style="display:none;">
+        <div class="dash-stat-row" id="dashStats"></div>
+
+        <div class="dash-card">
+          <h2>Mein Konto</h2>
+          <div class="status-row">
+            <span class="label">Mitgliedsnummer</span>
+            <span class="value member-number" id="dashMemberNumber">–</span>
+          </div>
+          <div class="status-row">
+            <span class="label">Kategorie</span>
+            <span class="value" id="dashCategory">–</span>
+          </div>
+          <div class="status-row">
+            <span class="label">E-Mail</span>
+            <span class="value" id="dashEmail">–</span>
+          </div>
+
+          <div class="status-notice" id="dashNoticePending" style="display:none;">
+            Ihr Konto wird derzeit von uns geprüft.
+          </div>
+          <div class="status-notice" id="dashNoticeSuspended" style="display:none;">
+            Ihr Zugang wurde vorübergehend deaktiviert. Bitte kontaktieren Sie uns direkt, falls Sie Fragen dazu haben.
+          </div>
+        </div>
+      </div>
+
+      <div id="dashError" style="display:none;">
+        <p class="dash-empty">Wir konnten Ihr Profil nicht laden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns.</p>
+        <a href="/portal/login.html" class="btn btn-primary">Zurück zum Login</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  VeraDashboard.init('dashboard').then(async function(ctx){
+    if(!ctx) return;
+    var profile = ctx.profile;
+    var client = VeraPortal.getClient();
+
+    try{
+      document.getElementById('dashGreeting').textContent = 'Willkommen, ' + profile.first_name;
+      document.getElementById('dashMemberNumber').textContent = profile.member_number || '–';
+      document.getElementById('dashCategory').textContent = VeraDashboard.categoryLabel(profile.category);
+      document.getElementById('dashEmail').textContent = profile.email;
+
+      if(profile.status === 'pending') document.getElementById('dashNoticePending').style.display = 'block';
+      if(profile.status === 'suspended') document.getElementById('dashNoticeSuspended').style.display = 'block';
+
+      var stats = [];
+      if(profile.category === 'admin'){
+        var activeUsers = await client.from('profiles').select('*', { count:'exact', head:true }).eq('status','active');
+        var pendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
+        var openJobs = await client.from('job_assignments').select('*', { count:'exact', head:true }).eq('status','open');
+        stats = [
+          { num: activeUsers.count || 0, label: 'Aktive Nutzer' },
+          { num: pendingDocs.count || 0, label: 'Ausstehende Dokumente' },
+          { num: openJobs.count || 0, label: 'Offene Job-Zuweisungen' }
+        ];
+      } else {
+        var myPendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
+        var nextEvent = await client.from('calendar_events').select('title,starts_at').gte('starts_at', new Date().toISOString()).order('starts_at').limit(1);
+        var unreadMsgs = await client.from('messages').select('*', { count:'exact', head:true }).eq('recipient_profile_id', profile.id).is('read_at', null);
+        stats = [
+          { num: myPendingDocs.count || 0, label: 'Offene Dokumente' },
+          { num: (nextEvent.data && nextEvent.data[0]) ? VeraDashboard.formatDate(nextEvent.data[0].starts_at) : '–', label: 'Nächster Termin' },
+          { num: unreadMsgs.count || 0, label: 'Ungelesene Nachrichten' }
+        ];
+      }
+
+      document.getElementById('dashStats').innerHTML = stats.map(function(s){
+        return '<div class="dash-stat"><div class="num">'+VeraDashboard.escapeHtml(s.num)+'</div><div class="label">'+VeraDashboard.escapeHtml(s.label)+'</div></div>';
+      }).join('');
+
+      document.getElementById('dashLoading').style.display = 'none';
+      document.getElementById('dashContent').style.display = 'block';
+    } catch(err){
+      document.getElementById('dashLoading').style.display = 'none';
+      document.getElementById('dashError').style.display = 'block';
+    }
+  });
+})();
+</script>
+</body>
+</html>

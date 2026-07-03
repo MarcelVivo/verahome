@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meldungen | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Schadensmeldungen und Reklamationen im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Meldungen</h1>
+      <p class="dash-lead" id="meldungenLead">Wird geladen …</p>
+
+      <!-- Nutzer-Ansicht -->
+      <div id="meldungenUserView" style="display:none;">
+        <div class="dash-card">
+          <h2>Neue Meldung</h2>
+          <form class="auth-form" id="newReportForm">
+            <select id="r_type" required>
+              <option value="schaden">Schadensmeldung</option>
+              <option value="reklamation">Reklamation</option>
+            </select>
+            <select id="r_tenancy">
+              <option value="">– kein bestimmtes Objekt/Einheit –</option>
+            </select>
+            <input id="r_title" placeholder="Titel *" required>
+            <textarea id="r_description" placeholder="Beschreibung *" required></textarea>
+            <input type="file" id="r_photos" accept="image/*" multiple>
+            <button type="submit" class="btn btn-primary">Meldung absenden</button>
+            <p class="form-status" id="newReportStatus"></p>
+          </form>
+        </div>
+
+        <div class="dash-card">
+          <h2>Meine Meldungen</h2>
+          <div class="doc-list" id="myReportsList"></div>
+        </div>
+      </div>
+
+      <!-- Admin-Ansicht -->
+      <div id="meldungenAdminView" style="display:none;">
+        <div class="dash-card">
+          <h2>Alle Meldungen</h2>
+          <div id="adminReportsList"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile;
+
+  var TYPE_TEXT = { schaden: 'Schaden', reklamation: 'Reklamation' };
+  var STATUS_TEXT = { offen: 'Offen', in_bearbeitung: 'In Bearbeitung', erledigt: 'Erledigt', abgelehnt: 'Abgelehnt' };
+  var STATUS_BADGE_CLASS = { offen: 'pending', in_bearbeitung: 'info', erledigt: 'active', abgelehnt: 'suspended' };
+
+  VeraDashboard.init('meldungen').then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+
+    if(profile.category === 'admin'){
+      document.getElementById('meldungenLead').textContent = 'Alle eingegangenen Schadensmeldungen und Reklamationen.';
+      document.getElementById('meldungenAdminView').style.display = 'block';
+      loadAdminReports();
+    } else {
+      document.getElementById('meldungenLead').textContent = 'Melden Sie einen Schaden oder eine Reklamation.';
+      document.getElementById('meldungenUserView').style.display = 'block';
+      initUserView();
+    }
+  });
+
+  async function initUserView(){
+    var tenancySel = document.getElementById('r_tenancy');
+    var res = await client.from('tenancies')
+      .select('id, unit_id, units(label, properties(id, label))')
+      .eq('tenant_profile_id', profile.id);
+    var tenancies = res.data || [];
+    tenancySel.innerHTML = '<option value="">– kein bestimmtes Objekt/Einheit –</option>' +
+      tenancies.map(function(t){
+        var label = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : t.id;
+        return '<option value="'+t.id+'" data-property="'+(t.units&&t.units.properties?t.units.properties.id:'')+'" data-unit="'+(t.unit_id||'')+'">'+VeraDashboard.escapeHtml(label)+'</option>';
+      }).join('');
+
+    document.getElementById('newReportForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('newReportStatus');
+      var title = document.getElementById('r_title').value.trim();
+      var description = document.getElementById('r_description').value.trim();
+      if(!title || !description){
+        statusEl.textContent = 'Bitte Titel und Beschreibung angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+
+      var selectedOption = tenancySel.options[tenancySel.selectedIndex];
+      var propertyId = selectedOption ? selectedOption.getAttribute('data-property') : '';
+      var unitId = selectedOption ? selectedOption.getAttribute('data-unit') : '';
+
+      statusEl.textContent = 'Wird gesendet …';
+      statusEl.classList.add('show');
+
+      var insRes = await client.from('issue_reports').insert({
+        report_type: document.getElementById('r_type').value,
+        reporter_profile_id: profile.id,
+        property_id: propertyId || null,
+        unit_id: unitId || null,
+        title: title,
+        description: description
+      }).select().single();
+
+      if(insRes.error){
+        statusEl.textContent = 'Fehler: ' + insRes.error.message;
+        return;
+      }
+
+      var reportId = insRes.data.id;
+      var files = Array.prototype.slice.call(document.getElementById('r_photos').files);
+      for(var i = 0; i < files.length; i++){
+        var file = files[i];
+        var photoId = crypto.randomUUID();
+        var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = reportId + '/' + photoId + '-' + safeName;
+        var upRes = await client.storage.from('issue-report-photos').upload(path, file);
+        if(!upRes.error){
+          await client.from('issue_report_photos').insert({ id: photoId, issue_report_id: reportId, file_path: path, sort_order: i });
+        }
+      }
+
+      statusEl.textContent = 'Meldung wurde übermittelt.';
+      document.getElementById('newReportForm').reset();
+      loadMyReports();
+    });
+
+    loadMyReports();
+  }
+
+  async function loadMyReports(){
+    var res = await client.from('issue_reports').select('*').eq('reporter_profile_id', profile.id).order('created_at', { ascending:false });
+    var reports = res.data || [];
+    var list = document.getElementById('myReportsList');
+    if(!reports.length){ list.innerHTML = '<p class="dash-empty">Noch keine Meldungen.</p>'; return; }
+    list.innerHTML = reports.map(function(r){
+      return '<div class="doc-row">' +
+        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(r.title)+'</strong>' +
+        '<span class="doc-meta">'+TYPE_TEXT[r.report_type]+' · '+VeraDashboard.formatDate(r.created_at)+'</span>' +
+        (r.admin_note ? '<span class="doc-meta">Notiz: '+VeraDashboard.escapeHtml(r.admin_note)+'</span>' : '') +
+        '</div>' +
+        '<span class="status-badge '+STATUS_BADGE_CLASS[r.status]+'">'+STATUS_TEXT[r.status]+'</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function loadAdminReports(){
+    var res = await client.from('issue_reports')
+      .select('*, reporter:profiles!reporter_profile_id(first_name,last_name,member_number), properties(label), units(label)')
+      .order('created_at', { ascending:false });
+    var reports = res.data || [];
+    var list = document.getElementById('adminReportsList');
+    if(!reports.length){ list.innerHTML = '<p class="dash-empty">Noch keine Meldungen.</p>'; return; }
+
+    var partnersRes = await client.from('profiles').select('id, first_name, last_name, member_number').in('category', ['partner','handwerker']).order('last_name');
+    var partners = partnersRes.data || [];
+
+    list.innerHTML = reports.map(function(r){
+      var scope = r.properties ? (r.properties.label + (r.units ? ' – '+r.units.label : '')) : '–';
+      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;" id="report-'+r.id+'">' +
+        '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+          '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(r.title)+'</strong>' +
+          '<span class="doc-meta">'+TYPE_TEXT[r.report_type]+' · '+VeraDashboard.escapeHtml(r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'–')+' · '+VeraDashboard.escapeHtml(scope)+' · '+VeraDashboard.formatDate(r.created_at)+'</span></div>' +
+          '<span class="status-badge '+STATUS_BADGE_CLASS[r.status]+'">'+STATUS_TEXT[r.status]+'</span>' +
+        '</div>' +
+        '<p style="margin:10px 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(r.description)+'</p>' +
+        '<div class="prop-thumb-grid" id="photos-'+r.id+'"></div>' +
+        '<div class="dash-btn-row" style="margin-top:10px;">' +
+          '<select class="status-select" data-id="'+r.id+'">' +
+            Object.keys(STATUS_TEXT).map(function(s){ return '<option value="'+s+'"'+(s===r.status?' selected':'')+'>'+STATUS_TEXT[s]+'</option>'; }).join('') +
+          '</select>' +
+          '<input class="note-input" data-id="'+r.id+'" placeholder="Admin-Notiz" value="'+VeraDashboard.escapeHtml(r.admin_note||'')+'" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);">' +
+          '<button type="button" class="dash-btn-sm save-status-btn" data-id="'+r.id+'">Speichern</button>' +
+          (r.report_type === 'schaden' ? '<select class="assignee-select" data-id="'+r.id+'"><option value="">Handwerker wählen…</option>' +
+            partners.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+'</option>'; }).join('') + '</select>' +
+            '<button type="button" class="dash-btn-sm convert-btn" data-id="'+r.id+'" data-title="'+VeraDashboard.escapeHtml(r.title)+'">In Auftrag umwandeln</button>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    reports.forEach(function(r){ loadReportPhotos(r.id); });
+
+    list.querySelectorAll('.save-status-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
+        var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
+        await client.from('issue_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        loadAdminReports();
+      });
+    });
+    list.querySelectorAll('.convert-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        var assigneeId = list.querySelector('.assignee-select[data-id="'+id+'"]').value;
+        if(!assigneeId){ window.alert('Bitte einen Handwerker auswählen.'); return; }
+        var res = await client.rpc('convert_issue_report_to_job', {
+          p_issue_report_id: id, p_assignee_profile_id: assigneeId,
+          p_title: btn.getAttribute('data-title'), p_description: null
+        });
+        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+        window.alert('Auftrag erstellt. Sichtbar unter Mietverhältnisse → Auftragszuweisungen.');
+        loadAdminReports();
+      });
+    });
+  }
+
+  async function loadReportPhotos(reportId){
+    var res = await client.from('issue_report_photos').select('*').eq('issue_report_id', reportId).order('sort_order');
+    var photos = res.data || [];
+    var el = document.getElementById('photos-'+reportId);
+    if(!el) return;
+    if(!photos.length){ el.innerHTML = ''; return; }
+    var urls = await Promise.all(photos.map(function(p){
+      return client.storage.from('issue-report-photos').createSignedUrl(p.file_path, 60);
+    }));
+    el.innerHTML = urls.map(function(res){
+      return res.error ? '' : '<div class="prop-thumb"><img src="'+res.data.signedUrl+'" alt=""></div>';
+    }).join('');
+  }
+})();
+</script>
+</body>
+</html>

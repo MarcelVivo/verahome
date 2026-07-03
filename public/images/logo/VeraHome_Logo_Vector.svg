@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E9B42E"/>
+      <stop offset="100%" stop-color="#C58A14"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="400" cy="220" r="120" fill="none" stroke="url(#gold)" stroke-width="8"/>
+  <circle cx="400" cy="220" r="108" fill="none" stroke="url(#gold)" stroke-width="4"/>
+
+  <!-- Left building -->
+  <polygon fill="url(#gold)" points="330,185 365,165 365,355 330,355"/>
+  <polygon fill="#ffffff" points="338,192 356,182 356,348 338,348"/>
+  <polygon fill="url(#gold)" points="330,185 365,165 400,185 365,205"/>
+
+  <!-- Right building -->
+  <polygon fill="url(#gold)" points="380,135 420,112 420,340 380,340"/>
+  <polygon fill="#ffffff" points="389,143 410,131 410,331 389,331"/>
+  <polygon fill="url(#gold)" points="380,135 420,112 455,133 420,155"/>
+
+  <!-- Front building -->
+  <polygon fill="url(#gold)" points="400,210 435,190 435,330 400,350"/>
+  <polygon fill="#ffffff" points="408,217 426,206 426,321 408,338"/>
+  <polygon fill="url(#gold)" points="400,210 435,190 470,210 435,230"/>
+
+  <text x="400" y="455" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="58" font-weight="700" fill="#111111">Vera Home</text>
+  <text x="400" y="505" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="34" font-weight="500" fill="#111111">Immobilien</text>
+</svg>

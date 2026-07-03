@@ -1,0 +1,71 @@
+/* =============================================================
+   VERA PORTAL — auth pages (login / register / status / password)
+============================================================= */
+.auth-hero{
+  padding:calc(var(--nav-height) + 56px) 0 48px;
+  background-color:var(--color-navy);
+  --grid-line-color:rgba(255,255,255,.07);
+  text-align:center;
+}
+.auth-hero h1{color:var(--color-white);font-size:clamp(1.8rem,4vw,2.6rem);margin-bottom:12px;}
+.auth-hero p{color:rgba(255,255,255,.85);max-width:520px;margin:0 auto;font-size:1.02rem;}
+
+.auth-content{background-color:var(--color-white);padding:56px 0 90px;}
+.auth-card{
+  max-width:460px;margin:0 auto;background:var(--color-white);border:1px solid var(--color-blue-light);
+  border-radius:var(--radius);box-shadow:var(--shadow-card);padding:40px 36px;
+}
+.auth-card h2{font-size:1.3rem;margin-bottom:6px;}
+.auth-card .auth-lead{color:var(--color-gray-text);font-size:.92rem;margin-bottom:26px;}
+
+.auth-form{display:flex;flex-direction:column;gap:16px;}
+.auth-form input,.auth-form select,.auth-form textarea{
+  width:100%;padding:14px 16px;border:1px solid var(--color-blue-light);border-radius:8px;
+  background:var(--color-bg);transition:border-color .25s;font-family:inherit;font-size:1rem;
+}
+.auth-form input:focus,.auth-form select:focus,.auth-form textarea:focus{border-color:var(--color-gold);outline:none;}
+.auth-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.auth-form-row > div{min-width:0;}
+.auth-form button[type="submit"]{margin-top:6px;}
+.auth-form button[type="submit"]:disabled{opacity:.6;cursor:not-allowed;}
+
+.auth-links{margin-top:22px;font-size:.9rem;color:var(--color-gray-text);text-align:center;}
+.auth-links a{color:var(--color-blue-mid);font-weight:600;}
+.auth-links a:hover{color:var(--color-gold);}
+.auth-links p + p{margin-top:8px;}
+
+.auth-confirmation{text-align:center;}
+.auth-confirmation .icon{width:52px;height:52px;margin:0 auto 18px;color:var(--color-gold);}
+.auth-confirmation .icon svg{width:100%;height:100%;}
+.auth-confirmation p{color:var(--color-gray-text);margin-bottom:14px;}
+
+/* status.html */
+.status-loading{text-align:center;color:var(--color-gray-text);padding:20px 0;}
+.status-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-blue-light);}
+.status-row:last-of-type{border-bottom:none;}
+.status-row .label{color:var(--color-gray-text);font-size:.88rem;}
+.status-row .value{font-weight:600;color:var(--color-navy);}
+.member-number{font-family:var(--font-heading);letter-spacing:.03em;color:var(--color-gold);font-weight:700;}
+
+.status-badge{
+  display:inline-block;padding:6px 16px;border-radius:50px;font-size:.82rem;font-weight:600;margin:18px 0;
+}
+.status-badge.pending{background:#FBEBC2;color:#8A6300;}
+.status-badge.active{background:#D8F0DE;color:#1E6B37;}
+.status-badge.suspended{background:#F7D9D6;color:#A32E22;}
+.status-badge.info{background:#DCEBFA;color:#1B5FA3;}
+
+.status-notice{background:var(--color-bg);border-radius:var(--radius);padding:22px 24px;margin-top:20px;font-size:.92rem;color:var(--color-gray-text);}
+
+.auth-card .btn{width:100%;text-align:center;}
+.auth-card .btn-secondary-link{
+  width:100%;text-align:center;display:block;margin-top:12px;padding:14px;border-radius:50px;
+  border:1.5px solid var(--color-blue-light);color:var(--color-navy);font-weight:600;font-size:.95rem;
+  transition:border-color .25s,color .25s;
+}
+.auth-card .btn-secondary-link:hover{border-color:var(--color-gold);color:var(--color-gold);}
+
+@media (max-width:560px){
+  .auth-card{padding:30px 22px;}
+  .auth-form-row{grid-template-columns:1fr;}
+}

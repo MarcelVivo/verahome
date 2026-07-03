@@ -1,0 +1,181 @@
+/* =============================================================
+   VERA PORTAL — DASHBOARD SHELL (Übersicht/Dokumente/Nachrichten/
+   Kalender/Admin-Seiten)
+============================================================= */
+.dash-layout{
+  display:flex;align-items:flex-start;gap:0;
+  min-height:calc(100vh - var(--nav-height));
+  padding-top:var(--nav-height);
+  background:var(--color-bg);
+}
+.dash-sidebar{
+  width:240px;flex-shrink:0;background:var(--color-navy-deep);min-height:calc(100vh - var(--nav-height));
+  padding:32px 0;position:sticky;top:var(--nav-height);
+}
+.dash-sidebar-header{padding:0 28px 24px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:18px;}
+.dash-sidebar-name{color:var(--color-white);font-family:var(--font-heading);font-size:1.15rem;margin-bottom:10px;}
+.dash-sidebar .status-badge{margin:0;font-size:.72rem;padding:4px 12px;}
+.dash-nav{display:flex;flex-direction:column;}
+.dash-nav-link{
+  display:block;padding:12px 28px;color:rgba(255,255,255,.75);font-size:.92rem;font-weight:500;
+  border-left:3px solid transparent;transition:color .2s,border-color .2s,background .2s;
+}
+.dash-nav-link:hover{color:var(--color-white);background:rgba(255,255,255,.04);}
+.dash-nav-link.active{color:var(--color-gold);border-left-color:var(--color-gold);background:rgba(255,255,255,.05);}
+.dash-nav-section-label{
+  display:block;margin:18px 28px 6px;color:rgba(255,255,255,.4);font-size:.7rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.dash-logout-btn{
+  display:block;width:calc(100% - 56px);margin:24px 28px 0;padding:10px 0;text-align:center;
+  border:1.5px solid rgba(255,255,255,.25);border-radius:50px;color:rgba(255,255,255,.75);
+  font-size:.85rem;font-weight:600;transition:border-color .2s,color .2s;
+}
+.dash-logout-btn:hover{border-color:var(--color-gold);color:var(--color-gold);}
+
+.dash-content{flex:1;min-width:0;padding:48px 56px;}
+.dash-content h1{font-size:1.7rem;margin-bottom:8px;}
+.dash-content > .dash-lead{color:var(--color-gray-text);margin-bottom:32px;}
+
+.dash-card{
+  background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:var(--radius);
+  box-shadow:var(--shadow-card);padding:30px 32px;margin-bottom:32px;
+}
+.dash-card h2{font-size:1.1rem;margin-bottom:18px;}
+
+.dash-stat-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:32px;}
+.dash-stat{
+  flex:1;min-width:180px;background:var(--color-white);border:1px solid var(--color-blue-light);
+  border-radius:var(--radius);box-shadow:var(--shadow-card);padding:24px 26px;
+}
+.dash-stat .num{font-family:var(--font-heading);font-size:2.1rem;color:var(--color-gold);font-weight:700;line-height:1;}
+.dash-stat .label{margin-top:8px;color:var(--color-gray-text);font-size:.85rem;}
+
+.dash-table{width:100%;border-collapse:collapse;}
+.dash-table th{
+  text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-gray-text);
+  opacity:.6;padding:10px 14px;border-bottom:2px solid var(--color-blue-light);
+}
+.dash-table td{padding:14px;border-bottom:1px solid var(--color-blue-light);font-size:.92rem;vertical-align:middle;}
+.dash-table tr:last-child td{border-bottom:none;}
+.dash-table a{color:var(--color-blue-mid);font-weight:600;}
+.dash-table a:hover{color:var(--color-gold);}
+
+.dash-btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+.dash-btn-sm{
+  padding:7px 16px;border-radius:50px;font-size:.8rem;font-weight:600;border:1.5px solid var(--color-blue-light);
+  color:var(--color-navy);transition:border-color .2s,color .2s;
+}
+.dash-btn-sm:hover{border-color:var(--color-gold);color:var(--color-gold);}
+.dash-btn-sm.danger{border-color:#F0C6C0;color:#A32E22;}
+.dash-btn-sm.danger:hover{border-color:#A32E22;}
+
+.dash-empty{color:var(--color-gray-text);opacity:.7;font-size:.92rem;padding:16px 0;}
+
+/* Dokumente */
+.doc-list{display:flex;flex-direction:column;gap:14px;}
+.doc-row{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:var(--radius);
+  padding:18px 22px;box-shadow:var(--shadow-card);
+}
+.doc-info{display:flex;flex-direction:column;gap:4px;}
+.doc-info strong{color:var(--color-navy);}
+.doc-meta{font-size:.8rem;color:var(--color-gray-text);opacity:.75;}
+.fill-form{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+.fill-form textarea{
+  min-width:220px;flex:1;padding:10px 12px;border:1px solid var(--color-blue-light);border-radius:8px;
+  background:var(--color-bg);font-family:inherit;font-size:.88rem;min-height:44px;resize:vertical;
+}
+
+/* Nachrichten */
+.msg-admin-layout{display:flex;gap:0;background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow-card);overflow:hidden;border:1px solid var(--color-blue-light);}
+.msg-partner-list{width:240px;flex-shrink:0;border-right:1px solid var(--color-blue-light);max-height:520px;overflow-y:auto;}
+.msg-partner-btn{display:block;width:100%;text-align:left;padding:14px 18px;border-bottom:1px solid var(--color-blue-light);font-size:.88rem;color:var(--color-navy);}
+.msg-partner-btn:hover{background:var(--color-bg);}
+.msg-partner-btn.active{background:var(--color-blue-light);font-weight:600;}
+.msg-partner-meta{display:block;font-size:.72rem;color:var(--color-gray-text);opacity:.7;margin-top:2px;}
+.msg-thread-pane{flex:1;display:flex;flex-direction:column;min-width:0;}
+.msg-thread{flex:1;padding:24px;max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.msg-empty{color:var(--color-gray-text);opacity:.7;font-size:.9rem;text-align:center;padding:20px 0;}
+.msg-bubble{max-width:70%;padding:12px 16px;border-radius:14px;font-size:.9rem;}
+.msg-bubble p{margin-bottom:4px;}
+.msg-bubble .msg-time{font-size:.7rem;opacity:.6;}
+.msg-bubble.mine{align-self:flex-end;background:var(--color-navy);color:var(--color-white);}
+.msg-bubble.theirs{align-self:flex-start;background:var(--color-bg);color:var(--color-gray-text);}
+.msg-compose{display:flex;gap:12px;padding:18px 24px;border-top:1px solid var(--color-blue-light);}
+.msg-compose textarea{flex:1;padding:10px 14px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);font-family:inherit;min-height:44px;resize:vertical;}
+#msgUserView .msg-thread,#msgUserView .msg-compose{background:var(--color-white);border:1px solid var(--color-blue-light);box-shadow:var(--shadow-card);}
+#msgUserView .msg-thread{border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;}
+#msgUserView .msg-compose{border-radius:0 0 var(--radius) var(--radius);}
+
+/* Kalender */
+.cal-list{display:flex;flex-direction:column;gap:10px;}
+.cal-event-row{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+  background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:var(--radius);
+  padding:16px 20px;box-shadow:var(--shadow-card);
+}
+.cal-event-info strong{color:var(--color-navy);}
+.cal-owner-label{font-size:.78rem;color:var(--color-gold);font-weight:600;margin-left:8px;}
+.cal-event-time{font-size:.82rem;color:var(--color-gray-text);opacity:.75;}
+
+/* Objekte: Bilder & Dokumente verwalten */
+.prop-manage-panel{margin-top:16px;padding-top:20px;border-top:1px solid var(--color-blue-light);}
+.prop-thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:18px;}
+.prop-thumb{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--color-blue-light);}
+.prop-thumb img{width:100%;height:90px;object-fit:cover;display:block;}
+.prop-thumb .prop-thumb-actions{display:flex;justify-content:space-between;gap:4px;padding:6px;background:var(--color-bg);}
+.prop-thumb.is-cover{border-color:var(--color-gold);border-width:2px;}
+.prop-thumb-cover-badge{position:absolute;top:6px;left:6px;background:var(--color-gold);color:var(--color-white);font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:50px;}
+.prop-user-picker{max-height:180px;overflow-y:auto;border:1px solid var(--color-blue-light);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;margin:8px 0;}
+.prop-user-picker label{display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:400;}
+.prop-icon-btn{background:none;padding:2px 6px;font-size:.75rem;color:var(--color-navy);}
+.prop-icon-btn:hover{color:var(--color-gold);}
+
+/* Rechnungen: Positionen-Editor */
+.line-item-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+.line-item-row input{flex:1;min-width:0;}
+.line-item-row .line-item-total{min-width:90px;text-align:right;font-weight:600;color:var(--color-navy);}
+.line-item-row .remove-line-btn{flex-shrink:0;background:none;color:#A32E22;font-size:1.1rem;padding:4px 8px;}
+.invoice-total-preview{text-align:right;font-weight:700;color:var(--color-navy);margin:10px 0;font-size:1.05rem;}
+
+/* Rechnungen: druckbares Rechnungsblatt */
+.invoice-sheet{background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:40px 44px;}
+.invoice-sheet-parties{display:flex;justify-content:space-between;gap:24px;margin-bottom:24px;}
+.invoice-sheet-parties h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-gray-text);opacity:.6;margin-bottom:6px;}
+.invoice-sheet-meta{display:flex;gap:32px;margin-bottom:24px;font-size:.9rem;color:var(--color-gray-text);flex-wrap:wrap;}
+.invoice-totals-row{display:flex;justify-content:flex-end;gap:32px;margin-top:12px;font-weight:700;color:var(--color-navy);font-size:1.1rem;}
+.invoice-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;}
+@media print{
+  #navbar, footer, .dash-sidebar, .dash-logout-btn, .invoice-actions{display:none !important;}
+  .dash-layout{padding-top:0;}
+  .invoice-sheet{box-shadow:none;border:none;}
+}
+
+/* Waschplan */
+.laundry-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;}
+.laundry-day-col h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-gray-text);margin-bottom:8px;}
+.laundry-slot{background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:.85rem;}
+.laundry-slot .laundry-slot-time{font-weight:600;color:var(--color-navy);}
+.laundry-slot .laundry-slot-actions{margin-top:6px;}
+
+@media (max-width:900px){
+  .dash-layout{flex-direction:column;padding-top:calc(var(--nav-height) + 12px);}
+  .dash-sidebar{
+    width:100%;position:static;min-height:auto;padding:14px 0;
+    display:flex;align-items:center;overflow-x:auto;
+  }
+  .dash-sidebar-header{display:none;}
+  .dash-nav{flex-direction:row;}
+  .dash-nav-link{padding:10px 16px;white-space:nowrap;border-left:none;border-bottom:3px solid transparent;}
+  .dash-nav-link.active{border-left-color:transparent;border-bottom-color:var(--color-gold);}
+  .dash-nav-section-label{display:none;}
+  .dash-logout-btn{width:auto;margin:0 16px;padding:8px 18px;flex-shrink:0;}
+  .dash-content{padding:32px 20px;}
+  .msg-admin-layout{flex-direction:column;}
+  .msg-partner-list{width:100%;max-height:180px;border-right:none;border-bottom:1px solid var(--color-blue-light);}
+  .laundry-week-grid{grid-template-columns:repeat(2,1fr);}
+  .invoice-sheet{padding:24px 20px;}
+  .invoice-sheet-parties{flex-direction:column;gap:14px;}
+}

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rechnung | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Rechnungsdetails im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Rechnung</h1>
+      <p class="dash-lead"><a href="/portal/invoices.html">← Zurück zu Rechnungen</a></p>
+
+      <p class="dash-empty" id="invLoading">Wird geladen …</p>
+
+      <div class="invoice-sheet" id="invoiceSheet" style="display:none;">
+        <div class="invoice-sheet-parties">
+          <div>
+            <h3>Von</h3>
+            <p id="issuerName"></p>
+            <p id="issuerAddress"></p>
+          </div>
+          <div style="text-align:right;">
+            <h3>An</h3>
+            <p id="recipientName"></p>
+            <p id="recipientAddress"></p>
+          </div>
+        </div>
+
+        <h2 id="invoiceNumberHeading" style="margin-bottom:16px;"></h2>
+        <div class="invoice-sheet-meta">
+          <span>Rechnungsdatum: <strong id="issueDate"></strong></span>
+          <span>Fällig bis: <strong id="dueDate"></strong></span>
+          <span>Status: <span class="status-badge" id="statusBadge"></span></span>
+        </div>
+
+        <table class="dash-table" id="lineItemsTable"></table>
+        <div class="invoice-totals-row"><span>Total</span><span id="totalAmount"></span></div>
+
+        <div id="paymentInfo" style="display:none;margin-top:20px;">
+          <h3 style="font-size:.95rem;margin-bottom:6px;">Zahlungsinformationen</h3>
+          <p>IBAN: <strong id="payIban"></strong></p>
+          <p id="payBankRow">Bank: <span id="payBank"></span></p>
+          <p id="payHolderRow">Kontoinhaber: <span id="payHolder"></span></p>
+        </div>
+
+        <p id="invoiceNote" class="dash-empty" style="display:none;"></p>
+
+        <div class="invoice-actions" id="invoiceActions"></div>
+      </div>
+
+      <div id="invError" style="display:none;">
+        <p class="dash-empty">Rechnung nicht gefunden oder keine Berechtigung.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile, invoice, lineItems, issuer, recipient;
+
+  var CATEGORY_TEXT = {
+    miete: 'Miete', nebenkosten: 'Nebenkosten', schaden_reparatur: 'Schaden-Reparatur',
+    handwerkerrechnung: 'Handwerkerrechnung', amtsrechnung: 'Amtsrechnung',
+    eigentuemerabrechnung: 'Eigentümerabrechnung', sonstiges: 'Sonstiges'
+  };
+  var STATUS_TEXT = { entwurf: 'Entwurf', offen: 'Offen', bezahlt: 'Bezahlt', storniert: 'Storniert' };
+  var STATUS_BADGE_CLASS = { entwurf: 'pending', offen: 'info', bezahlt: 'active', storniert: 'suspended' };
+
+  function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+  function addressLines(p){
+    if(!p) return '';
+    var parts = [];
+    if(p.address_street) parts.push(p.address_street);
+    if(p.address_zip || p.address_city) parts.push((p.address_zip||'') + ' ' + (p.address_city||''));
+    return parts.join(', ');
+  }
+
+  VeraDashboard.init('invoices').then(async function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+
+    var params = new URLSearchParams(window.location.search);
+    var invoiceId = params.get('id');
+    if(!invoiceId){ showError(); return; }
+
+    var invRes = await client.from('invoices').select('*').eq('id', invoiceId).single();
+    if(invRes.error || !invRes.data){ showError(); return; }
+    invoice = invRes.data;
+
+    var itemsRes = await client.from('invoice_line_items').select('*').eq('invoice_id', invoiceId).order('sort_order');
+    lineItems = itemsRes.data || [];
+
+    var issuerRes = await client.from('profiles').select('*').eq('id', invoice.issuer_profile_id).single();
+    issuer = issuerRes.data;
+    var recipientRes = await client.from('profiles').select('*').eq('id', invoice.recipient_profile_id).single();
+    recipient = recipientRes.data;
+
+    render();
+  });
+
+  function showError(){
+    document.getElementById('invLoading').style.display = 'none';
+    document.getElementById('invError').style.display = 'block';
+  }
+
+  function render(){
+    document.getElementById('invLoading').style.display = 'none';
+    document.getElementById('invoiceSheet').style.display = 'block';
+
+    var issuerLabel = (issuer && issuer.category !== 'admin') ? (issuer.last_name+' '+issuer.first_name) : 'Vera Home Immobilien';
+    document.getElementById('issuerName').textContent = issuerLabel;
+    document.getElementById('issuerAddress').textContent = addressLines(issuer) || 'Hauptstrasse 39, 5070 Frick';
+    document.getElementById('recipientName').textContent = recipient ? (recipient.last_name+' '+recipient.first_name) : '–';
+    document.getElementById('recipientAddress').textContent = addressLines(recipient);
+
+    document.getElementById('invoiceNumberHeading').textContent = 'Rechnung ' + invoice.invoice_number + ' — ' + (CATEGORY_TEXT[invoice.category]||invoice.category);
+    document.getElementById('issueDate').textContent = VeraDashboard.formatDate(invoice.issue_date);
+    document.getElementById('dueDate').textContent = VeraDashboard.formatDate(invoice.due_date);
+    var badge = document.getElementById('statusBadge');
+    badge.textContent = STATUS_TEXT[invoice.status];
+    badge.classList.add(STATUS_BADGE_CLASS[invoice.status]);
+
+    var table = document.getElementById('lineItemsTable');
+    table.innerHTML = '<tr><th>Beschreibung</th><th>Menge</th><th>Einzelpreis</th><th>Total</th></tr>' +
+      lineItems.map(function(li){
+        return '<tr><td>'+VeraDashboard.escapeHtml(li.description)+'</td><td>'+li.quantity+'</td><td>'+fmtCHF(li.unit_price)+'</td><td>'+fmtCHF(li.line_total)+'</td></tr>';
+      }).join('');
+    document.getElementById('totalAmount').textContent = fmtCHF(invoice.total);
+
+    if(issuer && issuer.iban && invoice.status !== 'entwurf'){
+      document.getElementById('payIban').textContent = issuer.iban;
+      if(issuer.bank_name) document.getElementById('payBank').textContent = issuer.bank_name;
+      else document.getElementById('payBankRow').style.display = 'none';
+      if(issuer.bank_account_holder) document.getElementById('payHolder').textContent = issuer.bank_account_holder;
+      else document.getElementById('payHolderRow').style.display = 'none';
+      document.getElementById('paymentInfo').style.display = 'block';
+    }
+
+    if(invoice.note){
+      document.getElementById('invoiceNote').textContent = 'Notiz: ' + invoice.note;
+      document.getElementById('invoiceNote').style.display = 'block';
+    }
+
+    renderActions();
+  }
+
+  function renderActions(){
+    var actionsEl = document.getElementById('invoiceActions');
+    var isIssuerOrAdmin = profile.category === 'admin' || invoice.issuer_profile_id === profile.id;
+    var buttons = [];
+
+    buttons.push('<button type="button" class="dash-btn-sm" id="pdfBtn">Als PDF herunterladen</button>');
+    buttons.push('<button type="button" class="dash-btn-sm" id="printBtn">Drucken</button>');
+
+    if(isIssuerOrAdmin){
+      if(invoice.status === 'entwurf'){
+        buttons.push('<a href="/portal/invoices.html?edit='+invoice.id+'" class="dash-btn-sm" id="correctBtn">Korrigieren</a>');
+        buttons.push('<button type="button" class="dash-btn-sm" id="issueBtn">Senden</button>');
+      }
+      if(invoice.status === 'offen'){
+        buttons.push('<button type="button" class="dash-btn-sm" id="markPaidBtn">Als bezahlt markieren</button>');
+      }
+      if(invoice.status === 'entwurf' || invoice.status === 'offen'){
+        buttons.push('<button type="button" class="dash-btn-sm danger" id="cancelBtn">Stornieren</button>');
+      }
+    }
+
+    actionsEl.innerHTML = buttons.join('');
+
+    document.getElementById('pdfBtn').addEventListener('click', downloadPdf);
+    document.getElementById('printBtn').addEventListener('click', function(){ window.print(); });
+
+    var issueBtn = document.getElementById('issueBtn');
+    if(issueBtn) issueBtn.addEventListener('click', async function(){
+      if(!window.confirm('Rechnung jetzt senden? Der Empfänger sieht sie danach in seinen Rechnungen.')) return;
+      issueBtn.disabled = true;
+      var updRes = await client.from('invoices').update({ status: 'offen' }).eq('id', invoice.id);
+      if(updRes.error){ window.alert('Fehler: ' + updRes.error.message); issueBtn.disabled = false; return; }
+      try {
+        var emailRes = await VeraPortal.sendInvoiceEmail(invoice.id);
+        if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
+      } catch(e) { console.warn('E-Mail-Versand fehlgeschlagen:', e); }
+      window.location.reload();
+    });
+    var markPaidBtn = document.getElementById('markPaidBtn');
+    if(markPaidBtn) markPaidBtn.addEventListener('click', async function(){
+      var res = await VeraPortal.markInvoicePaid(invoice.id);
+      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      window.location.reload();
+    });
+    var cancelBtn = document.getElementById('cancelBtn');
+    if(cancelBtn) cancelBtn.addEventListener('click', async function(){
+      if(!window.confirm('Rechnung wirklich stornieren?')) return;
+      await client.from('invoices').update({ status: 'storniert' }).eq('id', invoice.id);
+      window.location.reload();
+    });
+  }
+
+  function downloadPdf(){
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    var issuerLabel = (issuer && issuer.category !== 'admin') ? (issuer.last_name+' '+issuer.first_name) : 'Vera Home Immobilien';
+    var recipientLabel = recipient ? (recipient.last_name+' '+recipient.first_name) : '–';
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text('Rechnung ' + invoice.invoice_number, 15, 20);
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(issuerLabel, 15, 30);
+    doc.text(addressLines(issuer) || 'Hauptstrasse 39, 5070 Frick', 15, 35);
+    doc.text(recipientLabel, 140, 30);
+    doc.text(addressLines(recipient), 140, 35);
+
+    doc.text('Rechnungsdatum: ' + VeraDashboard.formatDate(invoice.issue_date), 15, 50);
+    doc.text('Fällig bis: ' + VeraDashboard.formatDate(invoice.due_date), 15, 55);
+    doc.text('Status: ' + STATUS_TEXT[invoice.status], 15, 60);
+
+    doc.autoTable({
+      startY: 70,
+      head: [['Beschreibung', 'Menge', 'Einzelpreis', 'Total']],
+      body: lineItems.map(function(li){
+        return [li.description, String(li.quantity), fmtCHF(li.unit_price), fmtCHF(li.line_total)];
+      }),
+      foot: [['', '', 'Total', fmtCHF(invoice.total)]],
+      theme: 'grid',
+      headStyles: { fillColor: [26, 42, 64] }
+    });
+
+    if(issuer && issuer.iban){
+      var y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 10;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text('Zahlungsinformationen', 15, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      doc.text('IBAN: ' + issuer.iban, 15, y + 6);
+      var y2 = y + 6;
+      if(issuer.bank_name){ y2 += 5; doc.text('Bank: ' + issuer.bank_name, 15, y2); }
+      if(issuer.bank_account_holder){ y2 += 5; doc.text('Kontoinhaber: ' + issuer.bank_account_holder, 15, y2); }
+    }
+
+    doc.save('Rechnung-' + invoice.invoice_number + '.pdf');
+  }
+})();
+</script>
+</body>
+</html>

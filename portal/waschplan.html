@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waschplan | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Waschplan im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Waschplan</h1>
+      <p class="dash-lead" id="waschplanLead">Wird geladen …</p>
+
+      <div id="waschplanContainer"></div>
+      <p class="dash-empty" id="waschplanEmpty" style="display:none;">Für Sie ist aktuell kein Waschplan verfügbar.</p>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile;
+  var WEEKDAYS = [
+    { key: 'mo', label: 'Montag' }, { key: 'di', label: 'Dienstag' }, { key: 'mi', label: 'Mittwoch' },
+    { key: 'do', label: 'Donnerstag' }, { key: 'fr', label: 'Freitag' }, { key: 'sa', label: 'Samstag' }, { key: 'so', label: 'Sonntag' }
+  ];
+
+  VeraDashboard.init('waschplan').then(async function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+
+    var properties = await resolveRelevantProperties();
+    if(!properties.length){
+      document.getElementById('waschplanLead').textContent = '';
+      document.getElementById('waschplanEmpty').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('waschplanLead').textContent = 'Wochenplan Ihrer Objekte.';
+    var container = document.getElementById('waschplanContainer');
+    properties.forEach(function(p){
+      var card = document.createElement('div');
+      card.className = 'dash-card';
+      card.innerHTML = '<h2>'+VeraDashboard.escapeHtml(p.label)+(p.canEdit?' <span class="status-badge active" style="margin:0;">bearbeitbar</span>':'')+'</h2>' +
+        '<div class="laundry-week-grid" id="week-'+p.id+'"></div>' +
+        (p.canEdit ? renderAddForm(p.id) : '');
+      container.appendChild(card);
+      loadWeek(p);
+      if(p.canEdit) wireAddForm(p);
+    });
+  });
+
+  async function resolveRelevantProperties(){
+    if(profile.category === 'admin'){
+      var res = await client.from('properties').select('id,label').order('label');
+      return (res.data || []).map(function(p){ return { id: p.id, label: p.label, canEdit: true }; });
+    }
+
+    var map = {};
+
+    var tenanciesRes = await client.from('tenancies')
+      .select('units(property_id, properties(id,label))')
+      .eq('tenant_profile_id', profile.id);
+    (tenanciesRes.data || []).forEach(function(t){
+      if(t.units && t.units.properties){
+        var p = t.units.properties;
+        map[p.id] = map[p.id] || { id: p.id, label: p.label, canEdit: false };
+      }
+    });
+
+    var permsRes = await client.from('property_permissions')
+      .select('property_id, properties(id,label)')
+      .eq('profile_id', profile.id)
+      .eq('permission', 'waschplan');
+    (permsRes.data || []).forEach(function(perm){
+      if(perm.properties){
+        map[perm.properties.id] = { id: perm.properties.id, label: perm.properties.label, canEdit: true };
+      }
+    });
+
+    return Object.keys(map).map(function(id){ return map[id]; });
+  }
+
+  async function loadWeek(p){
+    var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', p.id).order('start_time');
+    var slots = res.data || [];
+    var weekEl = document.getElementById('week-'+p.id);
+    weekEl.innerHTML = WEEKDAYS.map(function(day){
+      var daySlots = slots.filter(function(s){ return s.weekday === day.key; });
+      return '<div class="laundry-day-col"><h3>'+day.label+'</h3>' +
+        (daySlots.length ? daySlots.map(function(s){
+          return '<div class="laundry-slot">' +
+            '<div class="laundry-slot-time">'+s.start_time.slice(0,5)+' – '+s.end_time.slice(0,5)+'</div>' +
+            (s.label ? '<div>'+VeraDashboard.escapeHtml(s.label)+'</div>' : '') +
+            (s.units ? '<div class="doc-meta">'+VeraDashboard.escapeHtml(s.units.label)+'</div>' : '') +
+            (p.canEdit ? '<div class="laundry-slot-actions"><button type="button" class="prop-icon-btn danger del-slot-btn" data-id="'+s.id+'" data-property="'+p.id+'">✕ Entfernen</button></div>' : '') +
+          '</div>';
+        }).join('') : '<p class="dash-empty" style="font-size:.78rem;">–</p>') +
+      '</div>';
+    }).join('');
+
+    weekEl.querySelectorAll('.del-slot-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await client.from('laundry_schedule_slots').delete().eq('id', btn.getAttribute('data-id'));
+        loadWeek(p);
+      });
+    });
+  }
+
+  function renderAddForm(propertyId){
+    return '<form class="auth-form" id="addSlotForm-'+propertyId+'" style="margin-top:16px;">' +
+      '<select class="slot-weekday">' + WEEKDAYS.map(function(d){ return '<option value="'+d.key+'">'+d.label+'</option>'; }).join('') + '</select>' +
+      '<div class="auth-form-row">' +
+        '<div><input type="time" class="slot-start" required></div>' +
+        '<div><input type="time" class="slot-end" required></div>' +
+      '</div>' +
+      '<select class="slot-unit"><option value="">– keine bestimmte Einheit –</option></select>' +
+      '<input type="text" class="slot-label" placeholder="Bezeichnung (z.B. Whg. Müller)">' +
+      '<button type="submit" class="dash-btn-sm">Slot hinzufügen</button>' +
+      '<p class="form-status"></p>' +
+    '</form>';
+  }
+
+  async function wireAddForm(p){
+    var form = document.getElementById('addSlotForm-'+p.id);
+    var unitSel = form.querySelector('.slot-unit');
+    var unitsRes = await client.from('units').select('id,label').eq('property_id', p.id).order('label');
+    (unitsRes.data || []).forEach(function(u){
+      var opt = document.createElement('option');
+      opt.value = u.id; opt.textContent = u.label;
+      unitSel.appendChild(opt);
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = form.querySelector('.form-status');
+      var res = await client.from('laundry_schedule_slots').insert({
+        property_id: p.id,
+        weekday: form.querySelector('.slot-weekday').value,
+        start_time: form.querySelector('.slot-start').value,
+        end_time: form.querySelector('.slot-end').value,
+        unit_id: unitSel.value || null,
+        label: form.querySelector('.slot-label').value.trim() || null,
+        created_by: profile.id
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Slot hinzugefügt.';
+      statusEl.classList.add('show');
+      if(!res.error){ form.reset(); loadWeek(p); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

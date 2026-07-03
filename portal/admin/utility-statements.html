@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nebenkosten | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Nebenkostenabrechnungen verwalten im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Nebenkosten</h1>
+      <p class="dash-lead">Nebenkostenabrechnungen pro Objekt anlegen und veröffentlichen.</p>
+
+      <div class="dash-card">
+        <h2>Neue Abrechnung</h2>
+        <form class="auth-form" id="newStatementForm">
+          <select id="st_property" required><option value="" disabled selected>Objekt wählen *</option></select>
+          <div class="auth-form-row">
+            <div><input type="date" id="st_start" required placeholder="Beginn"></div>
+            <div><input type="date" id="st_end" required placeholder="Ende"></div>
+          </div>
+          <input type="number" step="0.01" min="0" id="st_total" placeholder="Gesamtkosten (CHF) *" required>
+          <button type="submit" class="btn btn-primary">Abrechnung anlegen</button>
+          <p class="form-status" id="newStatementStatus"></p>
+        </form>
+      </div>
+
+      <div class="dash-card">
+        <h2>Abrechnungen</h2>
+        <div id="statementsList"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile;
+  var openPanels = {};
+
+  function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    VeraDashboard.renderSidebar('admin-utility-statements', ctx.profile);
+    client = VeraPortal.getClient();
+    init();
+  });
+
+  async function init(){
+    var res = await client.from('properties').select('id, label').order('label');
+    document.getElementById('st_property').innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
+      (res.data || []).map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+
+    document.getElementById('newStatementForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('newStatementStatus');
+      var res = await client.from('utility_statements').insert({
+        property_id: document.getElementById('st_property').value,
+        period_start: document.getElementById('st_start').value,
+        period_end: document.getElementById('st_end').value,
+        total_costs: parseFloat(document.getElementById('st_total').value) || 0,
+        created_by: profile.id
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Abrechnung angelegt.';
+      statusEl.classList.add('show');
+      if(!res.error){ document.getElementById('newStatementForm').reset(); loadStatements(); }
+    });
+
+    loadStatements();
+  }
+
+  async function loadStatements(){
+    var res = await client.from('utility_statements').select('*, properties(label)').order('created_at', { ascending:false });
+    var statements = res.data || [];
+    var listEl = document.getElementById('statementsList');
+    if(!statements.length){ listEl.innerHTML = '<p class="dash-empty">Noch keine Abrechnungen.</p>'; return; }
+
+    listEl.innerHTML = statements.map(function(s){
+      var statusBadge = s.status === 'veroeffentlicht'
+        ? '<span class="status-badge active">Veröffentlicht</span>'
+        : '<span class="status-badge pending">Entwurf</span>';
+      return '<div class="prop-row" style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--color-blue-light);">' +
+        '<strong>'+VeraDashboard.escapeHtml(s.properties?s.properties.label:'–')+'</strong> ' + statusBadge +
+        ' <span class="doc-meta">'+VeraDashboard.formatDate(s.period_start)+' – '+VeraDashboard.formatDate(s.period_end)+' · Gesamtkosten '+fmtCHF(s.total_costs)+'</span>' +
+        '<div class="dash-btn-row" style="margin-top:8px;">' +
+        '<button type="button" class="dash-btn-sm manage-statement-btn" data-id="'+s.id+'">Verwalten</button>' +
+        '</div>' +
+        '<div class="prop-manage-panel" id="stpanel-'+s.id+'" style="display:none;"></div>' +
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.manage-statement-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){ toggleStatementPanel(btn.getAttribute('data-id'), statements); });
+    });
+  }
+
+  function toggleStatementPanel(statementId, statements){
+    var panel = document.getElementById('stpanel-' + statementId);
+    var isOpen = panel.style.display !== 'none';
+    if(isOpen){ panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    if(!openPanels[statementId]){
+      openPanels[statementId] = true;
+      var stmt = statements.filter(function(s){ return s.id === statementId; })[0];
+      renderStatementPanel(stmt, panel);
+    }
+  }
+
+  async function renderStatementPanel(stmt, panel){
+    var tenanciesRes = await client.from('tenancies')
+      .select('id, tenant_profile_id, units(label), tenant:profiles!tenant_profile_id(first_name,last_name)')
+      .eq('status', 'active')
+      .in('unit_id', await unitIdsForProperty(stmt.property_id));
+    var tenancies = tenanciesRes.data || [];
+
+    var sharesRes = await client.from('utility_statement_shares').select('*').eq('utility_statement_id', stmt.id);
+    var sharesByTenancy = {};
+    (sharesRes.data || []).forEach(function(s){ sharesByTenancy[s.tenancy_id] = s; });
+
+    if(!tenancies.length){
+      panel.innerHTML = '<p class="dash-empty">Keine aktiven Mietverhältnisse in diesem Objekt.</p>';
+      return;
+    }
+
+    panel.innerHTML = '<table class="dash-table"><tr><th>Mieter</th><th>Einheit</th><th>Anteil %</th><th>oder Betrag CHF</th><th>Akonto CHF</th><th>Vorschau</th></tr>' +
+      tenancies.map(function(t){
+        var share = sharesByTenancy[t.id] || {};
+        return '<tr data-tenancy="'+t.id+'">' +
+          '<td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(t.units?t.units.label:'–')+'</td>' +
+          '<td><input type="number" step="0.01" class="share-percent" value="'+(share.share_percent!=null?share.share_percent:'')+'" style="max-width:90px;"></td>' +
+          '<td><input type="number" step="0.01" class="share-amount" value="'+(share.share_amount!=null?share.share_amount:'')+'" style="max-width:100px;"></td>' +
+          '<td><input type="number" step="0.01" class="advance-paid" value="'+(share.advance_paid||0)+'" style="max-width:100px;"></td>' +
+          '<td class="share-preview">–</td>' +
+        '</tr>';
+      }).join('') + '</table>' +
+      '<div class="dash-btn-row" style="margin-top:12px;">' +
+        '<button type="button" class="dash-btn-sm" id="saveShares-'+stmt.id+'">Zeilen speichern</button>' +
+        (stmt.status === 'entwurf' ? '<button type="button" class="dash-btn-sm" id="publish-'+stmt.id+'">Veröffentlichen</button>' : '<span class="doc-meta">Bereits veröffentlicht</span>') +
+      '</div>' +
+      '<p class="form-status" id="statementPanelStatus-'+stmt.id+'"></p>';
+
+    function recalcPreview(row){
+      var percent = parseFloat(row.querySelector('.share-percent').value);
+      var amount = parseFloat(row.querySelector('.share-amount').value);
+      var advance = parseFloat(row.querySelector('.advance-paid').value) || 0;
+      var computed = !isNaN(amount) ? amount : (!isNaN(percent) ? Math.round(stmt.total_costs * percent / 100 * 100) / 100 : null);
+      row.querySelector('.share-preview').textContent = computed != null ? ('Anteil ' + fmtCHF(computed) + ' / Saldo ' + fmtCHF(computed - advance)) : '–';
+    }
+    panel.querySelectorAll('tr[data-tenancy]').forEach(function(row){
+      row.querySelectorAll('input').forEach(function(inp){ inp.addEventListener('input', function(){ recalcPreview(row); }); });
+      recalcPreview(row);
+    });
+
+    document.getElementById('saveShares-'+stmt.id).addEventListener('click', async function(){
+      var statusEl = document.getElementById('statementPanelStatus-'+stmt.id);
+      var rows = panel.querySelectorAll('tr[data-tenancy]');
+      var upserts = [];
+      rows.forEach(function(row){
+        var percent = row.querySelector('.share-percent').value;
+        var amount = row.querySelector('.share-amount').value;
+        if(!percent && !amount) return;
+        upserts.push({
+          utility_statement_id: stmt.id,
+          tenancy_id: row.getAttribute('data-tenancy'),
+          share_percent: percent ? parseFloat(percent) : null,
+          share_amount: amount ? parseFloat(amount) : null,
+          advance_paid: parseFloat(row.querySelector('.advance-paid').value) || 0
+        });
+      });
+      if(!upserts.length){
+        statusEl.textContent = 'Bitte mindestens eine Zeile mit Anteil % oder Betrag ausfüllen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      var res = await client.from('utility_statement_shares').upsert(upserts, { onConflict: 'utility_statement_id,tenancy_id' });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Zeilen gespeichert.';
+      statusEl.classList.add('show');
+    });
+
+    var publishBtn = document.getElementById('publish-'+stmt.id);
+    if(publishBtn){
+      publishBtn.addEventListener('click', async function(){
+        if(!window.confirm('Abrechnung veröffentlichen? Dies erzeugt automatisch Rechnungen und kann nicht rückgängig gemacht werden.')) return;
+        var res = await client.rpc('publish_utility_statement', { p_statement_id: stmt.id });
+        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+        window.alert('Abrechnung veröffentlicht, Rechnungen wurden erstellt.');
+        openPanels[stmt.id] = false;
+        loadStatements();
+      });
+    }
+  }
+
+  async function unitIdsForProperty(propertyId){
+    var res = await client.from('units').select('id').eq('property_id', propertyId);
+    return (res.data || []).map(function(u){ return u.id; });
+  }
+})();
+</script>
+</body>
+</html>
