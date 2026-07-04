@@ -1413,7 +1413,7 @@ function buildVeraHomeLogoGroup(opts){
   var track = document.getElementById('intro-track');
   var overlay = document.getElementById('intro-overlay');
   if(!track || !overlay) return;
-  if(window.innerWidth <= 768 || reducedMotion || !window.THREE || !window.gsap){
+  if(reducedMotion || !window.THREE || !window.gsap){
     track.remove();
     overlay.remove();
     return;
@@ -2252,7 +2252,6 @@ function buildVeraHomeLogoGroup(opts){
   });
 
   window.addEventListener('resize', function(){
-    if(window.innerWidth <= 768) return;
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();

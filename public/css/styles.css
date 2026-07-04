@@ -278,9 +278,6 @@ section{position:relative;padding:110px 0;}
   font-family:var(--font-heading);font-style:italic;font-weight:600;color:var(--color-white);
   font-size:clamp(1.9rem,4.2vw,3.1rem);text-shadow:0 4px 40px rgba(0,0,0,.55);
 }
-@media (max-width:768px){
-  #intro-track,#intro-overlay{display:none;}
-}
 @media (prefers-reduced-motion:reduce){
   #intro-track,#intro-overlay{display:none;}
   .hero-quotes{display:block;position:relative;width:100%;max-width:380px;height:64px;margin:28px auto 0;}
