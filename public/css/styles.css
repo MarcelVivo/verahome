@@ -266,19 +266,6 @@ section{position:relative;padding:110px 0;}
   color:var(--color-gold-light);font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;
   animation:bounceDown 1.8s ease-in-out infinite;
 }
-.intro-quotes{
-  position:absolute;top:9%;left:50%;transform:translateX(-50%);z-index:4;
-  width:90%;max-width:560px;height:110px;pointer-events:none;
-}
-.intro-quote{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  margin:0;text-align:center;font-family:var(--font-heading);font-style:italic;font-weight:600;
-  color:var(--color-gold-light);font-size:clamp(1.15rem,2.6vw,1.55rem);
-  text-shadow:0 4px 30px rgba(0,0,0,.55);
-  opacity:0;transform:scale(.9) translateY(8px);
-  transition:opacity 1.4s ease,transform 1.7s cubic-bezier(.22,.61,.36,1);
-}
-.intro-quote.active{opacity:1;transform:scale(1.05) translateY(0);}
 .intro-reveal{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;
   width:90%;max-width:720px;text-align:center;opacity:0;pointer-events:none;
@@ -293,7 +280,6 @@ section{position:relative;padding:110px 0;}
 }
 @media (prefers-reduced-motion:reduce){
   #intro-track,#intro-overlay{display:none;}
-  .hero-quotes{display:block;position:relative;width:100%;max-width:380px;height:64px;margin:28px auto 0;}
 }
 
 /* =============================================================
@@ -323,7 +309,6 @@ section{position:relative;padding:110px 0;}
 .trust-badge{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--color-white);font-size:.85rem;}
 .trust-badge .icon{width:30px;height:30px;color:var(--color-gold);}
 .trust-badge .icon svg{width:100%;height:100%;}
-.hero-quotes{display:none;}
 .scroll-indicator{
   position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:2;
   color:var(--color-gold);font-size:1.6rem;animation:bounceDown 1.8s ease-in-out infinite;
@@ -333,7 +318,6 @@ section{position:relative;padding:110px 0;}
 @media (max-width:768px){
   .trust-badges{gap:26px;}
   .hero-ctas{flex-direction:column;align-items:center;}
-  .hero-quotes{display:block;position:relative;width:100%;max-width:380px;height:64px;margin:28px auto 0;}
 }
 
 /* =============================================================
