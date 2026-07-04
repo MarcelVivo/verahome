@@ -55,13 +55,16 @@ document.documentElement.style.scrollBehavior = 'auto';
     <ul class="nav-links" id="navLinks">
       <li><a href="#leistungen" data-i18n="nav_services" data-section="leistungen">Leistungen</a></li>
       <li><a href="#objekte" data-i18n="nav_objects" data-section="objekte">Objekte</a></li>
-      <li><a href="/portal/login.html" data-i18n="nav_tools">Vera Portal</a></li>
       <li><a href="#ueber-mich" data-i18n="nav_about" data-section="ueber-mich">Über uns</a></li>
       <li><a href="#kontakt" data-i18n="nav_contact" data-section="kontakt">Kontakt</a></li>
     </ul>
     <div class="nav-right">
+      <a href="/portal/login.html" class="nav-portal-btn" aria-label="Vera Portal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15" r="1.6"/></svg>
+        <span data-i18n="nav_tools">Vera Portal</span>
+      </a>
       <div class="lang-switch">
-        <button type="button" data-lang="de" class="active" aria-label="Deutsch">DE</button>|<button type="button" data-lang="en" aria-label="English">EN</button>
+        <button type="button" data-lang="de" class="active" aria-label="Deutsch">DE</button><button type="button" data-lang="en" aria-label="English">EN</button>
       </div>
       <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
       <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
