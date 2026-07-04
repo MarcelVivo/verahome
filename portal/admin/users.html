@@ -58,6 +58,7 @@
       <p class="dash-lead">Alle registrierten Nutzer. Kategorie-Änderungen (insbesondere Admin-Rechte) erfolgen bewusst nicht hier, sondern manuell in Supabase.</p>
 
       <div class="dash-card">
+        <input type="text" class="dash-search-input" id="userSearch" placeholder="Suchen nach Name, E-Mail, Kategorie …">
         <table class="dash-table" id="usersTable"></table>
       </div>
     </section>
@@ -72,7 +73,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -101,16 +102,29 @@
     VeraDashboard.renderSidebar('admin-users', ctx.profile);
     client = VeraPortal.getClient();
     loadUsers();
+    document.getElementById('userSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderUsersTable(allUsers.filter(function(u){
+        return VeraDashboard.matchesSearch(
+          [u.member_number, u.last_name, u.first_name, u.email, VeraDashboard.categoryLabel(u.category), u.status], q
+        );
+      }));
+    });
   });
 
   var STATUS_LABEL = { pending: 'Ausstehend', active: 'Aktiv', suspended: 'Gesperrt' };
+  var allUsers = [];
 
   async function loadUsers(){
     var res = await client.from('profiles').select('*').order('created_at', { ascending:false });
+    allUsers = res.data || [];
+    renderUsersTable(allUsers);
+  }
+
+  function renderUsersTable(users){
     var table = document.getElementById('usersTable');
-    var users = res.data || [];
     if(!users.length){
-      table.innerHTML = '<tr><td class="dash-empty">Keine Nutzer vorhanden.</td></tr>';
+      table.innerHTML = '<tr><td class="dash-empty">'+(allUsers.length?'Keine Treffer.':'Keine Nutzer vorhanden.')+'</td></tr>';
       return;
     }
     table.innerHTML = '<tr><th>Mitgliedsnr.</th><th>Name</th><th>E-Mail</th><th>Kategorie</th><th>Status</th><th>Aktion</th></tr>' +

@@ -62,6 +62,23 @@
       <div id="dashContent" style="display:none;">
         <div class="dash-stat-row" id="dashStats"></div>
 
+        <div id="dashAdminPanels" style="display:none;">
+          <div class="dash-card">
+            <h2>Überfällige Rechnungen</h2>
+            <table class="dash-table" id="overdueInvoicesTable"></table>
+          </div>
+
+          <div class="dash-card">
+            <h2>Mietverträge laufen bald aus</h2>
+            <table class="dash-table" id="expiringTenanciesTable"></table>
+          </div>
+
+          <div class="dash-card">
+            <h2>Leerstehende Einheiten</h2>
+            <table class="dash-table" id="vacantUnitsTable"></table>
+          </div>
+        </div>
+
         <div class="dash-card">
           <h2>Mein Konto</h2>
           <div class="status-row">
@@ -102,7 +119,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -124,11 +141,12 @@
 <script>
 (function(){
   "use strict";
+  var client, profile;
 
   VeraDashboard.init('dashboard').then(async function(ctx){
     if(!ctx) return;
-    var profile = ctx.profile;
-    var client = VeraPortal.getClient();
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
 
     try{
       document.getElementById('dashGreeting').textContent = 'Willkommen, ' + profile.first_name;
@@ -141,14 +159,46 @@
 
       var stats = [];
       if(profile.category === 'admin'){
+        var todayStr = new Date().toISOString().slice(0,10);
         var activeUsers = await client.from('profiles').select('*', { count:'exact', head:true }).eq('status','active');
         var pendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
         var openJobs = await client.from('job_assignments').select('*', { count:'exact', head:true }).eq('status','open');
+        var openInvoices = await client.from('invoices').select('*', { count:'exact', head:true }).eq('status','offen');
+        var overdueInvoicesRes = await client.from('invoices')
+          .select('id, invoice_number, total, due_date, recipient:profiles!recipient_profile_id(first_name,last_name)')
+          .eq('status','offen').lt('due_date', todayStr).order('due_date');
+        var overdueInvoices = overdueInvoicesRes.data || [];
+        var openMeldungen = await client.from('issue_reports').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
+        var openTickets = await client.from('admin_tickets').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
+        var openRapporte = await client.from('hauswart_reports').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
+
+        var unitsRes = await client.from('units').select('id, label, properties(label)');
+        var activeTenanciesRes = await client.from('tenancies').select('unit_id').eq('status','active');
+        var occupiedUnitIds = new Set((activeTenanciesRes.data||[]).map(function(t){ return t.unit_id; }));
+        var vacantUnits = (unitsRes.data||[]).filter(function(u){ return !occupiedUnitIds.has(u.id); });
+
+        var in60 = new Date(Date.now() + 60*86400000).toISOString().slice(0,10);
+        var expiringRes = await client.from('tenancies')
+          .select('id, end_date, tenant:profiles!tenant_profile_id(first_name,last_name), units(label, properties(label))')
+          .eq('status','active').not('end_date','is',null).lte('end_date', in60).gte('end_date', todayStr).order('end_date');
+        var expiringTenancies = expiringRes.data || [];
+
         stats = [
           { num: activeUsers.count || 0, label: 'Aktive Nutzer' },
           { num: pendingDocs.count || 0, label: 'Ausstehende Dokumente' },
-          { num: openJobs.count || 0, label: 'Offene Job-Zuweisungen' }
+          { num: openJobs.count || 0, label: 'Offene Job-Zuweisungen' },
+          { num: openInvoices.count || 0, label: 'Offene Rechnungen' },
+          { num: overdueInvoices.length, label: 'Überfällige Rechnungen', danger: overdueInvoices.length > 0 },
+          { num: openMeldungen.count || 0, label: 'Offene Meldungen' },
+          { num: openTickets.count || 0, label: 'Offene Tickets' },
+          { num: openRapporte.count || 0, label: 'Offene Rapporte' },
+          { num: vacantUnits.length, label: 'Leerstehende Einheiten' }
         ];
+
+        document.getElementById('dashAdminPanels').style.display = 'block';
+        renderOverdueInvoices(overdueInvoices);
+        renderExpiringTenancies(expiringTenancies);
+        renderVacantUnits(vacantUnits);
       } else {
         var myPendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
         var nextEvent = await client.from('calendar_events').select('title,starts_at').gte('starts_at', new Date().toISOString()).order('starts_at').limit(1);
@@ -161,7 +211,7 @@
       }
 
       document.getElementById('dashStats').innerHTML = stats.map(function(s){
-        return '<div class="dash-stat"><div class="num">'+VeraDashboard.escapeHtml(s.num)+'</div><div class="label">'+VeraDashboard.escapeHtml(s.label)+'</div></div>';
+        return '<div class="dash-stat'+(s.danger?' danger':'')+'"><div class="num">'+VeraDashboard.escapeHtml(s.num)+'</div><div class="label">'+VeraDashboard.escapeHtml(s.label)+'</div></div>';
       }).join('');
 
       document.getElementById('dashLoading').style.display = 'none';
@@ -171,6 +221,60 @@
       document.getElementById('dashError').style.display = 'block';
     }
   });
+
+  function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  function renderOverdueInvoices(rows){
+    var table = document.getElementById('overdueInvoicesTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine überfälligen Rechnungen.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Empfänger</th><th>Nr.</th><th>Betrag</th><th>Fällig seit</th><th></th></tr>' +
+      rows.map(function(inv){
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(inv.recipient?inv.recipient.last_name+' '+inv.recipient.first_name:'–')+'</td>' +
+          '<td class="member-number">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
+          '<td>'+fmtCHF(inv.total)+'</td>' +
+          '<td>'+VeraDashboard.formatDate(inv.due_date)+'</td>' +
+          '<td><button type="button" class="dash-btn-sm danger reminder-btn" data-id="'+inv.id+'">Mahnung senden</button></td>' +
+        '</tr>';
+      }).join('');
+    table.querySelectorAll('.reminder-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){ sendReminder(btn.getAttribute('data-id'), btn); });
+    });
+  }
+
+  async function sendReminder(invoiceId, btn){
+    btn.disabled = true;
+    btn.textContent = 'Wird gesendet …';
+    var res = await VeraPortal.sendPaymentReminder(invoiceId);
+    if(res.error){ window.alert('Fehler: ' + res.error.message); btn.disabled = false; btn.textContent = 'Mahnung senden'; return; }
+    btn.textContent = 'Gesendet ✓';
+  }
+
+  function renderExpiringTenancies(rows){
+    var table = document.getElementById('expiringTenanciesTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Mietverträge laufen in den nächsten 60 Tagen aus.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Endet am</th></tr>' +
+      rows.map(function(t){
+        var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(unitLabel)+'</td>' +
+          '<td>'+VeraDashboard.formatDate(t.end_date)+'</td>' +
+        '</tr>';
+      }).join('');
+  }
+
+  function renderVacantUnits(rows){
+    var table = document.getElementById('vacantUnitsTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine leerstehenden Einheiten.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Objekt</th><th>Einheit</th></tr>' +
+      rows.map(function(u){
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(u.properties?u.properties.label:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(u.label)+'</td>' +
+        '</tr>';
+      }).join('');
+  }
 })();
 </script>
 </body>

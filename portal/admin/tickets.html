@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tickets | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Interne Tickets zwischen den Admin-Konten im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Tickets</h1>
+      <p class="dash-lead">Interner Austausch zwischen den beiden Admin-Konten – z.B. wenn Julia eine Änderung an System oder Website wünscht, die sie nicht selbst lösen kann.</p>
+
+      <div class="dash-card">
+        <h2>Neues Ticket</h2>
+        <form class="auth-form" id="newTicketForm">
+          <input id="tk_title" placeholder="Titel *" required>
+          <textarea id="tk_description" placeholder="Beschreibung *" required></textarea>
+          <input type="file" id="tk_photos" accept="image/*" multiple>
+          <button type="submit" class="btn btn-primary">Ticket absenden</button>
+          <p class="form-status" id="newTicketStatus"></p>
+        </form>
+      </div>
+
+      <div class="dash-card">
+        <h2>Alle Tickets</h2>
+        <div id="ticketsList"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile;
+
+  var STATUS_TEXT = { offen: 'Offen', in_bearbeitung: 'In Bearbeitung', erledigt: 'Erledigt' };
+  var STATUS_BADGE_CLASS = { offen: 'pending', in_bearbeitung: 'info', erledigt: 'active' };
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    VeraDashboard.renderSidebar('tickets', ctx.profile);
+    client = VeraPortal.getClient();
+
+    document.getElementById('newTicketForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('newTicketStatus');
+      var title = document.getElementById('tk_title').value.trim();
+      var description = document.getElementById('tk_description').value.trim();
+      if(!title || !description){
+        statusEl.textContent = 'Bitte Titel und Beschreibung angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+
+      statusEl.textContent = 'Wird gesendet …';
+      statusEl.classList.add('show');
+
+      var insRes = await client.from('admin_tickets').insert({
+        created_by: profile.id,
+        title: title,
+        description: description
+      }).select().single();
+
+      if(insRes.error){
+        statusEl.textContent = 'Fehler: ' + insRes.error.message;
+        return;
+      }
+
+      var ticketId = insRes.data.id;
+      var files = Array.prototype.slice.call(document.getElementById('tk_photos').files);
+      for(var i = 0; i < files.length; i++){
+        var file = files[i];
+        var photoId = crypto.randomUUID();
+        var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = ticketId + '/' + photoId + '-' + safeName;
+        var upRes = await client.storage.from('admin-ticket-photos').upload(path, file);
+        if(!upRes.error){
+          await client.from('admin_ticket_photos').insert({ id: photoId, ticket_id: ticketId, file_path: path, sort_order: i });
+        }
+      }
+
+      statusEl.textContent = 'Ticket wurde übermittelt.';
+      document.getElementById('newTicketForm').reset();
+      loadTickets();
+    });
+
+    loadTickets();
+  });
+
+  async function loadTickets(){
+    var res = await client.from('admin_tickets')
+      .select('*, creator:profiles!created_by(first_name,last_name)')
+      .order('created_at', { ascending:false });
+    var tickets = res.data || [];
+    var list = document.getElementById('ticketsList');
+    if(!tickets.length){ list.innerHTML = '<p class="dash-empty">Noch keine Tickets.</p>'; return; }
+
+    list.innerHTML = tickets.map(function(t){
+      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;" id="ticket-'+t.id+'">' +
+        '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+          '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(t.title)+'</strong>' +
+          '<span class="doc-meta">'+VeraDashboard.escapeHtml(t.creator?t.creator.last_name+' '+t.creator.first_name:'–')+' · '+VeraDashboard.formatDateTime(t.created_at)+'</span></div>' +
+          '<span class="status-badge '+STATUS_BADGE_CLASS[t.status]+'">'+STATUS_TEXT[t.status]+'</span>' +
+        '</div>' +
+        '<p style="margin:10px 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(t.description)+'</p>' +
+        '<div class="prop-thumb-grid" id="photos-'+t.id+'"></div>' +
+        '<div class="dash-btn-row" style="margin-top:10px;">' +
+          '<select class="status-select" data-id="'+t.id+'">' +
+            Object.keys(STATUS_TEXT).map(function(s){ return '<option value="'+s+'"'+(s===t.status?' selected':'')+'>'+STATUS_TEXT[s]+'</option>'; }).join('') +
+          '</select>' +
+          '<input class="note-input" data-id="'+t.id+'" placeholder="Notiz" value="'+VeraDashboard.escapeHtml(t.resolution_note||'')+'" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);">' +
+          '<button type="button" class="dash-btn-sm save-status-btn" data-id="'+t.id+'">Speichern</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    tickets.forEach(function(t){ loadTicketPhotos(t.id); });
+
+    list.querySelectorAll('.save-status-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
+        var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
+        await client.from('admin_tickets').update({ status: status, resolution_note: note || null, updated_by: profile.id }).eq('id', id);
+        loadTickets();
+      });
+    });
+  }
+
+  async function loadTicketPhotos(ticketId){
+    var res = await client.from('admin_ticket_photos').select('*').eq('ticket_id', ticketId).order('sort_order');
+    var photos = res.data || [];
+    var el = document.getElementById('photos-'+ticketId);
+    if(!el) return;
+    if(!photos.length){ el.innerHTML = ''; return; }
+    var urls = await Promise.all(photos.map(function(p){
+      return client.storage.from('admin-ticket-photos').createSignedUrl(p.file_path, 60);
+    }));
+    el.innerHTML = urls.map(function(res){
+      return res.error ? '' : '<div class="prop-thumb"><img src="'+res.data.signedUrl+'" alt=""></div>';
+    }).join('');
+  }
+})();
+</script>
+</body>
+</html>

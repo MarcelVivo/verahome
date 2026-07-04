@@ -17,11 +17,17 @@
 .dash-sidebar .status-badge{margin:0;font-size:.72rem;padding:4px 12px;}
 .dash-nav{display:flex;flex-direction:column;}
 .dash-nav-link{
-  display:block;padding:12px 28px;color:rgba(255,255,255,.75);font-size:.92rem;font-weight:500;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 28px;color:rgba(255,255,255,.75);font-size:.92rem;font-weight:500;
   border-left:3px solid transparent;transition:color .2s,border-color .2s,background .2s;
 }
 .dash-nav-link:hover{color:var(--color-white);background:rgba(255,255,255,.04);}
 .dash-nav-link.active{color:var(--color-gold);border-left-color:var(--color-gold);background:rgba(255,255,255,.05);}
+.dash-nav-label{overflow:hidden;text-overflow:ellipsis;}
+.dash-nav-badge{
+  background:var(--color-gold);color:var(--color-white);font-size:.68rem;font-weight:700;
+  line-height:1;padding:3px 8px;border-radius:50px;flex-shrink:0;
+}
 .dash-nav-section-label{
   display:block;margin:18px 28px 6px;color:rgba(255,255,255,.4);font-size:.7rem;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
@@ -50,6 +56,8 @@
 }
 .dash-stat .num{font-family:var(--font-heading);font-size:2.1rem;color:var(--color-gold);font-weight:700;line-height:1;}
 .dash-stat .label{margin-top:8px;color:var(--color-gray-text);font-size:.85rem;}
+.dash-stat.danger{border-color:#F0C6C0;}
+.dash-stat.danger .num{color:#A32E22;}
 
 .dash-table{width:100%;border-collapse:collapse;}
 .dash-table th{
@@ -71,6 +79,13 @@
 .dash-btn-sm.danger:hover{border-color:#A32E22;}
 
 .dash-empty{color:var(--color-gray-text);opacity:.7;font-size:.92rem;padding:16px 0;}
+
+.dash-search-input{
+  display:block;width:100%;max-width:340px;margin-bottom:14px;padding:10px 14px;
+  border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
+  font-family:inherit;font-size:.9rem;transition:border-color .2s;
+}
+.dash-search-input:focus{border-color:var(--color-gold);outline:none;}
 
 /* Dokumente */
 .doc-list{display:flex;flex-direction:column;gap:14px;}

@@ -1562,3 +1562,1458 @@ create policy recurring_invoice_line_items_write on public.recurring_invoice_lin
     exists (select 1 from public.recurring_invoices ri where ri.id = recurring_invoice_line_items.recurring_invoice_id
       and (public.is_admin() or (ri.issuer_profile_id = auth.uid() and public.is_approved())))
   );
+
+-- =====================================================================
+-- SIDEBAR UNREAD BADGES — per-user "last seen per section" + one
+-- fetch-all-counts RPC + one mark-seen RPC. messages is deliberately
+-- NOT tracked via section_views: it already has real per-row read
+-- tracking (messages.read_at via mark_message_read()), so its badge is
+-- just "count of unread rows addressed to me".
+-- =====================================================================
+
+create table public.section_views (
+  profile_id     uuid not null references public.profiles(id) on delete cascade,
+  section        text not null check (section in ('invoices','meldungen','documents','calendar','waschplan')),
+  last_seen_at   timestamptz not null default now(),
+  primary key (profile_id, section)
+);
+
+alter table public.section_views enable row level security;
+alter table public.section_views force row level security;
+
+-- Defense-in-depth / Table Editor inspection only — all real reads and
+-- writes go through the two security-definer RPCs below.
+create policy section_views_select_own on public.section_views
+  for select using (public.is_admin() or profile_id = auth.uid());
+
+-- updated_at + backfill: NOTE backfill happens BEFORE default/not-null
+-- are set, so existing rows get updated_at = created_at, never "now"
+-- (a "now" backfill would make every pre-existing report/slot look
+-- freshly changed to every viewer on day one).
+alter table public.issue_reports add column if not exists updated_at timestamptz;
+update public.issue_reports set updated_at = created_at where updated_at is null;
+alter table public.issue_reports alter column updated_at set not null;
+alter table public.issue_reports alter column updated_at set default now();
+
+alter table public.laundry_schedule_slots add column if not exists updated_at timestamptz;
+update public.laundry_schedule_slots set updated_at = created_at where updated_at is null;
+alter table public.laundry_schedule_slots alter column updated_at set not null;
+alter table public.laundry_schedule_slots alter column updated_at set default now();
+
+create or replace function public.touch_updated_at()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger trg_issue_reports_touch_updated_at
+  before update on public.issue_reports
+  for each row execute function public.touch_updated_at();
+
+create trigger trg_laundry_schedule_slots_touch_updated_at
+  before update on public.laundry_schedule_slots
+  for each row execute function public.touch_updated_at();
+
+-- Six rows out, always all present, one round-trip. Every predicate is
+-- scoped to auth.uid() and excludes the current user's OWN action from
+-- counting as "new for them":
+--  - invoices:  recipient's own unread invoices (issuer<>me is a cheap
+--               extra guard).
+--  - meldungen: admin sees reports filed by someone else since last
+--               seen; a reporter sees their OWN report only once it has
+--               genuinely changed after creation (updated_at >
+--               created_at) — and since only admin can ever update an
+--               issue_reports row (issue_reports_admin_write is the
+--               only update policy), this change can only ever be
+--               someone else's action, never the reporter's own.
+--  - documents: owners have no insert/update policy on documents at all
+--               (only documents_admin_write), so this can never be a
+--               self-action either.
+--  - calendar:  a user CAN self-insert their own events, and there's no
+--               created_by column to exclude that — accepted as a minor
+--               known edge case (a self-created event may show as
+--               briefly "new" until the next markSectionSeen), not
+--               worth a schema change for.
+--  - waschplan: reuses the exact laundry_schedule_slots_select
+--               relevance predicate, plus created_by is distinct from
+--               me to exclude a coordinator's own new/edited slot from
+--               their own badge.
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_calendar int;
+  c_waschplan int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan);
+end;
+$$;
+
+-- Upsert "I've seen this section as of now". 'messages' is rejected —
+-- its badge clears itself via mark_message_read() instead.
+create or replace function public.mark_section_seen(p_section text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet.';
+  end if;
+  if p_section not in ('invoices','meldungen','documents','calendar','waschplan') then
+    raise exception 'Unbekannte oder nicht unterstützte Sektion: %', p_section;
+  end if;
+
+  insert into public.section_views (profile_id, section, last_seen_at)
+  values (auth.uid(), p_section, now())
+  on conflict (profile_id, section) do update set last_seen_at = now();
+end;
+$$;
+
+-- =====================================================================
+-- ZWEITER ADMIN — is_admin()/RLS sind bereits rollenbasiert (category =
+-- 'admin'), ein zweites Admin-Profil bekommt also automatisch überall
+-- dieselben Rechte. Die einzige Stelle, die bislang GENAU EIN Admin-Konto
+-- voraussetzt, ist get_admin_id() — sie bestimmt, an wen Mieter/Partner/
+-- Handwerker ihre Nachrichten und Nicht-Admin-Rechnungen automatisch
+-- adressiert bekommen. is_primary_admin macht diese Auswahl explizit
+-- und deterministisch (statt eines unspezifizierten "limit 1" über
+-- mehrere Admin-Zeilen), damit weiterhin klar EIN Konto der Standard-
+-- Ansprechpartner bleibt, auch wenn mehrere Admin-Konten existieren.
+-- =====================================================================
+
+alter table public.profiles
+  add column if not exists is_primary_admin boolean not null default false;
+
+create or replace function public.get_admin_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id from public.profiles
+  where category = 'admin' and status = 'active'
+  order by is_primary_admin desc, created_at asc
+  limit 1;
+$$;
+
+-- =====================================================================
+-- INTERNE ADMIN-TICKETS — einfaches Ticket-System NUR zwischen den
+-- Admin-Konten (z.B. Julia meldet einen Änderungswunsch an Marcel).
+-- Bewusst symmetrisch: beide Admins haben dieselben Rechte, also reicht
+-- eine einzige is_admin()-Regel für alles — keine Ersteller/Admin-
+-- Unterscheidung wie bei issue_reports nötig. updated_by (zusätzlich zu
+-- created_by) verhindert, dass die eigene Status-Änderung im
+-- Sidebar-Badge fälschlich als "neu für mich selbst" auftaucht.
+-- =====================================================================
+
+create type public.admin_ticket_status as enum ('offen', 'in_bearbeitung', 'erledigt');
+
+create table public.admin_tickets (
+  id               uuid primary key default gen_random_uuid(),
+  created_by       uuid not null references public.profiles(id) on delete cascade,
+  updated_by       uuid references public.profiles(id),
+  title            text not null,
+  description      text not null,
+  status           public.admin_ticket_status not null default 'offen',
+  resolution_note  text,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+create table public.admin_ticket_photos (
+  id          uuid primary key default gen_random_uuid(),
+  ticket_id   uuid not null references public.admin_tickets(id) on delete cascade,
+  file_path   text not null,
+  sort_order  int not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.admin_tickets       enable row level security;
+alter table public.admin_tickets       force row level security;
+alter table public.admin_ticket_photos enable row level security;
+alter table public.admin_ticket_photos force row level security;
+
+create policy admin_tickets_all on public.admin_tickets
+  for all using (public.is_admin()) with check (public.is_admin());
+create policy admin_ticket_photos_all on public.admin_ticket_photos
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create trigger trg_admin_tickets_touch_updated_at
+  before update on public.admin_tickets
+  for each row execute function public.touch_updated_at();
+
+insert into storage.buckets (id, name, public)
+values ('admin-ticket-photos', 'admin-ticket-photos', false)
+on conflict (id) do nothing;
+
+create policy storage_admin_ticket_photos_select on storage.objects
+  for select using (bucket_id = 'admin-ticket-photos' and public.is_admin());
+create policy storage_admin_ticket_photos_insert on storage.objects
+  for insert with check (bucket_id = 'admin-ticket-photos' and public.is_admin());
+create policy storage_admin_ticket_photos_delete on storage.objects
+  for delete using (bucket_id = 'admin-ticket-photos' and public.is_admin());
+
+-- Badge-Integration: neue Sektion "tickets" in section_views zulassen.
+alter table public.section_views drop constraint section_views_section_check;
+alter table public.section_views add constraint section_views_section_check
+  check (section in ('invoices','meldungen','documents','calendar','waschplan','tickets'));
+
+create or replace function public.mark_section_seen(p_section text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet.';
+  end if;
+  if p_section not in ('invoices','meldungen','documents','calendar','waschplan','tickets') then
+    raise exception 'Unbekannte oder nicht unterstützte Sektion: %', p_section;
+  end if;
+
+  insert into public.section_views (profile_id, section, last_seen_at)
+  values (auth.uid(), p_section, now())
+  on conflict (profile_id, section) do update set last_seen_at = now();
+end;
+$$;
+
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets);
+end;
+$$;
+
+-- =====================================================================
+-- RUNDSCHREIBEN — objektweite Ankündigungen, die automatisch alle
+-- aktuellen Mieter UND Eigentümer eines Objekts erreichen. Anders als
+-- bei documents/property_documents gibt es KEINE manuell gepflegte
+-- Empfängerliste — die Sichtbarkeit wird live aus tenancies/ownerships
+-- abgeleitet (gleiches Prinzip wie laundry_schedule_slots_select),
+-- damit ein neuer Mieter automatisch Zugriff bekommt und ein
+-- ausgezogener Mieter ihn automatisch wieder verliert.
+-- =====================================================================
+
+create table public.property_announcements (
+  id           uuid primary key default gen_random_uuid(),
+  property_id  uuid not null references public.properties(id) on delete cascade,
+  title        text not null,
+  body         text not null,
+  created_at   timestamptz not null default now(),
+  created_by   uuid references public.profiles(id)
+);
+
+alter table public.property_announcements enable row level security;
+alter table public.property_announcements force row level security;
+
+create policy property_announcements_select on public.property_announcements
+  for select using (
+    public.is_admin()
+    or exists (
+      select 1 from public.units u
+      join public.tenancies t on t.unit_id = u.id
+      where u.property_id = property_announcements.property_id
+        and t.tenant_profile_id = auth.uid() and t.status = 'active' and public.is_approved()
+    )
+    or exists (
+      select 1 from public.ownerships o
+      where (
+        o.property_id = property_announcements.property_id
+        or o.unit_id in (select id from public.units where property_id = property_announcements.property_id)
+      )
+      and o.owner_profile_id = auth.uid()
+      and (o.end_date is null or o.end_date >= current_date)
+      and public.is_approved()
+    )
+  );
+
+create policy property_announcements_admin_write on public.property_announcements
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Rundschreiben zählen als Teil des bestehenden "documents"-Badges mit
+-- (kein eigener Nav-Punkt) — dieselbe mark_section_seen('documents'),
+-- die documents.html beim Öffnen schon aufruft, löscht damit beide
+-- Signale gemeinsam. Kein Ausschluss der eigenen Aktion nötig: nur
+-- Admins dürfen Rundschreiben erstellen (RLS oben), Mieter/Eigentümer
+-- können sich also nie selbst benachrichtigen.
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_announcements int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_announcements
+  from public.property_announcements pa
+  where created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    )
+    and (
+      exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = pa.property_id
+          and t.tenant_profile_id = me and t.status = 'active' and public.is_approved()
+      )
+      or exists (
+        select 1 from public.ownerships o
+        where (o.property_id = pa.property_id or o.unit_id in (select id from public.units where property_id = pa.property_id))
+          and o.owner_profile_id = me
+          and (o.end_date is null or o.end_date >= current_date)
+          and public.is_approved()
+      )
+    );
+
+  c_documents := c_documents + c_announcements;
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets);
+end;
+$$;
+
+-- =====================================================================
+-- HAUSWART — BLOCK 1 (Enum-Wert allein, MUSS separat von Block 2
+-- ausgeführt werden — ALTER TYPE ... ADD VALUE darf laut Postgres nicht
+-- in derselben Transaktion verwendet werden, in der der neue Wert schon
+-- referenziert wird).
+-- =====================================================================
+
+alter type public.profile_category add value if not exists 'hauswart' after 'handwerker';
+
+-- =====================================================================
+-- HAUSWART — BLOCK 2 (erst NACH Block 1 ausführen): Sequenz+Präfix,
+-- Registrierungs-Freischaltung, property_permissions-Erweiterung,
+-- additive Lücken-Fixes (Rundschreiben/Waschplan/Objekt-Dokumente auch
+-- für reine Hauswart-Berechtigung sichtbar), neue Rapporte-Tabellen +
+-- RLS + Storage, Badge-Integration.
+-- =====================================================================
+
+create sequence public.seq_member_hauswart;
+
+create or replace function public.generate_member_number(cat public.profile_category)
+returns text
+language plpgsql
+as $$
+declare
+  prefix text;
+  n bigint;
+begin
+  case cat
+    when 'mieter'      then prefix := 'MI'; n := nextval('public.seq_member_mieter');
+    when 'eigentuemer' then prefix := 'EI'; n := nextval('public.seq_member_eigentuemer');
+    when 'partner'     then prefix := 'PA'; n := nextval('public.seq_member_partner');
+    when 'handwerker'  then prefix := 'HW'; n := nextval('public.seq_member_handwerker');
+    when 'hauswart'    then prefix := 'HA'; n := nextval('public.seq_member_hauswart');
+    when 'admin'       then prefix := 'AD'; n := nextval('public.seq_member_admin');
+    when 'firma'       then prefix := 'FI'; n := nextval('public.seq_member_firma');
+    when 'aemter'      then prefix := 'AM'; n := nextval('public.seq_member_aemter');
+  end case;
+  return prefix || '-' || lpad(n::text, 5, '0');
+end;
+$$;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_category text;
+  safe_category public.profile_category;
+begin
+  requested_category := new.raw_user_meta_data->>'category';
+
+  if requested_category in ('mieter','eigentuemer','partner','handwerker','hauswart','firma','aemter') then
+    safe_category := requested_category::public.profile_category;
+  else
+    safe_category := 'mieter';
+  end if;
+
+  insert into public.profiles (
+    id, member_number, category, status, email, phone,
+    first_name, last_name, address_street, address_zip, address_city
+  ) values (
+    new.id,
+    public.generate_member_number(safe_category),
+    safe_category,
+    'active',
+    new.email,
+    new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'first_name', ''),
+    coalesce(new.raw_user_meta_data->>'last_name', ''),
+    new.raw_user_meta_data->>'address_street',
+    new.raw_user_meta_data->>'address_zip',
+    new.raw_user_meta_data->>'address_city'
+  );
+  return new;
+end;
+$$;
+
+alter table public.property_permissions drop constraint property_permissions_permission_check;
+alter table public.property_permissions add constraint property_permissions_permission_check
+  check (permission in ('waschplan', 'hauswart'));
+
+-- Lücken-Fixes (additive Policies, nichts Bestehendes verändert):
+create policy property_documents_select_hauswart on public.property_documents
+  for select using (public.has_property_permission(property_documents.property_id, 'hauswart'));
+
+create policy storage_property_documents_select_hauswart on storage.objects
+  for select using (
+    bucket_id = 'property-documents'
+    and exists (
+      select 1 from public.property_documents pd
+      where pd.file_path = storage.objects.name
+        and public.has_property_permission(pd.property_id, 'hauswart')
+    )
+  );
+
+create policy property_announcements_select_hauswart on public.property_announcements
+  for select using (public.has_property_permission(property_announcements.property_id, 'hauswart'));
+
+create policy laundry_schedule_slots_select_hauswart on public.laundry_schedule_slots
+  for select using (public.has_property_permission(laundry_schedule_slots.property_id, 'hauswart'));
+
+create policy properties_hauswart_read on public.properties
+  for select using (public.has_property_permission(properties.id, 'hauswart'));
+
+-- =====================================================================
+-- RAPPORTE — eigene Tabelle (nicht issue_reports wiederverwendet, da
+-- die Melde-Berechtigung anders ist: Melder braucht zusätzlich eine
+-- property_permissions-Zeile mit permission='hauswart' für genau das
+-- gemeldete Objekt — direkt in der INSERT-Policy prüfbar).
+-- =====================================================================
+
+create type public.hauswart_report_status as enum ('offen', 'in_bearbeitung', 'erledigt', 'abgelehnt');
+
+create table public.hauswart_reports (
+  id                   uuid primary key default gen_random_uuid(),
+  reporter_profile_id  uuid not null references public.profiles(id) on delete cascade,
+  property_id          uuid not null references public.properties(id) on delete cascade,
+  title                text not null,
+  description          text not null,
+  status               public.hauswart_report_status not null default 'offen',
+  admin_note           text,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create table public.hauswart_report_photos (
+  id                   uuid primary key default gen_random_uuid(),
+  hauswart_report_id   uuid not null references public.hauswart_reports(id) on delete cascade,
+  file_path            text not null,
+  sort_order           int not null default 0,
+  created_at           timestamptz not null default now()
+);
+
+alter table public.hauswart_reports        enable row level security;
+alter table public.hauswart_report_photos  enable row level security;
+alter table public.hauswart_reports        force row level security;
+alter table public.hauswart_report_photos  force row level security;
+
+create policy hauswart_reports_select_own_or_admin on public.hauswart_reports
+  for select using (public.is_admin() or (reporter_profile_id = auth.uid() and public.is_approved()));
+create policy hauswart_reports_insert_own on public.hauswart_reports
+  for insert with check (
+    reporter_profile_id = auth.uid()
+    and public.is_approved()
+    and public.has_property_permission(property_id, 'hauswart')
+  );
+create policy hauswart_reports_admin_write on public.hauswart_reports
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create policy hauswart_report_photos_select_own_or_admin on public.hauswart_report_photos
+  for select using (
+    public.is_admin()
+    or exists (select 1 from public.hauswart_reports r where r.id = hauswart_report_photos.hauswart_report_id
+      and r.reporter_profile_id = auth.uid() and public.is_approved())
+  );
+create policy hauswart_report_photos_insert_own on public.hauswart_report_photos
+  for insert with check (
+    exists (select 1 from public.hauswart_reports r where r.id = hauswart_report_photos.hauswart_report_id
+      and r.reporter_profile_id = auth.uid() and r.status = 'offen' and public.is_approved())
+  );
+create policy hauswart_report_photos_delete_own on public.hauswart_report_photos
+  for delete using (
+    exists (select 1 from public.hauswart_reports r where r.id = hauswart_report_photos.hauswart_report_id
+      and r.reporter_profile_id = auth.uid() and r.status = 'offen' and public.is_approved())
+  );
+create policy hauswart_report_photos_admin_write on public.hauswart_report_photos
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create trigger trg_hauswart_reports_touch_updated_at
+  before update on public.hauswart_reports
+  for each row execute function public.touch_updated_at();
+
+insert into storage.buckets (id, name, public)
+values ('hauswart-report-photos', 'hauswart-report-photos', false)
+on conflict (id) do nothing;
+
+create policy storage_hauswart_report_photos_select on storage.objects
+  for select using (
+    bucket_id = 'hauswart-report-photos' and (
+      public.is_admin()
+      or exists (select 1 from public.hauswart_reports r
+        where r.id::text = (storage.foldername(storage.objects.name))[1]
+          and r.reporter_profile_id = auth.uid() and public.is_approved())
+    )
+  );
+create policy storage_hauswart_report_photos_insert on storage.objects
+  for insert with check (
+    bucket_id = 'hauswart-report-photos' and (
+      public.is_admin()
+      or exists (select 1 from public.hauswart_reports r
+        where r.id::text = (storage.foldername(storage.objects.name))[1]
+          and r.reporter_profile_id = auth.uid() and r.status = 'offen' and public.is_approved())
+    )
+  );
+create policy storage_hauswart_report_photos_delete on storage.objects
+  for delete using (
+    bucket_id = 'hauswart-report-photos' and (
+      public.is_admin()
+      or exists (select 1 from public.hauswart_reports r
+        where r.id::text = (storage.foldername(storage.objects.name))[1]
+          and r.reporter_profile_id = auth.uid() and r.status = 'offen' and public.is_approved())
+    )
+  );
+
+-- Badge-Integration: neue Sektion "rapporte", exakt nach dem
+-- "tickets"-Muster.
+alter table public.section_views drop constraint section_views_section_check;
+alter table public.section_views add constraint section_views_section_check
+  check (section in ('invoices','meldungen','documents','calendar','waschplan','tickets','rapporte'));
+
+create or replace function public.mark_section_seen(p_section text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet.';
+  end if;
+  if p_section not in ('invoices','meldungen','documents','calendar','waschplan','tickets','rapporte') then
+    raise exception 'Unbekannte oder nicht unterstützte Sektion: %', p_section;
+  end if;
+
+  insert into public.section_views (profile_id, section, last_seen_at)
+  values (auth.uid(), p_section, now())
+  on conflict (profile_id, section) do update set last_seen_at = now();
+end;
+$$;
+
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_announcements int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+  c_rapporte int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_announcements
+  from public.property_announcements pa
+  where created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    )
+    and (
+      exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = pa.property_id
+          and t.tenant_profile_id = me and t.status = 'active' and public.is_approved()
+      )
+      or exists (
+        select 1 from public.ownerships o
+        where (o.property_id = pa.property_id or o.unit_id in (select id from public.units where property_id = pa.property_id))
+          and o.owner_profile_id = me
+          and (o.end_date is null or o.end_date >= current_date)
+          and public.is_approved()
+      )
+      or public.has_property_permission(pa.property_id, 'hauswart')
+    );
+
+  c_documents := c_documents + c_announcements;
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or public.has_property_permission(l.property_id, 'hauswart')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  if am_admin then
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets),
+    ('rapporte',  c_rapporte);
+end;
+$$;
+
+-- =====================================================================
+-- TERMINBUCHUNG (ersetzt Calendly) — erste Funktion im Projekt, bei der
+-- ein NICHT eingeloggter Website-Besucher tatsächlich in die Datenbank
+-- schreibt. Verfügbarkeit + gesperrte Tage sind öffentlich lesbar
+-- (jeder Besucher braucht sie, um freie Zeiten zu berechnen); die
+-- eigentlichen Buchungen (mit Name/E-Mail/Telefon) sind für niemanden
+-- ausser Admin lesbar — anonyme Besucher bekommen nur reine Zeitstempel
+-- über get_available_slots() zurück, nie Personendaten. Die Buchung
+-- selbst läuft ausschliesslich über create_booking() (security
+-- definer), die Verfügbarkeit/gesperrte Tage/Überschneidungen
+-- serverseitig neu prüft — nie dem Client vertrauen, gleiche Konvention
+-- wie überall sonst in diesem Projekt.
+-- =====================================================================
+
+create table public.booking_availability (
+  id          uuid primary key default gen_random_uuid(),
+  weekday     public.weekday not null,
+  start_time  time not null,
+  end_time    time not null,
+  created_at  timestamptz not null default now(),
+  created_by  uuid references public.profiles(id),
+  check (end_time > start_time)
+);
+alter table public.booking_availability enable row level security;
+alter table public.booking_availability force row level security;
+create policy booking_availability_select_public on public.booking_availability
+  for select using (true);
+create policy booking_availability_admin_write on public.booking_availability
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create table public.booking_blocked_dates (
+  id           uuid primary key default gen_random_uuid(),
+  blocked_date date not null unique,
+  reason       text,
+  created_at   timestamptz not null default now(),
+  created_by   uuid references public.profiles(id)
+);
+alter table public.booking_blocked_dates enable row level security;
+alter table public.booking_blocked_dates force row level security;
+create policy booking_blocked_dates_select_public on public.booking_blocked_dates
+  for select using (true);
+create policy booking_blocked_dates_admin_write on public.booking_blocked_dates
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create type public.booking_status as enum ('bestaetigt', 'storniert');
+
+create table public.bookings (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  email       text not null,
+  phone       text,
+  message     text,
+  starts_at   timestamptz not null,
+  ends_at     timestamptz not null,
+  status      public.booking_status not null default 'bestaetigt',
+  created_at  timestamptz not null default now(),
+  check (ends_at > starts_at)
+);
+alter table public.bookings enable row level security;
+alter table public.bookings force row level security;
+create policy bookings_admin_all on public.bookings
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.get_available_slots(p_date date)
+returns setof timestamptz
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  duration interval := interval '60 minutes';
+  wd public.weekday;
+  win record;
+  slot_start timestamptz;
+  slot_end timestamptz;
+begin
+  if p_date < current_date then
+    return;
+  end if;
+  if exists (select 1 from public.booking_blocked_dates where blocked_date = p_date) then
+    return;
+  end if;
+
+  wd := (array['so','mo','di','mi','do','fr','sa'])[extract(dow from p_date)::int + 1];
+
+  for win in
+    select start_time, end_time from public.booking_availability where weekday = wd
+  loop
+    slot_start := p_date + win.start_time;
+    while slot_start + duration <= p_date + win.end_time loop
+      slot_end := slot_start + duration;
+      if slot_start > now() and not exists (
+        select 1 from public.bookings b
+        where b.status = 'bestaetigt' and b.starts_at < slot_end and b.ends_at > slot_start
+      ) then
+        return next slot_start;
+      end if;
+      slot_start := slot_end;
+    end loop;
+  end loop;
+  return;
+end;
+$$;
+
+create or replace function public.create_booking(
+  p_name text, p_email text, p_phone text, p_message text, p_starts_at timestamptz
+)
+returns public.bookings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  duration interval := interval '60 minutes';
+  slot_end timestamptz := p_starts_at + duration;
+  wd public.weekday;
+  slot_date date := p_starts_at::date;
+  result public.bookings;
+begin
+  if p_name is null or length(trim(p_name)) = 0 then
+    raise exception 'Name fehlt.';
+  end if;
+  if p_email is null or length(trim(p_email)) = 0 then
+    raise exception 'E-Mail fehlt.';
+  end if;
+  if p_starts_at < now() then
+    raise exception 'Termin liegt in der Vergangenheit.';
+  end if;
+  if exists (select 1 from public.booking_blocked_dates where blocked_date = slot_date) then
+    raise exception 'An diesem Tag sind keine Termine verfügbar.';
+  end if;
+
+  wd := (array['so','mo','di','mi','do','fr','sa'])[extract(dow from slot_date)::int + 1];
+  if not exists (
+    select 1 from public.booking_availability
+    where weekday = wd and start_time <= p_starts_at::time and end_time >= slot_end::time
+  ) then
+    raise exception 'Dieser Zeitpunkt liegt ausserhalb der Verfügbarkeit.';
+  end if;
+
+  if exists (
+    select 1 from public.bookings b
+    where b.status = 'bestaetigt' and b.starts_at < slot_end and b.ends_at > p_starts_at
+  ) then
+    raise exception 'Dieser Termin ist leider bereits vergeben.';
+  end if;
+
+  insert into public.bookings (name, email, phone, message, starts_at, ends_at)
+  values (trim(p_name), trim(p_email), nullif(trim(coalesce(p_phone,'')),''), nullif(trim(coalesce(p_message,'')),''), p_starts_at, slot_end)
+  returning * into result;
+
+  return result;
+end;
+$$;
+
+-- Badge-Integration: neue Sektion "termine", exakt nach dem
+-- "tickets"/"rapporte"-Muster.
+alter table public.section_views drop constraint section_views_section_check;
+alter table public.section_views add constraint section_views_section_check
+  check (section in ('invoices','meldungen','documents','calendar','waschplan','tickets','rapporte','termine'));
+
+create or replace function public.mark_section_seen(p_section text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet.';
+  end if;
+  if p_section not in ('invoices','meldungen','documents','calendar','waschplan','tickets','rapporte','termine') then
+    raise exception 'Unbekannte oder nicht unterstützte Sektion: %', p_section;
+  end if;
+
+  insert into public.section_views (profile_id, section, last_seen_at)
+  values (auth.uid(), p_section, now())
+  on conflict (profile_id, section) do update set last_seen_at = now();
+end;
+$$;
+
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_announcements int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+  c_rapporte int;
+  c_termine int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_announcements
+  from public.property_announcements pa
+  where created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    )
+    and (
+      exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = pa.property_id
+          and t.tenant_profile_id = me and t.status = 'active' and public.is_approved()
+      )
+      or exists (
+        select 1 from public.ownerships o
+        where (o.property_id = pa.property_id or o.unit_id in (select id from public.units where property_id = pa.property_id))
+          and o.owner_profile_id = me
+          and (o.end_date is null or o.end_date >= current_date)
+          and public.is_approved()
+      )
+      or public.has_property_permission(pa.property_id, 'hauswart')
+    );
+
+  c_documents := c_documents + c_announcements;
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or public.has_property_permission(l.property_id, 'hauswart')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  if am_admin then
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  if am_admin then
+    select count(*) into c_termine
+    from public.bookings
+    where status = 'bestaetigt'
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'termine'),
+        '-infinity'::timestamptz
+      );
+  else
+    c_termine := 0;
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets),
+    ('rapporte',  c_rapporte),
+    ('termine',   c_termine);
+end;
+$$;
+
+-- Nachtrag: Buchungen brauchen einen Bezug zum Objekt, um das es bei der
+-- Besichtigung/dem Beratungsgespräch geht (optional — ein
+-- Beratungsgespräch muss sich nicht auf ein bestimmtes Objekt beziehen).
+-- on delete set null statt cascade: eine gelöschte Liegenschaft darf eine
+-- vergangene Buchung nicht mit wegreissen, sie wird nur "objektlos".
+alter table public.bookings
+  add column if not exists property_id uuid references public.properties(id) on delete set null;
+
+-- create or replace kann keine neue Parameterliste an eine bestehende
+-- Funktion "anhängen" (Postgres würde sie sonst als zusätzliche,
+-- überladene Funktion daneben anlegen) — die alte 5-Parameter-Version
+-- muss darum zuerst explizit entfernt werden.
+drop function if exists public.create_booking(text, text, text, text, timestamptz);
+
+create or replace function public.create_booking(
+  p_name text, p_email text, p_phone text, p_message text, p_starts_at timestamptz, p_property_id uuid default null
+)
+returns public.bookings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  duration interval := interval '60 minutes';
+  slot_end timestamptz := p_starts_at + duration;
+  wd public.weekday;
+  slot_date date := p_starts_at::date;
+  result public.bookings;
+begin
+  if p_name is null or length(trim(p_name)) = 0 then
+    raise exception 'Name fehlt.';
+  end if;
+  if p_email is null or length(trim(p_email)) = 0 then
+    raise exception 'E-Mail fehlt.';
+  end if;
+  if p_starts_at < now() then
+    raise exception 'Termin liegt in der Vergangenheit.';
+  end if;
+  if p_property_id is not null and not exists (
+    select 1 from public.properties where id = p_property_id and visibility = 'public'
+  ) then
+    raise exception 'Objekt nicht gefunden.';
+  end if;
+  if exists (select 1 from public.booking_blocked_dates where blocked_date = slot_date) then
+    raise exception 'An diesem Tag sind keine Termine verfügbar.';
+  end if;
+
+  wd := (array['so','mo','di','mi','do','fr','sa'])[extract(dow from slot_date)::int + 1];
+  if not exists (
+    select 1 from public.booking_availability
+    where weekday = wd and start_time <= p_starts_at::time and end_time >= slot_end::time
+  ) then
+    raise exception 'Dieser Zeitpunkt liegt ausserhalb der Verfügbarkeit.';
+  end if;
+
+  if exists (
+    select 1 from public.bookings b
+    where b.status = 'bestaetigt' and b.starts_at < slot_end and b.ends_at > p_starts_at
+  ) then
+    raise exception 'Dieser Termin ist leider bereits vergeben.';
+  end if;
+
+  insert into public.bookings (name, email, phone, message, starts_at, ends_at, property_id)
+  values (trim(p_name), trim(p_email), nullif(trim(coalesce(p_phone,'')),''), nullif(trim(coalesce(p_message,'')),''), p_starts_at, slot_end, p_property_id)
+  returning * into result;
+
+  return result;
+end;
+$$;

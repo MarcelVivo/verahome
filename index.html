@@ -2,6 +2,19 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<script>
+/* Bekannter Konflikt zwischen CSS "scroll-behavior:smooth" (siehe
+   styles.css) und GSAP ScrollTrigger: Kommt man mit einem #anker in der
+   URL auf die Seite (z.B. von den Leistungs-Unterseiten via "Jetzt
+   anfragen" -> #kontakt), scrollt der Browser dorthin animiert — und
+   ScrollTriggers eigener Refresh-Zyklus beim Laden kollidiert mit dieser
+   laufenden Animation, was die Seite zurück nach oben reisst statt beim
+   Anker zu landen. Fix: beim ersten Laden hart auf "auto" schalten
+   (Inline-Style schlägt die CSS-Regel), nach dem Laden wieder auf
+   "smooth" zurückstellen (siehe grosses Script unten), damit normale
+   Klicks innerhalb der Seite weiterhin sanft scrollen. */
+document.documentElement.style.scrollBehavior = 'auto';
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vera Home Immobilien | Julia Allen | Fricktal &amp; Aargau</title>
 <meta name="description" content="Vera Home Immobilien – professionelle Hausverwaltung, STWEG, Mietverwaltung, Erstvermietung und Bauleitung im Fricktal. Julia Allen: persönlich, fair, erreichbar.">
@@ -196,13 +209,19 @@
 <!-- =================== MIETERTOOLS =================== -->
 <section id="mietertools">
   <div class="container">
-    <div class="section-head reveal">
+    <div class="section-head on-dark reveal">
       <span class="eyebrow">Service</span>
       <h2 data-i18n="tools_head">Tools für Mieter &amp; Eigentümer</h2>
       <p data-i18n="tools_sub">Alles was Sie brauchen – einfach, digital, direkt.</p>
       <div class="gold-line"></div>
     </div>
     <div class="tools-grid">
+      <div class="tool-card featured">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15" r="1.6"/></svg></div>
+        <h3 data-i18n="tool5_title">Vera Portal</h3>
+        <p data-i18n="tool5_text">Ihr persönlicher Zugang: Dokumente einsehen, Übergabeprotokolle unterschreiben oder ausfüllen – sicher eingeloggt.</p>
+        <a href="/portal/login.html" class="btn btn-dark" data-i18n="tool5_cta">Zum Vera Portal</a>
+      </div>
       <div class="tool-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h8l4 4v14h-12z"/><path d="M14.5 3v4h4"/><line x1="9" y1="12.5" x2="15" y2="12.5"/><line x1="9" y1="16.5" x2="13" y2="16.5"/></svg></div>
         <h3 data-i18n="tool1_title">Wohnung bewerben</h3>
@@ -212,7 +231,9 @@
           <input type="text" id="bw_name" placeholder="Ihr Name" required data-i18n-ph="ph_name">
           <input type="email" id="bw_email" placeholder="Ihre E-Mail" required data-i18n-ph="ph_email">
           <input type="tel" id="bw_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
-          <input type="text" id="bw_objekt" placeholder="Gewünschtes Objekt / Adresse" data-i18n-ph="ph_objekt">
+          <select id="bw_objekt" aria-label="Gewünschtes Objekt / Adresse">
+            <option value="" data-i18n="ph_objekt">Gewünschtes Objekt / Adresse</option>
+          </select>
           <label class="file-drop" for="bw_file"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7l-7.5 7.5a3 3 0 0 0 4.24 4.24L21 12.4a5 5 0 0 0-7.07-7.07L6.5 12.5a2 2 0 0 0 2.83 2.83L16 8.5"/></svg> <span data-i18n="ph_upload">Unterlagen hochladen (PDF, JPG – max. 10MB)</span></label>
           <input type="file" id="bw_file" class="visually-hidden" multiple accept=".pdf,.jpg,.jpeg,.png">
           <textarea id="bw_msg" placeholder="Kurze Vorstellung (optional)" data-i18n-ph="ph_intro"></textarea>
@@ -225,8 +246,22 @@
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="1.5"/><line x1="4" y1="9.5" x2="20" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/></svg></div>
         <h3 data-i18n="tool2_title">Termin vereinbaren</h3>
         <p data-i18n="tool2_text">Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch – zu einer Zeit, die Ihnen passt.</p>
-        <a href="https://calendly.com/verahome" target="_blank" rel="noopener" class="btn btn-dark" data-i18n="tool2_cta">Termin buchen</a>
-        <!-- TODO: Calendly-Link bestätigen -->
+        <button type="button" class="btn btn-dark" id="toggleBooking" data-i18n="tool2_cta" aria-expanded="false">Termin buchen</button>
+        <form class="upload-form" id="bookingForm">
+          <input type="date" id="bk_date" placeholder="Datum wählen" required>
+          <div class="booking-slots" id="bookingSlots"></div>
+          <div class="booking-details" id="bookingDetails" style="display:none;">
+            <select id="bk_property" aria-label="Betreffendes Objekt">
+              <option value="">Allgemeines Anliegen (kein bestimmtes Objekt)</option>
+            </select>
+            <input type="text" id="bk_name" placeholder="Ihr Name *" required>
+            <input type="email" id="bk_email" placeholder="Ihre E-Mail *" required>
+            <input type="tel" id="bk_phone" placeholder="Telefon (optional)">
+            <textarea id="bk_message" placeholder="Nachricht (optional)"></textarea>
+            <button type="submit" class="btn btn-primary">Termin bestätigen</button>
+          </div>
+          <p class="form-status" id="bookingStatus"></p>
+        </form>
       </div>
       <div class="tool-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H9l-4 3v-3H6a1.5 1.5 0 0 1-1.5-1.5z"/></svg></div>
@@ -239,12 +274,6 @@
         <h3 data-i18n="tool4_title">Formulare &amp; Checklisten</h3>
         <p data-i18n="tool4_text">Kostenlose Downloads: Miet-Checklisten, Übergabeprotokolle, Tipps für Eigentümer – unser Wissen für Sie.</p>
         <a href="#downloads" class="btn btn-dark" data-i18n="tool4_cta">Downloads ansehen</a>
-      </div>
-      <div class="tool-card">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15" r="1.6"/></svg></div>
-        <h3 data-i18n="tool5_title">Vera Portal</h3>
-        <p data-i18n="tool5_text">Ihr persönlicher Zugang: Dokumente einsehen, Übergabeprotokolle unterschreiben oder ausfüllen – sicher eingeloggt.</p>
-        <a href="/portal/login.html" class="btn btn-dark" data-i18n="tool5_cta">Zum Vera Portal</a>
       </div>
     </div>
   </div>
@@ -327,22 +356,22 @@
       <div class="download-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7.5 8l1.3 1.3L11 7"/><line x1="13" y1="8" x2="17" y2="8"/><path d="M7.5 13l1.3 1.3L11 12"/><line x1="13" y1="13" x2="17" y2="13"/><line x1="7.5" y1="17.5" x2="17" y2="17.5"/></svg></div>
         <h4 data-i18n="d1_title">Checkliste Wohnungsübergabe</h4>
-        <a href="public/downloads/checkliste-wohnungsuebergabe.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
+        <a href="public/Documents/PDF/Vera_Home_Checkliste_Wohnungsuebergabe.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
       </div>
       <div class="download-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7.5 8l1.3 1.3L11 7"/><line x1="13" y1="8" x2="17" y2="8"/><path d="M7.5 13l1.3 1.3L11 12"/><line x1="13" y1="13" x2="17" y2="13"/><line x1="7.5" y1="17.5" x2="17" y2="17.5"/></svg></div>
         <h4 data-i18n="d2_title">Tipps für Eigentümer</h4>
-        <a href="public/downloads/tipps-fuer-eigentuemer.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
+        <a href="public/Documents/PDF/Vera_Home_Tipps_fuer_Eigentuemer.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
       </div>
       <div class="download-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7.5 8l1.3 1.3L11 7"/><line x1="13" y1="8" x2="17" y2="8"/><path d="M7.5 13l1.3 1.3L11 12"/><line x1="13" y1="13" x2="17" y2="13"/><line x1="7.5" y1="17.5" x2="17" y2="17.5"/></svg></div>
         <h4 data-i18n="d3_title">Mietbewerbung – was brauche ich?</h4>
-        <a href="public/downloads/mietbewerbung-unterlagen.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
+        <a href="public/Documents/PDF/Vera_Home_Mietbewerbung_Unterlagen.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
       </div>
       <div class="download-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7.5 8l1.3 1.3L11 7"/><line x1="13" y1="8" x2="17" y2="8"/><path d="M7.5 13l1.3 1.3L11 12"/><line x1="13" y1="13" x2="17" y2="13"/><line x1="7.5" y1="17.5" x2="17" y2="17.5"/></svg></div>
         <h4 data-i18n="d4_title">STWEG – häufige Fragen</h4>
-        <a href="public/downloads/stweg-haeufige-fragen.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
+        <a href="public/Documents/PDF/Vera_Home_STWEG_haeufige_Fragen.pdf" download class="btn btn-primary" data-i18n="download_btn">Download</a>
       </div>
     </div>
   </div>
@@ -351,7 +380,7 @@
 <!-- =================== REGION =================== -->
 <section id="region">
   <div class="container">
-    <div class="section-head reveal">
+    <div class="section-head on-dark reveal">
       <span class="eyebrow">Standort</span>
       <h2 data-i18n="region_head">Verwurzelt im Fricktal</h2>
       <p data-i18n="region_text">Vera Home kennt das Fricktal wie die eigene Hosentasche. Lokale Marktkenntnisse, gewachsene Netzwerke und ein echtes Verständnis für die Region – das ist unser Heimvorteil.</p>
@@ -413,7 +442,7 @@
 <!-- =================== KONTAKT =================== -->
 <section id="kontakt">
   <div class="container">
-    <div class="section-head reveal">
+    <div class="section-head on-dark reveal">
       <span class="eyebrow">Kontakt</span>
       <h2 data-i18n="contact_head">Nehmen Sie Kontakt auf</h2>
       <p data-i18n="contact_sub">Wir freuen uns auf Ihre Nachricht – ob Frage, Anfrage oder erstes Gespräch.</p>
@@ -421,21 +450,26 @@
     </div>
     <div class="kontakt-grid">
       <form class="kontakt-form reveal" id="contactForm" novalidate>
-        <div>
-          <input type="text" id="c_name" placeholder="Name *" data-i18n-ph="ph_name_req" required>
-          <p class="field-error" data-i18n="err_name">Bitte geben Sie Ihren Namen ein.</p>
+        <div class="kontakt-form-row">
+          <div>
+            <input type="text" id="c_name" placeholder="Name *" data-i18n-ph="ph_name_req" required>
+            <p class="field-error" data-i18n="err_name">Bitte geben Sie Ihren Namen ein.</p>
+          </div>
+          <div>
+            <input type="email" id="c_email" placeholder="E-Mail *" data-i18n-ph="ph_email_req" required>
+            <p class="field-error" data-i18n="err_email">Bitte geben Sie eine gültige E-Mail-Adresse ein.</p>
+          </div>
         </div>
-        <div>
-          <input type="email" id="c_email" placeholder="E-Mail *" data-i18n-ph="ph_email_req" required>
-          <p class="field-error" data-i18n="err_email">Bitte geben Sie eine gültige E-Mail-Adresse ein.</p>
+        <div class="kontakt-form-row">
+          <input type="tel" id="c_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
         </div>
-        <input type="tel" id="c_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
         <select id="c_subject" aria-label="Betreff">
           <option value="Mietverwaltung" data-i18n="opt_1">Mietverwaltung</option>
           <option value="Stockwerkeigentum (STWEG)" data-i18n="opt_2">Stockwerkeigentum (STWEG)</option>
           <option value="Erstvermietung" data-i18n="opt_3">Erstvermietung</option>
           <option value="Bauleitung" data-i18n="opt_4">Bauleitung</option>
           <option value="Immobilienverkauf" data-i18n="opt_5">Immobilienverkauf</option>
+          <option value="Projektentwicklung" data-i18n="opt_8">Projektentwicklung</option>
           <option value="Wohnungsbewerbung" data-i18n="opt_6">Wohnungsbewerbung</option>
           <option value="Allgemeine Anfrage" data-i18n="opt_7">Allgemeine Anfrage</option>
         </select>
@@ -455,7 +489,7 @@
       </form>
       <div class="kontakt-info reveal">
         <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.2 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1v3.4c0 .6-.4 1-1 1C10.4 21 3 13.6 3 4.7c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.2 1.1z"/></svg></span><a href="tel:+41763368438">+41 76 336 84 38</a></div>
-        <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="M4 6.5l8 6.5 8-6.5"/></svg></span><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></div>
+        <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="M4 6.5l8 6.5 8-6.5"/></svg></span><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></div>
         <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H9l-4 3v-3H6a1.5 1.5 0 0 1-1.5-1.5z"/></svg></span><a href="https://wa.me/41763368438" target="_blank" rel="noopener">WhatsApp</a></div>
         <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span>Hauptstrasse 39, 5070 Frick</span></div>
         <div class="info-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></span><a href="https://www.verahome.ch">www.verahome.ch</a></div>
@@ -479,7 +513,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote" data-i18n="footer_quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -555,10 +589,182 @@
 })();
 </script>
 <script>
+/* Öffentliches Terminbuchungs-Widget ("Termin vereinbaren"-Kachel).
+   Bewusst getrennt vom grossen Script unten, eigener anonymer Client,
+   komplett in try/catch gekapselt — gleiches Muster wie die
+   #objekte-Anzeige oben: ein Supabase-Hänger hier darf niemals den Rest
+   der Seite stören. Lädt absichtlich NICHT portal-auth.js — hier reicht
+   ein anonymer, nicht eingeloggter Schreibzugriff über die
+   security-definer RPCs get_available_slots()/create_booking(). */
+(function(){
+  "use strict";
+  try {
+    if(!window.supabase || !window.VERA_SUPABASE_CONFIG) return;
+    var toggleBtn = document.getElementById('toggleBooking');
+    var form = document.getElementById('bookingForm');
+    if(!toggleBtn || !form) return;
+
+    var client = window.supabase.createClient(
+      window.VERA_SUPABASE_CONFIG.url,
+      window.VERA_SUPABASE_CONFIG.anonKey
+    );
+
+    var dateInput = document.getElementById('bk_date');
+    var slotsEl = document.getElementById('bookingSlots');
+    var detailsEl = document.getElementById('bookingDetails');
+    var statusEl = document.getElementById('bookingStatus');
+    var propertySelect = document.getElementById('bk_property');
+    var selectedSlot = null;
+
+    var todayStr = new Date().toISOString().slice(0,10);
+    dateInput.setAttribute('min', todayStr);
+
+    /* Objekt-Auswahl im aufgeklappten Formular: erst beim ersten
+       Aufklappen geladen (nicht schon beim Seitenaufbau), damit ein
+       Supabase-Hänger hier nie den Rest der Kachel blockiert. */
+    var propertiesLoaded = false;
+    toggleBtn.addEventListener('click', function(){
+      var open = form.classList.toggle('open');
+      toggleBtn.setAttribute('aria-expanded', open);
+      if(open && !propertiesLoaded){
+        propertiesLoaded = true;
+        client.from('properties').select('id, label, city').eq('visibility', 'public')
+          .then(function(res){
+            if(res.error || !res.data) return;
+            res.data.forEach(function(p){
+              var opt = document.createElement('option');
+              opt.value = p.id;
+              opt.textContent = p.label + (p.city ? ' (' + p.city + ')' : '');
+              propertySelect.appendChild(opt);
+            });
+          })
+          .catch(function(){ /* Auswahl bleibt auf "Allgemeines Anliegen" */ });
+      }
+    });
+
+    dateInput.addEventListener('change', async function(){
+      selectedSlot = null;
+      detailsEl.style.display = 'none';
+      statusEl.classList.remove('show');
+      if(!dateInput.value){ slotsEl.innerHTML = ''; return; }
+      slotsEl.innerHTML = '<p class="dash-empty" style="margin:0;">Freie Zeiten werden geladen …</p>';
+      var res = await client.rpc('get_available_slots', { p_date: dateInput.value });
+      if(res.error || !res.data || !res.data.length){
+        slotsEl.innerHTML = '<p class="dash-empty" style="margin:0;">Keine freien Termine an diesem Tag.</p>';
+        return;
+      }
+      slotsEl.innerHTML = res.data.map(function(iso){
+        var d = new Date(iso);
+        var label = d.toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+        return '<button type="button" class="booking-slot-btn" data-iso="'+iso+'">'+label+'</button>';
+      }).join('');
+      slotsEl.querySelectorAll('.booking-slot-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          slotsEl.querySelectorAll('.booking-slot-btn').forEach(function(b){ b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          selectedSlot = btn.getAttribute('data-iso');
+          detailsEl.style.display = 'flex';
+        });
+      });
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      if(!selectedSlot){
+        statusEl.textContent = 'Bitte zuerst eine Uhrzeit auswählen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      var name = document.getElementById('bk_name').value.trim();
+      var email = document.getElementById('bk_email').value.trim();
+      if(!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        statusEl.textContent = 'Bitte Name und eine gültige E-Mail-Adresse angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+
+      statusEl.textContent = 'Termin wird gebucht …';
+      statusEl.classList.add('show');
+
+      var res = await client.rpc('create_booking', {
+        p_name: name,
+        p_email: email,
+        p_phone: document.getElementById('bk_phone').value.trim() || null,
+        p_message: document.getElementById('bk_message').value.trim() || null,
+        p_starts_at: selectedSlot,
+        p_property_id: propertySelect.value || null
+      });
+
+      if(res.error){
+        statusEl.textContent = 'Fehler: ' + res.error.message;
+        return;
+      }
+
+      try {
+        await client.functions.invoke('send-booking-notification', { body: { bookingId: res.data.id } });
+      } catch(notifyErr) { /* Buchung ist bereits erfolgreich – Mail-Fehler blockiert nichts */ }
+
+      statusEl.textContent = 'Termin bestätigt! Wir freuen uns auf Sie.';
+      form.reset();
+      slotsEl.innerHTML = '';
+      detailsEl.style.display = 'none';
+      selectedSlot = null;
+    });
+  } catch(e) { /* dekorativ-kritisch, aber Fehler hier dürfen nie die restliche Seite stören */ }
+})();
+</script>
+<script>
+/* Öffentliche Objekt-Auswahl im "Wohnung bewerben"-Formular.
+   Bewusst getrennt vom grossen Script unten, eigener anonymer Client,
+   komplett in try/catch gekapselt — gleiches Muster wie die
+   #objekte-Anzeige und das Buchungs-Widget oben. Da dieses Formular
+   nur einen mailto:-Link baut (kein Supabase-Insert), reicht ein
+   Klartext-Wert je Option statt der Objekt-ID. */
+(function(){
+  "use strict";
+  try {
+    if(!window.supabase || !window.VERA_SUPABASE_CONFIG) return;
+    var toggleBtn = document.getElementById('toggleBewerbung');
+    var select = document.getElementById('bw_objekt');
+    if(!toggleBtn || !select) return;
+
+    var client = window.supabase.createClient(
+      window.VERA_SUPABASE_CONFIG.url,
+      window.VERA_SUPABASE_CONFIG.anonKey
+    );
+
+    var loaded = false;
+    toggleBtn.addEventListener('click', function(){
+      if(loaded) return;
+      loaded = true;
+      client.from('properties').select('id, label, city').eq('visibility', 'public')
+        .then(function(res){
+          if(res.error || !res.data) return;
+          res.data.forEach(function(p){
+            var opt = document.createElement('option');
+            opt.value = p.label + (p.city ? ', ' + p.city : '');
+            opt.textContent = p.label + (p.city ? ' (' + p.city + ')' : '');
+            select.appendChild(opt);
+          });
+        })
+        .catch(function(){ /* Auswahl bleibt beim Standard-Eintrag */ });
+    });
+  } catch(e) { /* dekorativ – Fehler hier dürfen nie auffallen */ }
+})();
+</script>
+<script>
 (function(){
 "use strict";
 
 var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Gegenstück zum Inline-Script im <head>: sobald die Seite (inkl. aller
+   ScrollTrigger-Refreshes beim "load"-Event) fertig aufgebaut ist, das
+   harte scroll-behavior:auto wieder aufheben, damit normale Klicks
+   innerhalb der Seite (Navigation, "Nach oben") wieder sanft scrollen. */
+window.addEventListener('load', function(){
+  setTimeout(function(){ document.documentElement.style.scrollBehavior = ''; }, 100);
+});
 
 /* ============================================================
    TRANSLATIONS
@@ -616,7 +822,7 @@ var translations = {
     faq_q6:"Kann ich Wohnungsbewerbungen digital einreichen?", faq_a6:"Ja – direkt über unsere Website unter «Mietertools». Einfach, schnell und sicher.",
     contact_head:"Nehmen Sie Kontakt auf", contact_sub:"Wir freuen uns auf Ihre Nachricht – ob Frage, Anfrage oder erstes Gespräch.",
     ph_name_req:"Name *", ph_email_req:"E-Mail *", ph_message_req:"Nachricht *",
-    opt_1:"Mietverwaltung", opt_2:"Stockwerkeigentum (STWEG)", opt_3:"Erstvermietung", opt_4:"Bauleitung", opt_5:"Immobilienverkauf", opt_6:"Wohnungsbewerbung", opt_7:"Allgemeine Anfrage",
+    opt_1:"Mietverwaltung", opt_2:"Stockwerkeigentum (STWEG)", opt_3:"Erstvermietung", opt_4:"Bauleitung", opt_5:"Immobilienverkauf", opt_6:"Wohnungsbewerbung", opt_7:"Allgemeine Anfrage", opt_8:"Projektentwicklung",
     privacy_text:"Ich bin mit der Verarbeitung meiner Daten gemäss Datenschutzerklärung einverstanden. *",
     err_name:"Bitte geben Sie Ihren Namen ein.", err_email:"Bitte geben Sie eine gültige E-Mail-Adresse ein.", err_message:"Bitte geben Sie eine Nachricht ein.", err_privacy:"Bitte stimmen Sie der Datenschutzerklärung zu.",
     contact_submit:"Nachricht senden", opening_hours:"Mo–Fr 08:00–18:00 Uhr · Sa nach Vereinbarung",
@@ -675,7 +881,7 @@ var translations = {
     faq_q6:"Can I submit rental applications digitally?", faq_a6:"Yes – directly on our website under 'Tenant Tools'. Simple, fast and secure.",
     contact_head:"Get in Touch", contact_sub:"We look forward to your message – whether a question, enquiry or first conversation.",
     ph_name_req:"Name *", ph_email_req:"E-mail *", ph_message_req:"Message *",
-    opt_1:"Rental management", opt_2:"Condominium (STWEG)", opt_3:"Initial letting", opt_4:"Construction management", opt_5:"Property sale", opt_6:"Rental application", opt_7:"General enquiry",
+    opt_1:"Rental management", opt_2:"Condominium (STWEG)", opt_3:"Initial letting", opt_4:"Construction management", opt_5:"Property sale", opt_6:"Rental application", opt_7:"General enquiry", opt_8:"Project development",
     privacy_text:"I agree to the processing of my data in accordance with the privacy policy. *",
     err_name:"Please enter your name.", err_email:"Please enter a valid e-mail address.", err_message:"Please enter a message.", err_privacy:"Please agree to the privacy policy.",
     contact_submit:"Send message", opening_hours:"Mon–Fri 08:00–18:00 · Sat by appointment",
@@ -2099,12 +2305,32 @@ bewerbungForm.addEventListener('submit', function(e){
   var msg = document.getElementById('bw_msg').value.trim();
   var body = 'Name: ' + name + '\nE-Mail: ' + email + '\nObjekt: ' + objekt + '\n\n' + msg +
     '\n\n(Hinweis: Unterlagen bitte als Anhang separat an diese E-Mail anhängen.)';
-  window.location.href = 'mailto:julia.allen@gmx.ch?subject=' + encodeURIComponent('Wohnungsbewerbung – ' + name) + '&body=' + encodeURIComponent(body);
+  window.location.href = 'mailto:welcome@verahome.ch?subject=' + encodeURIComponent('Wohnungsbewerbung – ' + name) + '&body=' + encodeURIComponent(body);
 });
 
 /* ============================================================
    CONTACT FORM VALIDATION
 ============================================================ */
+/* Die "Jetzt anfragen"-Buttons auf den 6 Leistungs-Unterseiten
+   (/leistungen/*.html) verlinken auf /index.html?betreff=<slug>#kontakt —
+   das passende Thema wird hier im Betreff-Dropdown vorausgewählt, damit
+   die Anfrage nicht ohne Kontext ankommt. */
+var BETREFF_SLUG_MAP = {
+  stockwerkeigentum: 'Stockwerkeigentum (STWEG)',
+  mietverwaltung: 'Mietverwaltung',
+  erstvermietung: 'Erstvermietung',
+  bauleitung: 'Bauleitung',
+  immobilienverkauf: 'Immobilienverkauf',
+  projektentwicklung: 'Projektentwicklung'
+};
+(function(){
+  var slug = new URLSearchParams(window.location.search).get('betreff');
+  var subjectValue = slug && BETREFF_SLUG_MAP[slug];
+  if(!subjectValue) return;
+  var subjectSelect = document.getElementById('c_subject');
+  if(subjectSelect) subjectSelect.value = subjectValue;
+})();
+
 var contactForm = document.getElementById('contactForm');
 contactForm.addEventListener('submit', function(e){
   e.preventDefault();
@@ -2135,7 +2361,7 @@ contactForm.addEventListener('submit', function(e){
   var body = 'Name: ' + name.value.trim() + '\nE-Mail: ' + email.value.trim() +
     (tel ? ('\nTelefon: ' + tel) : '') + '\nBetreff: ' + subject + '\n\n' + message.value.trim();
 
-  window.location.href = 'mailto:julia.allen@gmx.ch?subject=' + encodeURIComponent('Anfrage: ' + subject) + '&body=' + encodeURIComponent(body);
+  window.location.href = 'mailto:welcome@verahome.ch?subject=' + encodeURIComponent('Anfrage: ' + subject) + '&body=' + encodeURIComponent(body);
 
   var status = document.getElementById('contactStatus');
   status.textContent = translations[currentLang].form_success;

@@ -87,6 +87,7 @@
 
       <div class="dash-card">
         <h2>Objekte &amp; Einheiten</h2>
+        <input type="text" class="dash-search-input" id="propertySearch" placeholder="Suchen nach Bezeichnung, Strasse, Ort …">
         <div id="propertiesList"></div>
       </div>
     </section>
@@ -101,7 +102,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -167,26 +168,39 @@
     });
 
     loadAll();
+    document.getElementById('propertySearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderPropertiesList(allProperties.filter(function(p){
+        return VeraDashboard.matchesSearch([p.label, p.street, p.zip, p.city], q);
+      }));
+    });
   }
+
+  var allProperties = [];
+  var allUnits = [];
 
   async function loadAll(){
     var propRes = await client.from('properties').select('*').order('label');
-    var properties = propRes.data || [];
+    allProperties = propRes.data || [];
 
     var propSel = document.getElementById('u_property');
     propSel.innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
-      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+      allProperties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
 
     var unitsRes = await client.from('units').select('*').order('label');
-    var units = unitsRes.data || [];
+    allUnits = unitsRes.data || [];
 
+    renderPropertiesList(allProperties);
+  }
+
+  function renderPropertiesList(properties){
     var listEl = document.getElementById('propertiesList');
     if(!properties.length){
-      listEl.innerHTML = '<p class="dash-empty">Noch keine Objekte vorhanden.</p>';
+      listEl.innerHTML = '<p class="dash-empty">'+(allProperties.length?'Keine Treffer.':'Noch keine Objekte vorhanden.')+'</p>';
       return;
     }
     listEl.innerHTML = properties.map(function(p){
-      var propUnits = units.filter(function(u){ return u.property_id === p.id; });
+      var propUnits = allUnits.filter(function(u){ return u.property_id === p.id; });
       var visBadge = p.visibility === 'public'
         ? '<span class="status-badge active">Öffentlich</span>'
         : '<span class="status-badge pending">Privat</span>';
@@ -279,7 +293,23 @@
       '<p class="doc-meta" style="margin-bottom:8px;">Wer ausser Ihnen darf den Waschplan dieses Objekts bearbeiten?</p>' +
       '<div class="prop-user-picker" id="laundryPermUsers-'+propertyId+'"></div>' +
       '<button type="button" class="dash-btn-sm" id="laundryPermSaveBtn-'+propertyId+'">Berechtigung speichern</button>' +
-      '<p class="form-status" id="laundryPermStatus-'+propertyId+'"></p>';
+      '<p class="form-status" id="laundryPermStatus-'+propertyId+'"></p>' +
+
+      '<h3 style="font-size:.95rem;margin:24px 0 10px;">Hauswart-Zuweisung</h3>' +
+      '<p class="doc-meta" style="margin-bottom:8px;">Welche Hauswarte sind für dieses Objekt verantwortlich? Sie sehen automatisch Rundschreiben, Waschplan (nur lesend) und alle Objekt-Dokumente.</p>' +
+      '<div class="prop-user-picker" id="hauswartUsers-'+propertyId+'"></div>' +
+      '<button type="button" class="dash-btn-sm" id="hauswartSaveBtn-'+propertyId+'">Zuweisung speichern</button>' +
+      '<p class="form-status" id="hauswartStatus-'+propertyId+'"></p>' +
+
+      '<h3 style="font-size:.95rem;margin:24px 0 10px;">Rundschreiben</h3>' +
+      '<p class="doc-meta" style="margin-bottom:8px;">Erreicht automatisch alle aktuellen Mieter und Eigentümer dieses Objekts.</p>' +
+      '<form class="auth-form" id="announceForm-'+propertyId+'">' +
+        '<input id="announceTitle-'+propertyId+'" placeholder="Titel *" required>' +
+        '<textarea id="announceBody-'+propertyId+'" placeholder="Text *" required></textarea>' +
+        '<button type="submit" class="dash-btn-sm">Veröffentlichen</button>' +
+        '<p class="form-status" id="announceStatus-'+propertyId+'"></p>' +
+      '</form>' +
+      '<div id="announcementsList-'+propertyId+'" style="margin-top:12px;"></div>';
 
     loadThumbs(propertyId);
     loadUserPicker(propertyId);
@@ -287,6 +317,25 @@
     loadLaundryWeek(propertyId);
     loadLaundryUnits(propertyId);
     loadLaundryPermissions(propertyId);
+    loadHauswartAssignments(propertyId);
+    loadPropertyAnnouncements(propertyId);
+
+    document.getElementById('announceForm-'+propertyId).addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('announceStatus-'+propertyId);
+      var title = document.getElementById('announceTitle-'+propertyId).value.trim();
+      var body = document.getElementById('announceBody-'+propertyId).value.trim();
+      if(!title || !body){ statusEl.textContent = 'Bitte Titel und Text angeben.'; statusEl.classList.add('show'); return; }
+      var res = await client.from('property_announcements').insert({
+        property_id: propertyId, title: title, body: body, created_by: profile.id
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Rundschreiben veröffentlicht.';
+      statusEl.classList.add('show');
+      if(!res.error){
+        document.getElementById('announceForm-'+propertyId).reset();
+        loadPropertyAnnouncements(propertyId);
+      }
+    });
 
     document.getElementById('imgUploadBtn-'+propertyId).addEventListener('click', function(){
       uploadImages(propertyId);
@@ -302,6 +351,66 @@
     });
     document.getElementById('laundryPermSaveBtn-'+propertyId).addEventListener('click', function(){
       saveLaundryPermissions(propertyId);
+    });
+    document.getElementById('hauswartSaveBtn-'+propertyId).addEventListener('click', function(){
+      saveHauswartAssignments(propertyId);
+    });
+  }
+
+  async function loadHauswartAssignments(propertyId){
+    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').eq('category', 'hauswart').order('last_name');
+    var users = usersRes.data || [];
+    var permsRes = await client.from('property_permissions').select('profile_id').eq('property_id', propertyId).eq('permission', 'hauswart');
+    var grantedIds = (permsRes.data || []).map(function(p){ return p.profile_id; });
+
+    var el = document.getElementById('hauswartUsers-'+propertyId);
+    el.innerHTML = users.map(function(u){
+      var checked = grantedIds.indexOf(u.id) > -1 ? ' checked' : '';
+      return '<label><input type="checkbox" value="'+u.id+'"'+checked+'> '+VeraDashboard.escapeHtml(u.last_name+' '+u.first_name)+' ('+VeraDashboard.escapeHtml(u.member_number)+')</label>';
+    }).join('') || '<p class="dash-empty">Keine Hauswart-Nutzer vorhanden.</p>';
+  }
+
+  async function saveHauswartAssignments(propertyId){
+    var statusEl = document.getElementById('hauswartStatus-'+propertyId);
+    var checkedIds = Array.prototype.slice.call(
+      document.querySelectorAll('#hauswartUsers-'+propertyId+' input:checked')
+    ).map(function(c){ return c.value; });
+
+    await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'hauswart');
+    if(checkedIds.length){
+      var insRes = await client.from('property_permissions').insert(
+        checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'hauswart', created_by: profile.id }; })
+      );
+      if(insRes.error){ statusEl.textContent = 'Fehler: ' + insRes.error.message; statusEl.classList.add('show'); return; }
+    }
+    statusEl.textContent = 'Zuweisung gespeichert.';
+    statusEl.classList.add('show');
+  }
+
+  async function loadPropertyAnnouncements(propertyId){
+    var res = await client.from('property_announcements').select('*').eq('property_id', propertyId).order('created_at', { ascending:false });
+    renderAnnouncementsList(propertyId, res.data || []);
+  }
+
+  function renderAnnouncementsList(propertyId, rows){
+    var el = document.getElementById('announcementsList-'+propertyId);
+    if(!rows.length){ el.innerHTML = '<p class="dash-empty">Noch keine Rundschreiben für dieses Objekt.</p>'; return; }
+    el.innerHTML = rows.map(function(a){
+      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;">' +
+          '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>' +
+          '<span class="doc-meta">'+VeraDashboard.formatDateTime(a.created_at)+'</span></div>' +
+          '<button type="button" class="prop-icon-btn danger del-announce-btn" data-id="'+a.id+'">✕</button>' +
+        '</div>' +
+        '<p style="margin:6px 0 0;font-size:.88rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(a.body)+'</p>' +
+      '</div>';
+    }).join('');
+    el.querySelectorAll('.del-announce-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        if(!window.confirm('Rundschreiben wirklich löschen?')) return;
+        await client.from('property_announcements').delete().eq('id', btn.getAttribute('data-id'));
+        loadPropertyAnnouncements(propertyId);
+      });
     });
   }
 

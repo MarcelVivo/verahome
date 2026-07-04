@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { invoiceId } = await req.json();
+    const { invoiceId, reminder } = await req.json();
     if (!invoiceId) {
       return new Response(JSON.stringify({ error: "invoiceId fehlt." }), {
         status: 400,
@@ -118,6 +118,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // A reminder only makes sense for a still-open invoice — checked
+    // server-side, never trusting the client's own overdue computation.
+    if (reminder && invoice.status !== "offen") {
+      return new Response(JSON.stringify({ error: "Rechnung ist nicht mehr offen." }), {
+        status: 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const [{ data: lineItems }, { data: issuer }, { data: recipient }] = await Promise.all([
       adminClient.from("invoice_line_items").select("*").eq("invoice_id", invoiceId).order("sort_order"),
       adminClient.from("profiles").select("*").eq("id", invoice.issuer_profile_id).single(),
@@ -135,6 +144,13 @@ Deno.serve(async (req) => {
       issuer && issuer.category !== "admin" ? `${issuer.last_name} ${issuer.first_name}` : "Vera Home Immobilien";
     const categoryLabel = CATEGORY_TEXT[invoice.category] || invoice.category;
     const detailUrl = `https://www.verahome.ch/portal/invoice-detail.html?id=${invoice.id}`;
+
+    const subject = reminder
+      ? `Zahlungserinnerung: Rechnung ${invoice.invoice_number}`
+      : `Neue Rechnung ${invoice.invoice_number} — ${categoryLabel}`;
+    const introText = reminder
+      ? `Wir möchten Sie freundlich daran erinnern, dass folgende Rechnung noch nicht bezahlt wurde (fällig seit ${fmtDate(invoice.due_date)}).`
+      : `${escapeHtml(issuerLabel)} hat Ihnen soeben eine neue Rechnung über das Vera Portal gestellt.`;
 
     const rowsHtml = (lineItems || [])
       .map(
@@ -156,9 +172,9 @@ Deno.serve(async (req) => {
 
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:600px;">
-        <h2 style="color:#1a2a40;">Neue Rechnung ${escapeHtml(invoice.invoice_number)}</h2>
+        <h2 style="color:#1a2a40;">${reminder ? "Zahlungserinnerung" : "Neue Rechnung"} ${escapeHtml(invoice.invoice_number)}</h2>
         <p>Guten Tag ${escapeHtml(recipient.first_name)},</p>
-        <p>${escapeHtml(issuerLabel)} hat Ihnen soeben eine neue Rechnung über das Vera Portal gestellt.</p>
+        <p>${introText}</p>
         <table style="margin:12px 0;"><tbody>
           <tr><td style="padding:2px 10px 2px 0;color:#555;">Kategorie</td><td>${escapeHtml(categoryLabel)}</td></tr>
           <tr><td style="padding:2px 10px 2px 0;color:#555;">Fällig bis</td><td>${fmtDate(invoice.due_date)}</td></tr>
@@ -194,7 +210,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: "Vera Home Immobilien <rechnungen@verahome.ch>",
         to: [recipient.email],
-        subject: `Neue Rechnung ${invoice.invoice_number} — ${categoryLabel}`,
+        subject,
         html,
       }),
     });

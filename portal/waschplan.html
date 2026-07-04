@@ -71,7 +71,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -150,6 +150,18 @@
     (permsRes.data || []).forEach(function(perm){
       if(perm.properties){
         map[perm.properties.id] = { id: perm.properties.id, label: perm.properties.label, canEdit: true };
+      }
+    });
+
+    // Hauswart: nur lesend, und nie ein bestehendes canEdit:true (aus
+    // Mietverhältnis oder expliziter Waschplan-Berechtigung) überschreiben.
+    var hauswartRes = await client.from('property_permissions')
+      .select('property_id, properties(id,label)')
+      .eq('profile_id', profile.id)
+      .eq('permission', 'hauswart');
+    (hauswartRes.data || []).forEach(function(perm){
+      if(perm.properties && !map[perm.properties.id]){
+        map[perm.properties.id] = { id: perm.properties.id, label: perm.properties.label, canEdit: false };
       }
     });
 

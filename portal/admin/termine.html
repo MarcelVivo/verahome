@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Termine | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Terminverfügbarkeit und Buchungen verwalten im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Termine</h1>
+      <p class="dash-lead">Verfügbarkeit für die öffentliche Terminbuchung festlegen und eingehende Buchungen verwalten.</p>
+
+      <div class="dash-card">
+        <h2>Verfügbarkeit</h2>
+        <p class="doc-meta" style="margin-bottom:8px;">Feste Wochentage/Uhrzeiten, in denen Besucher auf der Website einen 60-Minuten-Termin buchen können.</p>
+        <form class="auth-form" id="newAvailabilityForm">
+          <select id="av_weekday" aria-label="Wochentag" required>
+            <option value="mo">Montag</option><option value="di">Dienstag</option><option value="mi">Mittwoch</option>
+            <option value="do">Donnerstag</option><option value="fr">Freitag</option><option value="sa">Samstag</option><option value="so">Sonntag</option>
+          </select>
+          <div class="auth-form-row">
+            <div><input type="time" id="av_start" aria-label="Von" required></div>
+            <div><input type="time" id="av_end" aria-label="Bis" required></div>
+          </div>
+          <button type="submit" class="dash-btn-sm">Hinzufügen</button>
+          <p class="form-status" id="availabilityStatus"></p>
+        </form>
+        <table class="dash-table" id="availabilityTable" style="margin-top:16px;"></table>
+      </div>
+
+      <div class="dash-card">
+        <h2>Gesperrte Tage</h2>
+        <p class="doc-meta" style="margin-bottom:8px;">An diesen Tagen erscheinen keine freien Termine (z.B. Ferien, Feiertage).</p>
+        <form class="auth-form" id="newBlockedForm">
+          <input type="date" id="bd_date" placeholder="Datum wählen" required>
+          <input type="text" id="bd_reason" placeholder="Grund (optional)">
+          <button type="submit" class="dash-btn-sm">Sperren</button>
+          <p class="form-status" id="blockedStatus"></p>
+        </form>
+        <table class="dash-table" id="blockedTable" style="margin-top:16px;"></table>
+      </div>
+
+      <div class="dash-card">
+        <h2>Buchungen</h2>
+        <input type="text" class="dash-search-input" id="bookingSearch" placeholder="Suchen nach Name, E-Mail, Status …">
+        <table class="dash-table" id="bookingsTable"></table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/index.html#impressum">Impressum</a><a href="/index.html#datenschutz">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile;
+
+  var WEEKDAY_LABEL = { mo:'Montag', di:'Dienstag', mi:'Mittwoch', do:'Donnerstag', fr:'Freitag', sa:'Samstag', so:'Sonntag' };
+  var WEEKDAY_ORDER = ['mo','di','mi','do','fr','sa','so'];
+  var STATUS_LABEL = { bestaetigt: 'Bestätigt', storniert: 'Storniert' };
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    VeraDashboard.renderSidebar('termine', ctx.profile);
+    client = VeraPortal.getClient();
+
+    document.getElementById('newAvailabilityForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('availabilityStatus');
+      var start = document.getElementById('av_start').value;
+      var end = document.getElementById('av_end').value;
+      if(!start || !end || end <= start){
+        statusEl.textContent = 'Ende muss nach Start liegen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      var res = await client.from('booking_availability').insert({
+        weekday: document.getElementById('av_weekday').value,
+        start_time: start, end_time: end, created_by: profile.id
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Hinzugefügt.';
+      statusEl.classList.add('show');
+      if(!res.error){ document.getElementById('newAvailabilityForm').reset(); loadAvailability(); }
+    });
+
+    document.getElementById('newBlockedForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('blockedStatus');
+      var date = document.getElementById('bd_date').value;
+      if(!date){ statusEl.textContent = 'Bitte Datum wählen.'; statusEl.classList.add('show'); return; }
+      var res = await client.from('booking_blocked_dates').insert({
+        blocked_date: date,
+        reason: document.getElementById('bd_reason').value.trim() || null,
+        created_by: profile.id
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Tag gesperrt.';
+      statusEl.classList.add('show');
+      if(!res.error){ document.getElementById('newBlockedForm').reset(); loadBlockedDates(); }
+    });
+
+    document.getElementById('bookingSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderBookingsTable(allBookings.filter(function(b){
+        return VeraDashboard.matchesSearch([b.name, b.email, b.phone, STATUS_LABEL[b.status], b.properties && b.properties.label], q);
+      }));
+    });
+
+    loadAvailability();
+    loadBlockedDates();
+    loadBookings();
+  });
+
+  async function loadAvailability(){
+    var res = await client.from('booking_availability').select('*');
+    var rows = (res.data || []).sort(function(a,b){
+      var wa = WEEKDAY_ORDER.indexOf(a.weekday), wb = WEEKDAY_ORDER.indexOf(b.weekday);
+      return wa !== wb ? wa - wb : a.start_time.localeCompare(b.start_time);
+    });
+    var table = document.getElementById('availabilityTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Verfügbarkeit festgelegt.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Wochentag</th><th>Von</th><th>Bis</th><th></th></tr>' +
+      rows.map(function(r){
+        return '<tr><td>'+WEEKDAY_LABEL[r.weekday]+'</td>' +
+          '<td>'+r.start_time.slice(0,5)+'</td><td>'+r.end_time.slice(0,5)+'</td>' +
+          '<td><button type="button" class="dash-btn-sm danger del-availability-btn" data-id="'+r.id+'">Entfernen</button></td></tr>';
+      }).join('');
+    table.querySelectorAll('.del-availability-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await client.from('booking_availability').delete().eq('id', btn.getAttribute('data-id'));
+        loadAvailability();
+      });
+    });
+  }
+
+  async function loadBlockedDates(){
+    var res = await client.from('booking_blocked_dates').select('*').order('blocked_date');
+    var rows = res.data || [];
+    var table = document.getElementById('blockedTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine gesperrten Tage.</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Datum</th><th>Grund</th><th></th></tr>' +
+      rows.map(function(r){
+        return '<tr><td>'+VeraDashboard.formatDate(r.blocked_date)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(r.reason||'–')+'</td>' +
+          '<td><button type="button" class="dash-btn-sm danger del-blocked-btn" data-id="'+r.id+'">Entfernen</button></td></tr>';
+      }).join('');
+    table.querySelectorAll('.del-blocked-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await client.from('booking_blocked_dates').delete().eq('id', btn.getAttribute('data-id'));
+        loadBlockedDates();
+      });
+    });
+  }
+
+  var allBookings = [];
+
+  async function loadBookings(){
+    var res = await client.from('bookings').select('*, properties(label, city)').order('starts_at', { ascending:false });
+    allBookings = res.data || [];
+    renderBookingsTable(allBookings);
+  }
+
+  function renderBookingsTable(rows){
+    var table = document.getElementById('bookingsTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allBookings.length?'Keine Treffer.':'Noch keine Buchungen.')+'</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Datum/Zeit</th><th>Name</th><th>Objekt</th><th>E-Mail</th><th>Telefon</th><th>Nachricht</th><th>Status</th><th></th></tr>' +
+      rows.map(function(b){
+        return '<tr>' +
+          '<td>'+VeraDashboard.formatDateTime(b.starts_at)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(b.name)+'</td>' +
+          '<td>'+(b.properties ? VeraDashboard.escapeHtml(b.properties.label) : '<span class="doc-meta">Allgemein</span>')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(b.email)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(b.phone||'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(b.message||'–')+'</td>' +
+          '<td><span class="status-badge '+(b.status==='bestaetigt'?'active':'suspended')+'">'+STATUS_LABEL[b.status]+'</span></td>' +
+          '<td>'+(b.status==='bestaetigt' ? '<button type="button" class="dash-btn-sm danger cancel-booking-btn" data-id="'+b.id+'">Stornieren</button>' : '')+'</td>' +
+        '</tr>';
+      }).join('');
+    table.querySelectorAll('.cancel-booking-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        if(!window.confirm('Buchung wirklich stornieren? Der Termin wird dadurch wieder frei.')) return;
+        await client.from('bookings').update({ status: 'storniert' }).eq('id', btn.getAttribute('data-id'));
+        loadBookings();
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

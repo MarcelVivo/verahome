@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meldungen | Vera Portal – Vera Home Immobilien</title>
-<meta name="description" content="Schadensmeldungen und Reklamationen im Vera Portal.">
+<title>Rapporte | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Hauswart-Rapporte im Vera Portal.">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
 <link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
@@ -54,41 +54,37 @@
   <div class="dash-layout">
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
-      <h1>Meldungen</h1>
-      <p class="dash-lead" id="meldungenLead">Wird geladen …</p>
+      <h1>Rapporte</h1>
+      <p class="dash-lead" id="rapporteLead">Wird geladen …</p>
 
-      <!-- Nutzer-Ansicht -->
-      <div id="meldungenUserView" style="display:none;">
+      <!-- Hauswart-Ansicht -->
+      <div id="rapporteHauswartView" style="display:none;">
         <div class="dash-card">
-          <h2>Neue Meldung</h2>
-          <form class="auth-form" id="newReportForm">
-            <select id="r_type" required>
-              <option value="schaden">Schadensmeldung</option>
-              <option value="reklamation">Reklamation</option>
+          <h2>Neuer Rapport</h2>
+          <form class="auth-form" id="newRapportForm">
+            <select id="rp_property" required>
+              <option value="" disabled selected>Objekt wählen *</option>
             </select>
-            <select id="r_tenancy">
-              <option value="">– kein bestimmtes Objekt/Einheit –</option>
-            </select>
-            <input id="r_title" placeholder="Titel *" required>
-            <textarea id="r_description" placeholder="Beschreibung *" required></textarea>
-            <input type="file" id="r_photos" accept="image/*" multiple>
-            <button type="submit" class="btn btn-primary">Meldung absenden</button>
-            <p class="form-status" id="newReportStatus"></p>
+            <input id="rp_title" placeholder="Titel *" required>
+            <textarea id="rp_description" placeholder="Beschreibung *" required></textarea>
+            <input type="file" id="rp_photos" accept="image/*" multiple>
+            <button type="submit" class="btn btn-primary">Rapport absenden</button>
+            <p class="form-status" id="newRapportStatus"></p>
           </form>
         </div>
 
         <div class="dash-card">
-          <h2>Meine Meldungen</h2>
-          <div class="doc-list" id="myReportsList"></div>
+          <h2>Meine Rapporte</h2>
+          <div class="doc-list" id="myRapportsList"></div>
         </div>
       </div>
 
       <!-- Admin-Ansicht -->
-      <div id="meldungenAdminView" style="display:none;">
+      <div id="rapporteAdminView" style="display:none;">
         <div class="dash-card">
-          <h2>Alle Meldungen</h2>
-          <input type="text" class="dash-search-input" id="reportSearch" placeholder="Suchen nach Titel, Melder, Objekt, Status …">
-          <div id="adminReportsList"></div>
+          <h2>Alle Rapporte</h2>
+          <input type="text" class="dash-search-input" id="rapportSearch" placeholder="Suchen nach Titel, Hauswart, Objekt, Status …">
+          <div id="adminRapportsList"></div>
         </div>
       </div>
     </section>
@@ -127,70 +123,65 @@
   "use strict";
   var client, profile;
 
-  var TYPE_TEXT = { schaden: 'Schaden', reklamation: 'Reklamation' };
   var STATUS_TEXT = { offen: 'Offen', in_bearbeitung: 'In Bearbeitung', erledigt: 'Erledigt', abgelehnt: 'Abgelehnt' };
   var STATUS_BADGE_CLASS = { offen: 'pending', in_bearbeitung: 'info', erledigt: 'active', abgelehnt: 'suspended' };
 
-  VeraDashboard.init('meldungen').then(function(ctx){
+  VeraDashboard.init('rapporte').then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
+    if(profile.category !== 'admin' && profile.category !== 'hauswart'){
+      window.location.href = '/portal/dashboard.html';
+      return;
+    }
     client = VeraPortal.getClient();
 
     if(profile.category === 'admin'){
-      document.getElementById('meldungenLead').textContent = 'Alle eingegangenen Schadensmeldungen und Reklamationen.';
-      document.getElementById('meldungenAdminView').style.display = 'block';
-      loadAdminReports();
-      document.getElementById('reportSearch').addEventListener('input', function(){
+      document.getElementById('rapporteLead').textContent = 'Alle eingegangenen Hauswart-Rapporte.';
+      document.getElementById('rapporteAdminView').style.display = 'block';
+      loadAdminRapports();
+      document.getElementById('rapportSearch').addEventListener('input', function(){
         var q = this.value.trim();
-        renderAdminReports(allReports.filter(function(r){
-          var scope = r.properties ? (r.properties.label + (r.units ? ' '+r.units.label : '')) : '';
+        renderAdminRapports(allRapports.filter(function(r){
           return VeraDashboard.matchesSearch(
-            [r.title, r.description, r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'', scope, STATUS_TEXT[r.status]], q
+            [r.title, r.description, r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'', r.properties?r.properties.label:'', STATUS_TEXT[r.status]], q
           );
         }));
       });
     } else {
-      document.getElementById('meldungenLead').textContent = 'Melden Sie einen Schaden oder eine Reklamation.';
-      document.getElementById('meldungenUserView').style.display = 'block';
-      initUserView();
+      document.getElementById('rapporteLead').textContent = 'Rapport zu einem Ihrer betreuten Objekte einreichen.';
+      document.getElementById('rapporteHauswartView').style.display = 'block';
+      initHauswartView();
     }
   });
 
-  async function initUserView(){
-    var tenancySel = document.getElementById('r_tenancy');
-    var res = await client.from('tenancies')
-      .select('id, unit_id, units(label, properties(id, label))')
-      .eq('tenant_profile_id', profile.id);
-    var tenancies = res.data || [];
-    tenancySel.innerHTML = '<option value="">– kein bestimmtes Objekt/Einheit –</option>' +
-      tenancies.map(function(t){
-        var label = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : t.id;
-        return '<option value="'+t.id+'" data-property="'+(t.units&&t.units.properties?t.units.properties.id:'')+'" data-unit="'+(t.unit_id||'')+'">'+VeraDashboard.escapeHtml(label)+'</option>';
-      }).join('');
+  async function initHauswartView(){
+    var propertySel = document.getElementById('rp_property');
+    var res = await client.from('property_permissions')
+      .select('property_id, properties(id,label)')
+      .eq('profile_id', profile.id)
+      .eq('permission', 'hauswart');
+    var props = (res.data || []).filter(function(p){ return p.properties; });
+    propertySel.innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
+      props.map(function(p){ return '<option value="'+p.properties.id+'">'+VeraDashboard.escapeHtml(p.properties.label)+'</option>'; }).join('');
 
-    document.getElementById('newReportForm').addEventListener('submit', async function(e){
+    document.getElementById('newRapportForm').addEventListener('submit', async function(e){
       e.preventDefault();
-      var statusEl = document.getElementById('newReportStatus');
-      var title = document.getElementById('r_title').value.trim();
-      var description = document.getElementById('r_description').value.trim();
-      if(!title || !description){
-        statusEl.textContent = 'Bitte Titel und Beschreibung angeben.';
+      var statusEl = document.getElementById('newRapportStatus');
+      var propertyId = propertySel.value;
+      var title = document.getElementById('rp_title').value.trim();
+      var description = document.getElementById('rp_description').value.trim();
+      if(!propertyId || !title || !description){
+        statusEl.textContent = 'Bitte Objekt, Titel und Beschreibung angeben.';
         statusEl.classList.add('show');
         return;
       }
 
-      var selectedOption = tenancySel.options[tenancySel.selectedIndex];
-      var propertyId = selectedOption ? selectedOption.getAttribute('data-property') : '';
-      var unitId = selectedOption ? selectedOption.getAttribute('data-unit') : '';
-
       statusEl.textContent = 'Wird gesendet …';
       statusEl.classList.add('show');
 
-      var insRes = await client.from('issue_reports').insert({
-        report_type: document.getElementById('r_type').value,
+      var insRes = await client.from('hauswart_reports').insert({
         reporter_profile_id: profile.id,
-        property_id: propertyId || null,
-        unit_id: unitId || null,
+        property_id: propertyId,
         title: title,
         description: description
       }).select().single();
@@ -201,35 +192,38 @@
       }
 
       var reportId = insRes.data.id;
-      var files = Array.prototype.slice.call(document.getElementById('r_photos').files);
+      var files = Array.prototype.slice.call(document.getElementById('rp_photos').files);
       for(var i = 0; i < files.length; i++){
         var file = files[i];
         var photoId = crypto.randomUUID();
         var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         var path = reportId + '/' + photoId + '-' + safeName;
-        var upRes = await client.storage.from('issue-report-photos').upload(path, file);
+        var upRes = await client.storage.from('hauswart-report-photos').upload(path, file);
         if(!upRes.error){
-          await client.from('issue_report_photos').insert({ id: photoId, issue_report_id: reportId, file_path: path, sort_order: i });
+          await client.from('hauswart_report_photos').insert({ id: photoId, hauswart_report_id: reportId, file_path: path, sort_order: i });
         }
       }
 
-      statusEl.textContent = 'Meldung wurde übermittelt.';
-      document.getElementById('newReportForm').reset();
-      loadMyReports();
+      statusEl.textContent = 'Rapport wurde übermittelt.';
+      document.getElementById('newRapportForm').reset();
+      loadMyRapports();
     });
 
-    loadMyReports();
+    loadMyRapports();
   }
 
-  async function loadMyReports(){
-    var res = await client.from('issue_reports').select('*').eq('reporter_profile_id', profile.id).order('created_at', { ascending:false });
+  async function loadMyRapports(){
+    var res = await client.from('hauswart_reports')
+      .select('*, properties(label)')
+      .eq('reporter_profile_id', profile.id)
+      .order('created_at', { ascending:false });
     var reports = res.data || [];
-    var list = document.getElementById('myReportsList');
-    if(!reports.length){ list.innerHTML = '<p class="dash-empty">Noch keine Meldungen.</p>'; return; }
+    var list = document.getElementById('myRapportsList');
+    if(!reports.length){ list.innerHTML = '<p class="dash-empty">Noch keine Rapporte.</p>'; return; }
     list.innerHTML = reports.map(function(r){
       return '<div class="doc-row">' +
         '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(r.title)+'</strong>' +
-        '<span class="doc-meta">'+TYPE_TEXT[r.report_type]+' · '+VeraDashboard.formatDate(r.created_at)+'</span>' +
+        '<span class="doc-meta">'+(r.properties?VeraDashboard.escapeHtml(r.properties.label)+' · ':'')+VeraDashboard.formatDate(r.created_at)+'</span>' +
         (r.admin_note ? '<span class="doc-meta">Notiz: '+VeraDashboard.escapeHtml(r.admin_note)+'</span>' : '') +
         '</div>' +
         '<span class="status-badge '+STATUS_BADGE_CLASS[r.status]+'">'+STATUS_TEXT[r.status]+'</span>' +
@@ -237,84 +231,60 @@
     }).join('');
   }
 
-  var allReports = [];
-  var reportPartners = [];
+  var allRapports = [];
 
-  async function loadAdminReports(){
-    var res = await client.from('issue_reports')
-      .select('*, reporter:profiles!reporter_profile_id(first_name,last_name,member_number), properties(label), units(label)')
+  async function loadAdminRapports(){
+    var res = await client.from('hauswart_reports')
+      .select('*, reporter:profiles!reporter_profile_id(first_name,last_name,member_number), properties(label)')
       .order('created_at', { ascending:false });
-    allReports = res.data || [];
-
-    var partnersRes = await client.from('profiles').select('id, first_name, last_name, member_number').in('category', ['partner','handwerker']).order('last_name');
-    reportPartners = partnersRes.data || [];
-
-    renderAdminReports(allReports);
+    allRapports = res.data || [];
+    renderAdminRapports(allRapports);
   }
 
-  function renderAdminReports(reports){
-    var partners = reportPartners;
-    var list = document.getElementById('adminReportsList');
-    if(!reports.length){ list.innerHTML = '<p class="dash-empty">'+(allReports.length?'Keine Treffer.':'Noch keine Meldungen.')+'</p>'; return; }
+  function renderAdminRapports(reports){
+    var list = document.getElementById('adminRapportsList');
+    if(!reports.length){ list.innerHTML = '<p class="dash-empty">'+(allRapports.length?'Keine Treffer.':'Noch keine Rapporte.')+'</p>'; return; }
 
     list.innerHTML = reports.map(function(r){
-      var scope = r.properties ? (r.properties.label + (r.units ? ' – '+r.units.label : '')) : '–';
-      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;" id="report-'+r.id+'">' +
+      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;" id="rapport-'+r.id+'">' +
         '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
           '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(r.title)+'</strong>' +
-          '<span class="doc-meta">'+TYPE_TEXT[r.report_type]+' · '+VeraDashboard.escapeHtml(r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'–')+' · '+VeraDashboard.escapeHtml(scope)+' · '+VeraDashboard.formatDate(r.created_at)+'</span></div>' +
+          '<span class="doc-meta">'+VeraDashboard.escapeHtml(r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'–')+' · '+VeraDashboard.escapeHtml(r.properties?r.properties.label:'–')+' · '+VeraDashboard.formatDate(r.created_at)+'</span></div>' +
           '<span class="status-badge '+STATUS_BADGE_CLASS[r.status]+'">'+STATUS_TEXT[r.status]+'</span>' +
         '</div>' +
         '<p style="margin:10px 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(r.description)+'</p>' +
-        '<div class="prop-thumb-grid" id="photos-'+r.id+'"></div>' +
+        '<div class="prop-thumb-grid" id="rapport-photos-'+r.id+'"></div>' +
         '<div class="dash-btn-row" style="margin-top:10px;">' +
           '<select class="status-select" data-id="'+r.id+'">' +
             Object.keys(STATUS_TEXT).map(function(s){ return '<option value="'+s+'"'+(s===r.status?' selected':'')+'>'+STATUS_TEXT[s]+'</option>'; }).join('') +
           '</select>' +
           '<input class="note-input" data-id="'+r.id+'" placeholder="Admin-Notiz" value="'+VeraDashboard.escapeHtml(r.admin_note||'')+'" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);">' +
           '<button type="button" class="dash-btn-sm save-status-btn" data-id="'+r.id+'">Speichern</button>' +
-          (r.report_type === 'schaden' ? '<select class="assignee-select" data-id="'+r.id+'"><option value="">Handwerker wählen…</option>' +
-            partners.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+'</option>'; }).join('') + '</select>' +
-            '<button type="button" class="dash-btn-sm convert-btn" data-id="'+r.id+'" data-title="'+VeraDashboard.escapeHtml(r.title)+'">In Auftrag umwandeln</button>' : '') +
         '</div>' +
       '</div>';
     }).join('');
 
-    reports.forEach(function(r){ loadReportPhotos(r.id); });
+    reports.forEach(function(r){ loadRapportPhotos(r.id); });
 
     list.querySelectorAll('.save-status-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         var id = btn.getAttribute('data-id');
         var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
         var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
-        await client.from('issue_reports').update({ status: status, admin_note: note || null }).eq('id', id);
-        loadAdminReports();
-      });
-    });
-    list.querySelectorAll('.convert-btn').forEach(function(btn){
-      btn.addEventListener('click', async function(){
-        var id = btn.getAttribute('data-id');
-        var assigneeId = list.querySelector('.assignee-select[data-id="'+id+'"]').value;
-        if(!assigneeId){ window.alert('Bitte einen Handwerker auswählen.'); return; }
-        var res = await client.rpc('convert_issue_report_to_job', {
-          p_issue_report_id: id, p_assignee_profile_id: assigneeId,
-          p_title: btn.getAttribute('data-title'), p_description: null
-        });
-        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
-        window.alert('Auftrag erstellt. Sichtbar unter Mietverhältnisse → Auftragszuweisungen.');
-        loadAdminReports();
+        await client.from('hauswart_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        loadAdminRapports();
       });
     });
   }
 
-  async function loadReportPhotos(reportId){
-    var res = await client.from('issue_report_photos').select('*').eq('issue_report_id', reportId).order('sort_order');
+  async function loadRapportPhotos(reportId){
+    var res = await client.from('hauswart_report_photos').select('*').eq('hauswart_report_id', reportId).order('sort_order');
     var photos = res.data || [];
-    var el = document.getElementById('photos-'+reportId);
+    var el = document.getElementById('rapport-photos-'+reportId);
     if(!el) return;
     if(!photos.length){ el.innerHTML = ''; return; }
     var urls = await Promise.all(photos.map(function(p){
-      return client.storage.from('issue-report-photos').createSignedUrl(p.file_path, 60);
+      return client.storage.from('hauswart-report-photos').createSignedUrl(p.file_path, 60);
     }));
     el.innerHTML = urls.map(function(res){
       return res.error ? '' : '<div class="prop-thumb"><img src="'+res.data.signedUrl+'" alt=""></div>';

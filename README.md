@@ -74,7 +74,7 @@ Kurzfassung – Fallback ohne Datei:
 
 ## Formulare
 
-- **Kontaktformular** (`#kontakt`): validiert clientseitig (Name, gültige E-Mail, Nachricht, Datenschutz-Checkbox) und öffnet danach das Standard-E-Mail-Programm mit vorausgefülltem Entwurf an `julia.allen@gmx.ch`.
+- **Kontaktformular** (`#kontakt`): validiert clientseitig (Name, gültige E-Mail, Nachricht, Datenschutz-Checkbox) und öffnet danach das Standard-E-Mail-Programm mit vorausgefülltem Entwurf an `welcome@verahome.ch`.
 - **Wohnungsbewerbung** (`#mietertools`): gleiches Prinzip. Der Datei-Upload (`bw_file`) kann **nicht** automatisch per `mailto:` versendet werden (technische Grenze von Mail-Links) – Bewerber müssen die ausgewählten Dateien manuell an die sich öffnende E-Mail anhängen, bevor sie sie absenden. Für echten automatischen Upload: Formspree, Netlify Forms oder ein eigenes Backend integrieren (Stelle im Code ist mit `TODO`/Kommentar markiert).
 
 ## Offene TODOs

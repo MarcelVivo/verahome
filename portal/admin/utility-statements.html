@@ -73,6 +73,7 @@
 
       <div class="dash-card">
         <h2>Abrechnungen</h2>
+        <input type="text" class="dash-search-input" id="statementSearch" placeholder="Suchen nach Objekt, Zeitraum, Status …">
         <div id="statementsList"></div>
       </div>
     </section>
@@ -87,7 +88,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -143,13 +144,27 @@
     });
 
     loadStatements();
+    document.getElementById('statementSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderStatementsList(allStatements.filter(function(s){
+        return VeraDashboard.matchesSearch(
+          [s.properties?s.properties.label:'', s.period_start, s.period_end, s.status], q
+        );
+      }));
+    });
   }
+
+  var allStatements = [];
 
   async function loadStatements(){
     var res = await client.from('utility_statements').select('*, properties(label)').order('created_at', { ascending:false });
-    var statements = res.data || [];
+    allStatements = res.data || [];
+    renderStatementsList(allStatements);
+  }
+
+  function renderStatementsList(statements){
     var listEl = document.getElementById('statementsList');
-    if(!statements.length){ listEl.innerHTML = '<p class="dash-empty">Noch keine Abrechnungen.</p>'; return; }
+    if(!statements.length){ listEl.innerHTML = '<p class="dash-empty">'+(allStatements.length?'Keine Treffer.':'Noch keine Abrechnungen.')+'</p>'; return; }
 
     listEl.innerHTML = statements.map(function(s){
       var statusBadge = s.status === 'veroeffentlicht'

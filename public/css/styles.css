@@ -28,6 +28,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;font-size:16px;}
 body{
+  position:relative;
   font-family:var(--font-body);
   color:var(--color-gray-text);
   background-color:var(--color-bg);
@@ -38,9 +39,6 @@ body{
   cursor:url('/public/images/cursor-key.svg') 25 3, auto;
 }
 body,section,footer{
-  background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px);
   /* the grid-fx overlay (below) continuously rewrites SVG geometry every
      frame; without this, the browser's scroll-anchoring can misread that
      as a layout shift and yank the scroll position when a line reaches
@@ -48,6 +46,61 @@ body,section,footer{
   overflow-anchor:none;
 }
 .grid-fx-svg{overflow-anchor:none;}
+
+/* Blueprint-grid lines, on a pseudo-element of their own (not stacked into
+   each section's own background-image) so a mask can fade them in and out
+   irregularly across the page without also fading the section's own photo/
+   colour background or its content. The mask is a repeating tile of soft
+   elliptical patches (fixed pixel positions, not percentages) so the
+   visible/faded rhythm stays roughly the same size everywhere on the page —
+   long sections don't just stretch a handful of blobs thin and end up with
+   huge, effect-free stretches at whatever the current scroll position is. */
+body::before,section::before,footer::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px);
+  -webkit-mask-image:
+    radial-gradient(ellipse 260px 220px at 90px 70px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 220px 260px at 620px 40px, #000 0%, transparent 65%),
+    radial-gradient(ellipse 280px 220px at 260px 380px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 230px 270px at 700px 420px, #000 0%, transparent 65%),
+    radial-gradient(ellipse 250px 230px at 120px 660px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 260px 220px at 560px 700px, #000 0%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 260px 220px at 90px 70px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 220px 260px at 620px 40px, #000 0%, transparent 65%),
+    radial-gradient(ellipse 280px 220px at 260px 380px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 230px 270px at 700px 420px, #000 0%, transparent 65%),
+    radial-gradient(ellipse 250px 230px at 120px 660px, #000 0%, transparent 70%),
+    radial-gradient(ellipse 260px 220px at 560px 700px, #000 0%, transparent 68%);
+  -webkit-mask-repeat:repeat;
+  mask-repeat:repeat;
+  -webkit-mask-size:820px 820px;
+  mask-size:820px 820px;
+  -webkit-mask-position:0 0;
+  mask-position:0 0;
+  animation:grid-fade-drift 140s ease-in-out infinite;
+}
+/* Slides only the fade mask over the (unmoving) grid lines — the visible/
+   faded patches drift slowly and, thanks to the uneven waypoints below,
+   never in an obviously back-and-forth or single-direction way. Each
+   section starts this animation at its own time (page load), which is
+   enough on its own to keep sections out of sync with each other since
+   they scroll into view at different moments. */
+@keyframes grid-fade-drift{
+  0%   { -webkit-mask-position:0px 0px;      mask-position:0px 0px; }
+  17%  { -webkit-mask-position:260px -180px; mask-position:260px -180px; }
+  34%  { -webkit-mask-position:-190px -340px;mask-position:-190px -340px; }
+  52%  { -webkit-mask-position:-410px 120px; mask-position:-410px 120px; }
+  68%  { -webkit-mask-position:180px 300px;  mask-position:180px 300px; }
+  85%  { -webkit-mask-position:330px -60px;  mask-position:330px -60px; }
+  100% { -webkit-mask-position:0px 0px;      mask-position:0px 0px; }
+}
 img{max-width:100%;display:block;}
 a{color:inherit;text-decoration:none;cursor:url('/public/images/cursor-key.svg') 25 3, auto;}
 ul{list-style:none;}
@@ -278,13 +331,11 @@ section{position:relative;padding:110px 0;}
 ============================================================= */
 #ueber-mich{
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
     linear-gradient(135deg,rgba(255,255,255,.93) 0%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.93) 100%),
     url('/public/images/HeaderBilder/Wohnhaus.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
   background-color:var(--color-white);
 }
 .about-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:70px;align-items:center;}
@@ -322,13 +373,11 @@ section{position:relative;padding:110px 0;}
 #leistungen{
   --grid-line-color:rgba(255,255,255,.07);
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Luftaufnahme.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
   background-color:var(--color-navy);
 }
 .leistungen-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
@@ -363,15 +412,14 @@ section{position:relative;padding:110px 0;}
    MIETERTOOLS
 ============================================================= */
 #mietertools{
+  --grid-line-color:rgba(255,255,255,.07);
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    linear-gradient(135deg,rgba(247,249,251,.93) 0%,rgba(247,249,251,.82) 55%,rgba(247,249,251,.93) 100%),
+    linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Portal.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
-  background-color:var(--color-bg);
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  background-color:var(--color-navy);
 }
 .tools-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px;}
 .tool-card{
@@ -384,12 +432,15 @@ section{position:relative;padding:110px 0;}
 .tool-card .icon svg{width:100%;height:100%;}
 .tool-card h3{font-size:1.3rem;}
 .tool-card p{color:var(--color-gray-text);flex-grow:1;}
-@media (max-width:768px){.tools-grid{grid-template-columns:1fr;}}
+.tool-card.featured{
+  grid-column:1 / -1;max-width:560px;margin:0 auto;width:100%;
+}
+@media (max-width:768px){.tools-grid{grid-template-columns:1fr;}.tool-card.featured{max-width:none;}}
 
 /* Upload form */
 .upload-form{width:100%;margin-top:6px;display:none;flex-direction:column;gap:12px;}
 .upload-form.open{display:flex;}
-.upload-form input[type=text],.upload-form input[type=email],.upload-form input[type=tel],.upload-form textarea{
+.upload-form input[type=text],.upload-form input[type=email],.upload-form input[type=tel],.upload-form input[type=date],.upload-form select,.upload-form textarea{
   padding:12px 14px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
 }
 .file-drop{
@@ -399,18 +450,26 @@ section{position:relative;padding:110px 0;}
 .inline-icon{width:1.1em;height:1.1em;vertical-align:-0.2em;color:var(--color-gold);}
 .upload-form textarea{resize:vertical;min-height:80px;}
 
+/* Öffentliches Buchungs-Widget (Termin vereinbaren) */
+.booking-slots{display:flex;flex-wrap:wrap;gap:8px;}
+.booking-slot-btn{
+  padding:8px 16px;border:1px solid var(--color-blue-light);border-radius:50px;background:var(--color-white);
+  font-size:.85rem;color:var(--color-navy);transition:border-color .2s,background .2s;
+}
+.booking-slot-btn:hover{border-color:var(--color-gold);}
+.booking-slot-btn.selected{background:var(--color-navy);color:var(--color-white);border-color:var(--color-navy);}
+.booking-details{display:flex;flex-direction:column;gap:12px;margin-top:4px;}
+
 /* =============================================================
    OBJEKTE
 ============================================================= */
 #objekte{
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
     linear-gradient(135deg,rgba(255,255,255,.93) 0%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.93) 100%),
     url('/public/images/HeaderBilder/Mehrfamilienhaus.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
   background-color:var(--color-white);
 }
 .objekte-cta-row{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;}
@@ -438,13 +497,11 @@ section{position:relative;padding:110px 0;}
 #werte{
   --grid-line-color:rgba(255,255,255,.07);
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Wohnzimmertisch.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
   background-color:var(--color-navy);
 }
 .werte-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;}
@@ -464,13 +521,11 @@ section{position:relative;padding:110px 0;}
 ============================================================= */
 #downloads{
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
     linear-gradient(135deg,rgba(255,255,255,.93) 0%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.93) 100%),
     url('/public/images/HeaderBilder/Unterlagen.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
   background-color:var(--color-white);
 }
 .downloads-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
@@ -491,17 +546,17 @@ section{position:relative;padding:110px 0;}
 ============================================================= */
 #region{
   text-align:center;
+  --grid-line-color:rgba(255,255,255,.07);
   background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    linear-gradient(135deg,rgba(255,255,255,.93) 0%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.93) 100%),
+    linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Fricktal.png');
-  background-size:auto,auto,cover,cover;
-  background-position:0 0,0 0,center,center;
-  background-repeat:repeat,repeat,no-repeat,no-repeat;
-  background-color:var(--color-white);
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  background-color:var(--color-navy);
 }
 #region .section-head p{max-width:720px;margin:14px auto 0;}
+#region .kennzahl .label{color:var(--color-white);}
 .kennzahlen{display:flex;justify-content:center;gap:80px;flex-wrap:wrap;margin:56px 0;}
 .kennzahl{text-align:center;}
 .kennzahl .num{
@@ -517,7 +572,15 @@ section{position:relative;padding:110px 0;}
 /* =============================================================
    FAQ
 ============================================================= */
-#faq{background-color:var(--color-bg);}
+#faq{
+  background-image:
+    linear-gradient(135deg,rgba(247,249,251,.93) 0%,rgba(247,249,251,.82) 55%,rgba(247,249,251,.93) 100%),
+    url('/public/images/HeaderBilder/Badezimmer.png');
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  background-color:var(--color-bg);
+}
 .faq-list{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
 .faq-item{background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:var(--radius);overflow:hidden;}
 .faq-question{
@@ -532,7 +595,19 @@ section{position:relative;padding:110px 0;}
 /* =============================================================
    KONTAKT
 ============================================================= */
-#kontakt{background-color:var(--color-white);}
+#kontakt{
+  --grid-line-color:rgba(255,255,255,.07);
+  background-image:
+    linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
+    url('/public/images/HeaderBilder/Küche.png');
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  background-color:var(--color-navy);
+}
+#kontakt .checkbox-row{color:rgba(255,255,255,.8);}
+#kontakt .field-error{color:#FFB4A8;}
+#kontakt .form-status{color:var(--color-white);}
 .kontakt-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;}
 .kontakt-form{display:flex;flex-direction:column;gap:16px;}
 .kontakt-form input,.kontakt-form select,.kontakt-form textarea{
@@ -541,6 +616,9 @@ section{position:relative;padding:110px 0;}
 }
 .kontakt-form input:focus,.kontakt-form select:focus,.kontakt-form textarea:focus{border-color:var(--color-gold);}
 .kontakt-form textarea{min-height:130px;resize:vertical;}
+.kontakt-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.kontakt-form-row > div,.kontakt-form-row > input{min-width:0;}
+@media (max-width:560px){.kontakt-form-row{grid-template-columns:1fr;}}
 .checkbox-row{display:flex;align-items:flex-start;gap:10px;font-size:.85rem;color:var(--color-gray-text);}
 .checkbox-row input{margin-top:4px;}
 .field-error{color:#B3261E;font-size:.78rem;display:none;}
@@ -562,7 +640,7 @@ input[type=file].visually-hidden{position:absolute;width:1px;height:1px;overflow
 /* =============================================================
    FOOTER
 ============================================================= */
-footer{background-color:var(--color-navy-deep);--grid-line-color:rgba(255,255,255,.07);color:var(--color-white);padding:60px 0 26px;border-top:2px solid var(--color-gold);}
+footer{position:relative;background-color:var(--color-navy-deep);--grid-line-color:rgba(255,255,255,.07);color:var(--color-white);padding:60px 0 26px;border-top:2px solid var(--color-gold);}
 .footer-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:40px;align-items:start;margin-bottom:40px;}
 .footer-quote{
   text-align:center;font-family:var(--font-heading);font-style:italic;color:var(--color-gold);font-size:1.15rem;

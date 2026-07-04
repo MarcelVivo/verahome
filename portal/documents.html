@@ -59,6 +59,14 @@
 
       <!-- Nutzer-Ansicht -->
       <div id="docsUserView" style="display:none;">
+        <div class="dash-card">
+          <h2>Rundschreiben</h2>
+          <div class="doc-list" id="announcementsUserList"></div>
+        </div>
+        <div class="dash-card">
+          <h2>Objekt-Dokumente</h2>
+          <div class="doc-list" id="propertyDocsUserList"></div>
+        </div>
         <div class="doc-list" id="docsUserList"></div>
       </div>
 
@@ -94,6 +102,7 @@
 
         <div class="dash-card">
           <h2>Alle Dokumente</h2>
+          <input type="text" class="dash-search-input" id="docSearch" placeholder="Suchen nach Empfänger, Titel, Kategorie, Status …">
           <table class="dash-table" id="docsAdminTable"></table>
         </div>
       </div>
@@ -109,7 +118,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -154,19 +163,58 @@
     } else {
       document.getElementById('docsUserView').style.display = 'block';
       loadUserDocuments();
+      loadAnnouncements();
+      loadPropertyDocuments();
     }
   });
 
-  async function openSignedUrl(path){
-    var res = await client.storage.from('documents').createSignedUrl(path, 60);
+  async function loadAnnouncements(){
+    var res = await client.from('property_announcements').select('*, properties(label)').order('created_at', { ascending:false });
+    var list = document.getElementById('announcementsUserList');
+    var rows = res.data || [];
+    if(!rows.length){
+      list.innerHTML = '<p class="dash-empty">Keine Rundschreiben vorhanden.</p>';
+      return;
+    }
+    list.innerHTML = rows.map(function(a){
+      return '<div class="doc-row" style="flex-direction:column;align-items:stretch;">' +
+        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>' +
+        '<span class="doc-meta">'+(a.properties?VeraDashboard.escapeHtml(a.properties.label)+' · ':'')+VeraDashboard.formatDateTime(a.created_at)+'</span></div>' +
+        '<p style="margin:6px 0 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(a.body)+'</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  var PROPERTY_DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
+
+  async function loadPropertyDocuments(){
+    var res = await client.from('property_documents').select('*, properties(label)').order('created_at', { ascending:false });
+    var list = document.getElementById('propertyDocsUserList');
+    var rows = res.data || [];
+    if(!rows.length){
+      list.innerHTML = '<p class="dash-empty">Keine Objekt-Dokumente vorhanden.</p>';
+      return;
+    }
+    list.innerHTML = rows.map(function(d){
+      return '<div class="doc-row">' +
+        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
+        '<span class="doc-meta">'+(d.properties?VeraDashboard.escapeHtml(d.properties.label)+' · ':'')+VeraDashboard.escapeHtml(PROPERTY_DOC_CATEGORY_TEXT[d.category]||d.category)+' · '+VeraDashboard.formatDate(d.created_at)+'</span></div>' +
+        '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
+      '</div>';
+    }).join('');
+    wireOpenLinks(list, 'property-documents');
+  }
+
+  async function openSignedUrl(bucket, path){
+    var res = await client.storage.from(bucket).createSignedUrl(path, 60);
     if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
   }
 
-  function wireOpenLinks(container){
+  function wireOpenLinks(container, bucket){
     container.querySelectorAll('.doc-open-link').forEach(function(a){
       a.addEventListener('click', function(e){
         e.preventDefault();
-        openSignedUrl(a.getAttribute('data-path'));
+        openSignedUrl(bucket, a.getAttribute('data-path'));
       });
     });
   }
@@ -202,7 +250,7 @@
       '</div>';
     }).join('');
 
-    wireOpenLinks(list);
+    wireOpenLinks(list, 'documents');
     list.querySelectorAll('.sign-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         btn.disabled = true;
@@ -309,7 +357,18 @@
     });
 
     loadAdminDocsTable();
+    document.getElementById('docSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderAdminDocsTable(allAdminDocs.filter(function(d){
+        var owner = d.owner ? (d.owner.last_name + ' ' + d.owner.first_name) : '';
+        return VeraDashboard.matchesSearch(
+          [owner, d.title, CATEGORY_TEXT[d.category]||d.category, ACTION_TEXT[d.action_type]||d.action_type, d.status], q
+        );
+      }));
+    });
   }
+
+  var allAdminDocs = [];
 
   async function loadAdminDocsTable(){
     // documents has three FKs into profiles (owner/created_by/completed_by)
@@ -317,10 +376,14 @@
     var res = await client.from('documents')
       .select('*, owner:profiles!owner_profile_id(first_name,last_name,member_number)')
       .order('created_at', { ascending:false });
-    var docs = res.data || [];
+    allAdminDocs = res.data || [];
+    renderAdminDocsTable(allAdminDocs);
+  }
+
+  function renderAdminDocsTable(docs){
     var table = document.getElementById('docsAdminTable');
     if(!docs.length){
-      table.innerHTML = '<tr><td class="dash-empty">Noch keine Dokumente vorhanden.</td></tr>';
+      table.innerHTML = '<tr><td class="dash-empty">'+(allAdminDocs.length?'Keine Treffer.':'Noch keine Dokumente vorhanden.')+'</td></tr>';
       return;
     }
     table.innerHTML = '<tr><th>Empfänger</th><th>Titel</th><th>Typ</th><th>Aktion</th><th>Status</th><th></th></tr>' +
@@ -335,7 +398,7 @@
           '<td><a href="#" class="doc-open-link" data-path="'+d.file_path+'">Öffnen</a></td>' +
         '</tr>';
       }).join('');
-    wireOpenLinks(table);
+    wireOpenLinks(table, 'documents');
   }
 })();
 </script>

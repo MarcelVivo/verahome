@@ -73,6 +73,7 @@
       </div>
       <div class="dash-card">
         <h2>Bestehende Mietverhältnisse</h2>
+        <input type="text" class="dash-search-input" id="tenancySearch" placeholder="Suchen nach Mieter, Einheit, Status …">
         <table class="dash-table" id="tenanciesTable"></table>
       </div>
 
@@ -90,6 +91,7 @@
       </div>
       <div class="dash-card">
         <h2>Bestehende Eigentümerschaften</h2>
+        <input type="text" class="dash-search-input" id="ownershipSearch" placeholder="Suchen nach Eigentümer, Objekt/Einheit …">
         <table class="dash-table" id="ownershipsTable"></table>
       </div>
 
@@ -112,6 +114,7 @@
       </div>
       <div class="dash-card">
         <h2>Bestehende Auftragszuweisungen</h2>
+        <input type="text" class="dash-search-input" id="jobSearch" placeholder="Suchen nach Zugewiesen an, Titel, Objekt, Status …">
         <table class="dash-table" id="jobsTable"></table>
       </div>
     </section>
@@ -126,7 +129,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -193,6 +196,29 @@
     loadTenancies();
     loadOwnerships();
     loadJobs();
+
+    document.getElementById('tenancySearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderTenanciesTable(allTenancies.filter(function(t){
+        var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '';
+        return VeraDashboard.matchesSearch([t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'', unitLabel, t.status], q);
+      }));
+    });
+    document.getElementById('ownershipSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderOwnershipsTable(allOwnerships.filter(function(o){
+        var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '');
+        return VeraDashboard.matchesSearch([o.owner?o.owner.last_name+' '+o.owner.first_name:'', scope], q);
+      }));
+    });
+    document.getElementById('jobSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderJobsTable(allJobs.filter(function(j){
+        return VeraDashboard.matchesSearch(
+          [j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'', j.title, j.properties?j.properties.label:'', JOB_STATUS_LABEL[j.status]||j.status], q
+        );
+      }));
+    });
   }
 
   function wireForms(){
@@ -248,13 +274,21 @@
     });
   }
 
+  var allTenancies = [];
+  var allOwnerships = [];
+  var allJobs = [];
+
   async function loadTenancies(){
     var res = await client.from('tenancies')
       .select('*, tenant:profiles!tenant_profile_id(first_name,last_name), units(label, properties(label))')
       .order('start_date', { ascending:false });
-    var rows = res.data || [];
+    allTenancies = res.data || [];
+    renderTenanciesTable(allTenancies);
+  }
+
+  function renderTenanciesTable(rows){
     var table = document.getElementById('tenanciesTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Mietverhältnisse.</td></tr>'; return; }
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allTenancies.length?'Keine Treffer.':'Noch keine Mietverhältnisse.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Beginn</th><th>Ende</th><th>Status</th></tr>' +
       rows.map(function(t){
         var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
@@ -269,9 +303,13 @@
     var res = await client.from('ownerships')
       .select('*, owner:profiles!owner_profile_id(first_name,last_name), properties(label), units(label)')
       .order('created_at', { ascending:false });
-    var rows = res.data || [];
+    allOwnerships = res.data || [];
+    renderOwnershipsTable(allOwnerships);
+  }
+
+  function renderOwnershipsTable(rows){
     var table = document.getElementById('ownershipsTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Eigentümerschaften.</td></tr>'; return; }
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allOwnerships.length?'Keine Treffer.':'Noch keine Eigentümerschaften.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Eigentümer</th><th>Objekt/Einheit</th><th>Anteil</th></tr>' +
       rows.map(function(o){
         var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '–');
@@ -285,9 +323,13 @@
     var res = await client.from('job_assignments')
       .select('*, assignee:profiles!profile_id(first_name,last_name,category), properties(label)')
       .order('created_at', { ascending:false });
-    var rows = res.data || [];
+    allJobs = res.data || [];
+    renderJobsTable(allJobs);
+  }
+
+  function renderJobsTable(rows){
     var table = document.getElementById('jobsTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Auftragszuweisungen.</td></tr>'; return; }
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allJobs.length?'Keine Treffer.':'Noch keine Auftragszuweisungen.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Zugewiesen an</th><th>Titel</th><th>Objekt</th><th>Status</th></tr>' +
       rows.map(function(j){
         return '<tr><td>'+VeraDashboard.escapeHtml(j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'–')+'</td>' +

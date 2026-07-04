@@ -59,6 +59,7 @@
 
       <div class="dash-card">
         <h2>Rechnungen an mich</h2>
+        <input type="text" class="dash-search-input" id="receivedSearch" placeholder="Suchen nach Nr., Von, Kategorie, Status …">
         <table class="dash-table" id="receivedTable"></table>
       </div>
 
@@ -121,11 +122,13 @@
 
       <div class="dash-card" id="issuedCard" style="display:none;">
         <h2>Rechnungen von mir</h2>
+        <input type="text" class="dash-search-input" id="issuedSearch" placeholder="Suchen nach Nr., An, Kategorie, Status …">
         <table class="dash-table" id="issuedTable"></table>
       </div>
 
       <div class="dash-card" id="allInvoicesCard" style="display:none;">
         <h2>Alle Rechnungen</h2>
+        <input type="text" class="dash-search-input" id="allInvoicesSearch" placeholder="Suchen nach Nr., Von, An, Kategorie, Status …">
         <table class="dash-table" id="allInvoicesTable"></table>
       </div>
     </section>
@@ -140,7 +143,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -211,6 +214,32 @@
       document.getElementById('allInvoicesCard').style.display = 'block';
       await loadAllInvoices();
     }
+
+    document.getElementById('receivedSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderReceivedTable(allReceived.filter(function(inv){
+        var issuerLabel = (inv.issuer && inv.issuer.category !== 'admin') ? (inv.issuer.last_name+' '+inv.issuer.first_name) : 'Vera Home Immobilien';
+        return VeraDashboard.matchesSearch([inv.invoice_number, issuerLabel, CATEGORY_TEXT[inv.category]||inv.category, STATUS_TEXT[inv.status]], q);
+      }));
+    });
+    document.getElementById('issuedSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderIssuedTable(allIssued.filter(function(inv){
+        var recLabel = inv.recipient ? (inv.recipient.last_name+' '+inv.recipient.first_name) : '';
+        return VeraDashboard.matchesSearch([inv.invoice_number, recLabel, CATEGORY_TEXT[inv.category]||inv.category, STATUS_TEXT[inv.status]], q);
+      }));
+    });
+    document.getElementById('allInvoicesSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderAllInvoicesTable(allInvoicesData.filter(function(inv){
+        return VeraDashboard.matchesSearch([
+          inv.invoice_number,
+          inv.issuer?inv.issuer.last_name+' '+inv.issuer.first_name:'',
+          inv.recipient?inv.recipient.last_name+' '+inv.recipient.first_name:'',
+          CATEGORY_TEXT[inv.category]||inv.category, STATUS_TEXT[inv.status]
+        ], q);
+      }));
+    });
   });
 
   function renderInvoiceRow(inv, otherPartyLabel){
@@ -224,14 +253,22 @@
     '</tr>';
   }
 
+  var allReceived = [];
+  var allIssued = [];
+  var allInvoicesData = [];
+
   async function loadReceived(){
     var res = await client.from('invoices')
       .select('*, issuer:profiles!issuer_profile_id(first_name,last_name,category)')
       .eq('recipient_profile_id', profile.id)
       .order('created_at', { ascending:false });
-    var invoices = res.data || [];
+    allReceived = res.data || [];
+    renderReceivedTable(allReceived);
+  }
+
+  function renderReceivedTable(invoices){
     var table = document.getElementById('receivedTable');
-    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen erhalten.</td></tr>'; return; }
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allReceived.length?'Keine Treffer.':'Keine Rechnungen erhalten.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Nr.</th><th>Von</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
       invoices.map(function(inv){
         var issuerLabel = (inv.issuer && inv.issuer.category !== 'admin') ? (inv.issuer.last_name+' '+inv.issuer.first_name) : 'Vera Home Immobilien';
@@ -244,9 +281,13 @@
       .select('*, recipient:profiles!recipient_profile_id(first_name,last_name)')
       .eq('issuer_profile_id', profile.id)
       .order('created_at', { ascending:false });
-    var invoices = res.data || [];
+    allIssued = res.data || [];
+    renderIssuedTable(allIssued);
+  }
+
+  function renderIssuedTable(invoices){
     var table = document.getElementById('issuedTable');
-    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen gestellt.</td></tr>'; return; }
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allIssued.length?'Keine Treffer.':'Keine Rechnungen gestellt.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Nr.</th><th>An</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
       invoices.map(function(inv){
         var recLabel = inv.recipient ? (inv.recipient.last_name+' '+inv.recipient.first_name) : '–';
@@ -258,9 +299,13 @@
     var res = await client.from('invoices')
       .select('*, issuer:profiles!issuer_profile_id(first_name,last_name), recipient:profiles!recipient_profile_id(first_name,last_name)')
       .order('created_at', { ascending:false });
-    var invoices = res.data || [];
+    allInvoicesData = res.data || [];
+    renderAllInvoicesTable(allInvoicesData);
+  }
+
+  function renderAllInvoicesTable(invoices){
     var table = document.getElementById('allInvoicesTable');
-    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">Keine Rechnungen vorhanden.</td></tr>'; return; }
+    if(!invoices.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allInvoicesData.length?'Keine Treffer.':'Keine Rechnungen vorhanden.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Nr.</th><th>Von</th><th>An</th><th>Kategorie</th><th>Total</th><th>Status</th><th></th></tr>' +
       invoices.map(function(inv){
         return '<tr>' +

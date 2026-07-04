@@ -68,7 +68,10 @@
 
       <!-- Admin-Ansicht: Nutzerliste + Thread -->
       <div id="msgAdminView" style="display:none;" class="msg-admin-layout">
-        <aside class="msg-partner-list" id="msgPartnerList"></aside>
+        <aside class="msg-partner-list">
+          <input type="text" class="dash-search-input" id="partnerSearch" placeholder="Suchen …" style="margin:10px;width:calc(100% - 20px);">
+          <div id="msgPartnerList"></div>
+        </aside>
         <div class="msg-thread-pane">
           <div class="msg-thread" id="msgThreadAdmin"><p class="msg-empty">Wählen Sie links einen Nutzer aus.</p></div>
           <form class="msg-compose" id="msgSendFormAdmin" style="display:none;">
@@ -89,7 +92,7 @@
         <p class="footer-brand">Vera Home Immobilien</p>
         <p>Hauptstrasse 39, 5070 Frick</p>
         <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
-        <p><a href="mailto:julia.allen@gmx.ch">julia.allen@gmx.ch</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
       </div>
       <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
       <div class="footer-right">
@@ -163,7 +166,11 @@
       var msgs = res.data || [];
       renderThread(threadEl, msgs, profile.id);
       msgs.filter(function(m){ return m.recipient_profile_id === profile.id && !m.read_at; })
-        .forEach(function(m){ VeraPortal.markMessageRead(m.id); });
+        .forEach(function(m){
+          VeraPortal.markMessageRead(m.id).then(function(res){
+            if(res.error) console.error('markMessageRead failed for', m.id, res.error);
+          });
+        });
     }
 
     form.addEventListener('submit', async function(e){
@@ -186,16 +193,22 @@
     var threadEl = document.getElementById('msgThreadAdmin');
     var formEl = document.getElementById('msgSendFormAdmin');
 
+    var allPartners = [];
+
     async function loadPartners(){
       var res = await client.from('profiles')
         .select('id, first_name, last_name, member_number')
         .neq('category', 'admin').order('last_name');
-      var partners = res.data || [];
+      allPartners = res.data || [];
+      renderPartnerList(allPartners);
+    }
+
+    function renderPartnerList(partners){
       listEl.innerHTML = partners.map(function(p){
-        return '<button type="button" class="msg-partner-btn" data-id="'+p.id+'">' +
+        return '<button type="button" class="msg-partner-btn'+(p.id===currentPartnerId?' active':'')+'" data-id="'+p.id+'">' +
           VeraDashboard.escapeHtml(p.last_name+' '+p.first_name) +
           '<span class="msg-partner-meta">'+VeraDashboard.escapeHtml(p.member_number)+'</span></button>';
-      }).join('') || '<p class="dash-empty">Keine Nutzer vorhanden.</p>';
+      }).join('') || '<p class="dash-empty">'+(allPartners.length?'Keine Treffer.':'Keine Nutzer vorhanden.')+'</p>';
 
       listEl.querySelectorAll('.msg-partner-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
@@ -208,13 +221,27 @@
       });
     }
 
+    document.getElementById('partnerSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderPartnerList(allPartners.filter(function(p){
+        return VeraDashboard.matchesSearch([p.last_name, p.first_name, p.member_number], q);
+      }));
+    });
+
     async function loadAdminThread(){
       if(!currentPartnerId) return;
       var res = await client.from('messages').select('*')
         .or('and(sender_profile_id.eq.'+profile.id+',recipient_profile_id.eq.'+currentPartnerId+
             '),and(sender_profile_id.eq.'+currentPartnerId+',recipient_profile_id.eq.'+profile.id+')')
         .order('created_at', { ascending:true });
-      renderThread(threadEl, res.data || [], profile.id);
+      var msgs = res.data || [];
+      renderThread(threadEl, msgs, profile.id);
+      msgs.filter(function(m){ return m.recipient_profile_id === profile.id && !m.read_at; })
+        .forEach(function(m){
+          VeraPortal.markMessageRead(m.id).then(function(res){
+            if(res.error) console.error('markMessageRead failed for', m.id, res.error);
+          });
+        });
     }
 
     formEl.addEventListener('submit', async function(e){

@@ -153,12 +153,45 @@ window.VeraPortal = (function () {
     });
   }
 
+  /* Sends a payment-reminder email for an overdue invoice via the same
+     send-invoice-email Edge Function, just with reminder:true — the
+     function re-validates server-side that the invoice is still
+     'offen' before sending, never trusting the client's own overdue
+     computation. */
+  function sendPaymentReminder(invoiceId) {
+    return getClient().functions.invoke("send-invoice-email", {
+      body: { invoiceId: invoiceId, reminder: true }
+    });
+  }
+
   /* Generates + immediately sends ("offen") this month's occurrence of a
      Dauerauftrag template. Wraps generate_recurring_invoice_occurrence(). */
   function generateRecurringInvoiceOccurrence(recurringInvoiceId) {
     return getClient().rpc("generate_recurring_invoice_occurrence", {
       p_recurring_invoice_id: recurringInvoiceId
     });
+  }
+
+  /* Fetches the current user's unread sidebar-badge counts for all
+     tracked sections in one round-trip. Wraps get_unread_counts().
+     Returns a plain object keyed by section, e.g.
+     { messages: 2, invoices: 0, meldungen: 1, documents: 0,
+       calendar: 0, waschplan: 0 }. */
+  async function getUnreadCounts() {
+    var res = await getClient().rpc("get_unread_counts");
+    if (res.error) throw res.error;
+    var counts = {};
+    (res.data || []).forEach(function (row) {
+      counts[row.section] = row.unread_count;
+    });
+    return counts;
+  }
+
+  /* Marks one sidebar section as "seen" for the current user, clearing
+     its badge. Wraps mark_section_seen(). Not valid for 'messages' —
+     that section clears itself via markMessageRead() instead. */
+  function markSectionSeen(section) {
+    return getClient().rpc("mark_section_seen", { p_section: section });
   }
 
   return {
@@ -175,7 +208,10 @@ window.VeraPortal = (function () {
     markMessageRead: markMessageRead,
     markInvoicePaid: markInvoicePaid,
     sendInvoiceEmail: sendInvoiceEmail,
+    sendPaymentReminder: sendPaymentReminder,
     generateRecurringInvoiceOccurrence: generateRecurringInvoiceOccurrence,
+    getUnreadCounts: getUnreadCounts,
+    markSectionSeen: markSectionSeen,
     requestPasswordReset: requestPasswordReset,
     updatePassword: updatePassword
   };
