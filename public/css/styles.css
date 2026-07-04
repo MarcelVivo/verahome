@@ -82,25 +82,16 @@ body::before,section::before,footer::before{
   mask-repeat:repeat;
   -webkit-mask-size:820px 820px;
   mask-size:820px 820px;
-  -webkit-mask-position:0 0;
-  mask-position:0 0;
-  animation:grid-fade-drift 140s ease-in-out infinite;
 }
-/* Slides only the fade mask over the (unmoving) grid lines — the visible/
-   faded patches drift slowly and, thanks to the uneven waypoints below,
-   never in an obviously back-and-forth or single-direction way. Each
-   section starts this animation at its own time (page load), which is
-   enough on its own to keep sections out of sync with each other since
-   they scroll into view at different moments. */
-@keyframes grid-fade-drift{
-  0%   { -webkit-mask-position:0px 0px;      mask-position:0px 0px; }
-  17%  { -webkit-mask-position:260px -180px; mask-position:260px -180px; }
-  34%  { -webkit-mask-position:-190px -340px;mask-position:-190px -340px; }
-  52%  { -webkit-mask-position:-410px 120px; mask-position:-410px 120px; }
-  68%  { -webkit-mask-position:180px 300px;  mask-position:180px 300px; }
-  85%  { -webkit-mask-position:330px -60px;  mask-position:330px -60px; }
-  100% { -webkit-mask-position:0px 0px;      mask-position:0px 0px; }
-}
+/* Note: this used to also animate mask-position so the faded patches would
+   drift slowly across the page. Reverted — animating mask-position forces
+   a full repaint of every section on every frame (masks aren't a
+   compositor-only property like transform/opacity), which was the direct
+   cause of severe scroll jank (measured ~235ms/frame instead of ~16ms
+   across the whole site). Static is the safe trade-off; a cheap
+   transform-based drift is possible but needs the pseudo-element
+   deliberately oversized + the section clipped to avoid revealing gaps
+   at its edges — worth a separate follow-up if the motion is wanted back. */
 img{max-width:100%;display:block;}
 a{color:inherit;text-decoration:none;cursor:url('/public/images/cursor-key.svg') 25 3, auto;}
 ul{list-style:none;}
