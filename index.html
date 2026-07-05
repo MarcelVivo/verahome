@@ -250,9 +250,19 @@ document.documentElement.style.scrollBehavior = 'auto';
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="1.5"/><line x1="4" y1="9.5" x2="20" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/></svg></div>
         <h3 data-i18n="tool2_title">Termin vereinbaren</h3>
         <p data-i18n="tool2_text">Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch, wann es Ihnen passt.</p>
-        <button type="button" class="btn btn-dark" id="toggleBooking" data-i18n="tool2_cta" aria-expanded="false">Termin buchen</button>
-        <form class="upload-form" id="bookingForm">
-          <input type="date" id="bk_date" placeholder="Datum wählen" required>
+        <form class="upload-form open" id="bookingForm">
+          <div class="booking-week" id="bookingWeek">
+            <div class="booking-week-nav">
+              <button type="button" class="booking-week-nav-btn" id="bookingPrevWeek" aria-label="Vorherige Woche" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span class="booking-week-label" id="bookingWeekLabel"></span>
+              <button type="button" class="booking-week-nav-btn" id="bookingNextWeek" aria-label="Nächste Woche">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+            <div class="booking-week-days" id="bookingWeekDays"></div>
+          </div>
           <div class="booking-slots" id="bookingSlots"></div>
           <div class="booking-details" id="bookingDetails" style="display:none;">
             <select id="bk_property" aria-label="Betreffendes Objekt">
@@ -616,57 +626,94 @@ document.documentElement.style.scrollBehavior = 'auto';
   "use strict";
   try {
     if(!window.supabase || !window.VERA_SUPABASE_CONFIG) return;
-    var toggleBtn = document.getElementById('toggleBooking');
     var form = document.getElementById('bookingForm');
-    if(!toggleBtn || !form) return;
+    if(!form) return;
 
     var client = window.supabase.createClient(
       window.VERA_SUPABASE_CONFIG.url,
       window.VERA_SUPABASE_CONFIG.anonKey
     );
 
-    var dateInput = document.getElementById('bk_date');
+    var weekDaysEl = document.getElementById('bookingWeekDays');
+    var weekLabelEl = document.getElementById('bookingWeekLabel');
+    var prevWeekBtn = document.getElementById('bookingPrevWeek');
+    var nextWeekBtn = document.getElementById('bookingNextWeek');
     var slotsEl = document.getElementById('bookingSlots');
     var detailsEl = document.getElementById('bookingDetails');
     var statusEl = document.getElementById('bookingStatus');
     var propertySelect = document.getElementById('bk_property');
     var selectedSlot = null;
+    var selectedDateStr = null;
+    var weekOffset = 0;
+    var WEEKDAY_LABELS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
-    var todayStr = new Date().toISOString().slice(0,10);
-    dateInput.setAttribute('min', todayStr);
+    client.from('units').select('id, label, properties(id, label, city)').eq('visibility', 'public')
+      .then(function(res){
+        if(res.error || !res.data) return;
+        res.data.forEach(function(unit){
+          var property = unit.properties || {};
+          if(!property.id) return;
+          var opt = document.createElement('option');
+          opt.value = property.id;
+          opt.textContent = unit.label + (property.city ? ' (' + property.city + ')' : '');
+          propertySelect.appendChild(opt);
+        });
+      })
+      .catch(function(){ /* Auswahl bleibt auf "Allgemeines Anliegen" */ });
 
-    /* Objekt-Auswahl im aufgeklappten Formular: erst beim ersten
-       Aufklappen geladen (nicht schon beim Seitenaufbau), damit ein
-       Supabase-Hänger hier nie den Rest der Kachel blockiert. */
-    var propertiesLoaded = false;
-    toggleBtn.addEventListener('click', function(){
-      var open = form.classList.toggle('open');
-      toggleBtn.setAttribute('aria-expanded', open);
-      if(open && !propertiesLoaded){
-        propertiesLoaded = true;
-        client.from('units').select('id, label, properties(id, label, city)').eq('visibility', 'public')
-          .then(function(res){
-            if(res.error || !res.data) return;
-            res.data.forEach(function(unit){
-              var property = unit.properties || {};
-              if(!property.id) return;
-              var opt = document.createElement('option');
-              opt.value = property.id;
-              opt.textContent = unit.label + (property.city ? ' (' + property.city + ')' : '');
-              propertySelect.appendChild(opt);
-            });
-          })
-          .catch(function(){ /* Auswahl bleibt auf "Allgemeines Anliegen" */ });
+    function pad2(n){ return n < 10 ? '0' + n : '' + n; }
+    function toDateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+    function startOfWeek(d){
+      var day = d.getDay();
+      var diff = (day === 0 ? -6 : 1 - day);
+      var monday = new Date(d);
+      monday.setDate(d.getDate() + diff);
+      monday.setHours(0,0,0,0);
+      return monday;
+    }
+
+    function renderWeek(){
+      var today = new Date(); today.setHours(0,0,0,0);
+      var monday = startOfWeek(today);
+      monday.setDate(monday.getDate() + weekOffset * 7);
+
+      prevWeekBtn.disabled = weekOffset <= 0;
+
+      var days = [];
+      for(var i = 0; i < 7; i++){
+        var d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push(d);
       }
-    });
+      var firstLabel = days[0].toLocaleDateString('de-CH', { month:'short' });
+      var lastLabel = days[6].toLocaleDateString('de-CH', { month:'short' });
+      weekLabelEl.textContent = days[0].getDate() + '. ' + firstLabel + ' – ' + days[6].getDate() + '. ' + lastLabel;
 
-    dateInput.addEventListener('change', async function(){
+      weekDaysEl.innerHTML = days.map(function(d, idx){
+        var dateStr = toDateStr(d);
+        var isPast = d < today;
+        var isSelected = dateStr === selectedDateStr;
+        return '<button type="button" class="booking-day-btn'+(isSelected?' selected':'')+'" data-date="'+dateStr+'"'+(isPast?' disabled':'')+'>' +
+          '<span class="booking-day-name">'+WEEKDAY_LABELS[idx]+'</span>' +
+          '<span class="booking-day-num">'+d.getDate()+'</span>' +
+        '</button>';
+      }).join('');
+
+      weekDaysEl.querySelectorAll('.booking-day-btn:not([disabled])').forEach(function(btn){
+        btn.addEventListener('click', function(){ selectDay(btn.getAttribute('data-date')); });
+      });
+    }
+
+    async function selectDay(dateStr){
+      selectedDateStr = dateStr;
       selectedSlot = null;
       detailsEl.style.display = 'none';
       statusEl.classList.remove('show');
-      if(!dateInput.value){ slotsEl.innerHTML = ''; return; }
+      weekDaysEl.querySelectorAll('.booking-day-btn').forEach(function(b){
+        b.classList.toggle('selected', b.getAttribute('data-date') === dateStr);
+      });
       slotsEl.innerHTML = '<p class="dash-empty" style="margin:0;">Freie Zeiten werden geladen …</p>';
-      var res = await client.rpc('get_available_slots', { p_date: dateInput.value });
+      var res = await client.rpc('get_available_slots', { p_date: dateStr });
       if(res.error || !res.data || !res.data.length){
         slotsEl.innerHTML = '<p class="dash-empty" style="margin:0;">Keine freien Termine an diesem Tag.</p>';
         return;
@@ -684,7 +731,15 @@ document.documentElement.style.scrollBehavior = 'auto';
           detailsEl.style.display = 'flex';
         });
       });
+    }
+
+    prevWeekBtn.addEventListener('click', function(){
+      if(weekOffset > 0){ weekOffset--; renderWeek(); }
     });
+    nextWeekBtn.addEventListener('click', function(){
+      weekOffset++; renderWeek();
+    });
+    renderWeek();
 
     form.addEventListener('submit', async function(e){
       e.preventDefault();
@@ -727,6 +782,8 @@ document.documentElement.style.scrollBehavior = 'auto';
       slotsEl.innerHTML = '';
       detailsEl.style.display = 'none';
       selectedSlot = null;
+      selectedDateStr = null;
+      renderWeek();
     });
   } catch(e) { /* dekorativ-kritisch, aber Fehler hier dürfen nie die restliche Seite stören */ }
 })();
@@ -818,7 +875,7 @@ var translations = {
     badge_core:"Kernleistung", badge_coop:"Kooperation", badge_new:"Aufbauphase", more_link:"Mehr erfahren",
     tools_head:"Tools für Mieter & Eigentümer", tools_sub:"Alles, was Sie als Mieter oder Eigentümer brauchen, direkt online.",
     tool1_title:"Für Wohnung bewerben", tool1_text:"Laden Sie Ihre Bewerbungsunterlagen direkt hier hoch, ganz ohne Papierkram.", tool1_submit:"Bewerbung senden",
-    tool2_title:"Termin vereinbaren", tool2_text:"Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch, wann es Ihnen passt.", tool2_cta:"Termin buchen",
+    tool2_title:"Termin vereinbaren", tool2_text:"Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch, wann es Ihnen passt.",
     tool3_title:"Direkt schreiben", tool3_text:"Kurze Frage? Schreiben Sie uns per WhatsApp, wir antworten meist noch am selben Tag.", tool3_cta:"WhatsApp öffnen",
     tool4_title:"Formulare & Checklisten", tool4_text:"Kostenlose Downloads: Miet-Checklisten, Übergabeprotokolle und ein paar Tipps aus unserem Alltag als Verwaltung.", tool4_cta:"Downloads ansehen",
     tool5_title:"Vera Portal", tool5_text:"Ihr persönlicher Zugang, sicher eingeloggt.", tool5_cta:"Zum Vera Portal",
@@ -885,7 +942,7 @@ var translations = {
     badge_core:"Core service", badge_coop:"Cooperation", badge_new:"In development", more_link:"Learn more",
     tools_head:"Tools for Tenants & Owners", tools_sub:"Everything tenants and owners need, right online.",
     tool1_title:"Apply for a flat", tool1_text:"Upload your application documents right here, no paperwork needed.", tool1_submit:"Send application",
-    tool2_title:"Book an appointment", tool2_text:"Book a viewing or consultation online, whenever it suits you.", tool2_cta:"Book appointment",
+    tool2_title:"Book an appointment", tool2_text:"Book a viewing or consultation online, whenever it suits you.",
     tool3_title:"Message us directly", tool3_text:"Quick question? Message us on WhatsApp, we usually reply the same day.", tool3_cta:"Open WhatsApp",
     tool4_title:"Forms & Checklists", tool4_text:"Free downloads: rental checklists, handover protocols, and a few tips from our day-to-day work as a management company.", tool4_cta:"View downloads",
     tool5_title:"Vera Portal", tool5_text:"Your personal, securely logged-in access.", tool5_cta:"Go to Vera Portal",

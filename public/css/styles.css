@@ -438,6 +438,10 @@ section{position:relative;padding:110px 0;}
   .tool-card p{font-size:.85rem;}
   .tool-card .btn{padding:10px 18px;font-size:.85rem;}
   .tool-card.featured{max-width:none;}
+  .booking-week-label{font-size:.78rem;}
+  .booking-week-nav-btn{width:26px;height:26px;}
+  .booking-week-nav-btn svg{width:13px;height:13px;}
+  .booking-day-btn{min-width:34px;padding:6px 4px;}
 }
 
 /* Upload form */
@@ -454,6 +458,29 @@ section{position:relative;padding:110px 0;}
 .upload-form textarea{resize:vertical;min-height:80px;}
 
 /* Öffentliches Buchungs-Widget (Termin vereinbaren) */
+.booking-week{display:flex;flex-direction:column;gap:10px;}
+.booking-week-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.booking-week-nav-btn{
+  display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex-shrink:0;
+  border:1px solid var(--color-blue-light);border-radius:50%;color:var(--color-navy);
+  transition:border-color .2s,color .2s;
+}
+.booking-week-nav-btn svg{width:16px;height:16px;}
+.booking-week-nav-btn:hover:not(:disabled){border-color:var(--color-gold);color:var(--color-gold);}
+.booking-week-nav-btn:disabled{opacity:.35;cursor:default;}
+.booking-week-label{font-size:.9rem;font-weight:600;color:var(--color-navy);text-align:center;flex-grow:1;}
+.booking-week-days{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.booking-day-btn{
+  display:flex;flex-direction:column;align-items:center;gap:4px;flex:1 0 auto;min-width:40px;
+  padding:8px 6px;border:1px solid var(--color-blue-light);border-radius:10px;background:var(--color-white);
+  transition:border-color .2s,background .2s,color .2s;
+}
+.booking-day-name{font-size:.7rem;color:var(--color-gray-text);text-transform:uppercase;letter-spacing:.03em;}
+.booking-day-num{font-size:.95rem;font-weight:600;color:var(--color-navy);}
+.booking-day-btn:hover:not(:disabled){border-color:var(--color-gold);}
+.booking-day-btn.selected{background:var(--color-navy);border-color:var(--color-navy);}
+.booking-day-btn.selected .booking-day-name,.booking-day-btn.selected .booking-day-num{color:var(--color-white);}
+.booking-day-btn:disabled{opacity:.35;cursor:default;}
 .booking-slots{display:flex;flex-wrap:wrap;gap:8px;}
 .booking-slot-btn{
   padding:8px 16px;border:1px solid var(--color-blue-light);border-radius:50px;background:var(--color-white);
