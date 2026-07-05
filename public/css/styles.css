@@ -19,7 +19,6 @@
   --shadow-card:0 4px 20px rgba(13,36,64,0.10);
   --shadow-card-hover:0 16px 40px rgba(13,36,64,0.20);
   --ease:cubic-bezier(.22,.61,.36,1);
-  --grid-line-color:rgba(46,109,164,.08);
 }
 
 /* =============================================================
@@ -40,60 +39,6 @@ body{
   hyphens:auto;
   cursor:url('/public/images/cursor-key.svg') 25 3, auto;
 }
-body,section,footer{
-  /* the grid-fx overlay (below) continuously rewrites SVG geometry every
-     frame; without this, the browser's scroll-anchoring can misread that
-     as a layout shift and yank the scroll position when a line reaches
-     an edge */
-  overflow-anchor:none;
-}
-.grid-fx-svg{overflow-anchor:none;}
-
-/* Blueprint-grid lines, on a pseudo-element of their own (not stacked into
-   each section's own background-image) so a mask can fade them in and out
-   irregularly across the page without also fading the section's own photo/
-   colour background or its content. The mask is a repeating tile of soft
-   elliptical patches (fixed pixel positions, not percentages) so the
-   visible/faded rhythm stays roughly the same size everywhere on the page —
-   long sections don't just stretch a handful of blobs thin and end up with
-   huge, effect-free stretches at whatever the current scroll position is. */
-body::before,section::before,footer::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  z-index:-2;
-  pointer-events:none;
-  background-image:
-    repeating-linear-gradient(0deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(90deg, var(--grid-line-color) 0, var(--grid-line-color) 1px, transparent 1px, transparent 40px);
-  -webkit-mask-image:
-    radial-gradient(ellipse 260px 220px at 90px 70px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 220px 260px at 620px 40px, #000 0%, transparent 65%),
-    radial-gradient(ellipse 280px 220px at 260px 380px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 230px 270px at 700px 420px, #000 0%, transparent 65%),
-    radial-gradient(ellipse 250px 230px at 120px 660px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 260px 220px at 560px 700px, #000 0%, transparent 68%);
-  mask-image:
-    radial-gradient(ellipse 260px 220px at 90px 70px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 220px 260px at 620px 40px, #000 0%, transparent 65%),
-    radial-gradient(ellipse 280px 220px at 260px 380px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 230px 270px at 700px 420px, #000 0%, transparent 65%),
-    radial-gradient(ellipse 250px 230px at 120px 660px, #000 0%, transparent 70%),
-    radial-gradient(ellipse 260px 220px at 560px 700px, #000 0%, transparent 68%);
-  -webkit-mask-repeat:repeat;
-  mask-repeat:repeat;
-  -webkit-mask-size:820px 820px;
-  mask-size:820px 820px;
-}
-/* Note: this used to also animate mask-position so the faded patches would
-   drift slowly across the page. Reverted — animating mask-position forces
-   a full repaint of every section on every frame (masks aren't a
-   compositor-only property like transform/opacity), which was the direct
-   cause of severe scroll jank (measured ~235ms/frame instead of ~16ms
-   across the whole site). Static is the safe trade-off; a cheap
-   transform-based drift is possible but needs the pseudo-element
-   deliberately oversized + the section clipped to avoid revealing gaps
-   at its edges — worth a separate follow-up if the motion is wanted back. */
 img{max-width:100%;display:block;}
 a{color:inherit;text-decoration:none;cursor:url('/public/images/cursor-key.svg') 25 3, auto;}
 ul{list-style:none;}
@@ -381,7 +326,6 @@ section{position:relative;padding:110px 0;}
    LEISTUNGEN
 ============================================================= */
 #leistungen{
-  --grid-line-color:rgba(255,255,255,.07);
   background-image:
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Luftaufnahme.png');
@@ -431,7 +375,6 @@ section{position:relative;padding:110px 0;}
    MIETERTOOLS
 ============================================================= */
 #mietertools{
-  --grid-line-color:rgba(255,255,255,.07);
   background-image:
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Portal.png');
@@ -562,7 +505,6 @@ section{position:relative;padding:110px 0;}
 .property-detail-hero{
   padding:calc(var(--nav-height) + 56px) 0 64px;
   background-color:var(--color-navy);
-  --grid-line-color:rgba(255,255,255,.07);
   text-align:center;
 }
 .property-detail-hero h1{color:var(--color-white);font-size:clamp(2rem,5vw,3.3rem);margin:10px 0 14px;}
@@ -604,7 +546,6 @@ section{position:relative;padding:110px 0;}
    WERTE
 ============================================================= */
 #werte{
-  --grid-line-color:rgba(255,255,255,.07);
   background-image:
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Wohnzimmertisch.png');
@@ -669,7 +610,6 @@ section{position:relative;padding:110px 0;}
 ============================================================= */
 #region{
   text-align:center;
-  --grid-line-color:rgba(255,255,255,.07);
   background-image:
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Fricktal.png');
@@ -722,7 +662,6 @@ section{position:relative;padding:110px 0;}
    KONTAKT
 ============================================================= */
 #kontakt{
-  --grid-line-color:rgba(255,255,255,.07);
   background-image:
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Küche.png');
@@ -772,7 +711,7 @@ input[type=file].visually-hidden{position:absolute;width:1px;height:1px;overflow
 /* =============================================================
    FOOTER
 ============================================================= */
-footer{position:relative;background-color:var(--color-navy-deep);--grid-line-color:rgba(255,255,255,.07);color:var(--color-white);padding:60px 0 26px;border-top:2px solid var(--color-gold);}
+footer{position:relative;background-color:var(--color-navy-deep);color:var(--color-white);padding:60px 0 26px;border-top:2px solid var(--color-gold);}
 .footer-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:40px;align-items:start;margin-bottom:40px;}
 .footer-quote{
   text-align:center;font-family:var(--font-heading);font-style:italic;color:var(--color-gold);font-size:1.15rem;
