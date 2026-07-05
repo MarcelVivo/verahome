@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datenschutz-Audit-Checkliste | Vera Home Immobilien</title>
+<meta name="description" content="Interne Datenschutz-Audit-Checkliste für Vera Home Immobilien.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1A3A5C">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/legal.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien, Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+  <section class="legal-hero">
+    <div class="container">
+      <h1>Datenschutz-Audit-Checkliste</h1>
+      <p>Technische und organisatorische Arbeitsliste für die rechtliche Finalprüfung.</p>
+    </div>
+  </section>
+
+  <section class="legal-content">
+    <div class="container legal-layout">
+      <article class="legal-doc">
+        <p class="legal-meta">Stand: 05. Juli 2026</p>
+        <p class="legal-note">Diese Checkliste ersetzt keine anwaltliche Prüfung. Sie trennt Codebefunde, interne Bestätigungen und Punkte für die juristische Prüfung.</p>
+
+        <h2>Status-Legende</h2>
+        <ul class="legal-list">
+          <li><strong>Gefunden im Code:</strong> Aus Repository, Supabase-Schema oder Frontend ersichtlich.</li>
+          <li><strong>Von Vera Home bestätigen:</strong> Muss im realen Betrieb, Dashboard oder Vertrag geprüft werden.</li>
+          <li><strong>Juristisch prüfen:</strong> Sollte vor produktiver Freigabe durch eine qualifizierte Schweizer Rechtsberatung beurteilt werden.</li>
+        </ul>
+
+        <h2>1. Betreiberangaben</h2>
+        <ul class="legal-list">
+          <li>Offizieller Name: Vera Home Immobilien, Einzelunternehmen Julia Allen.</li>
+          <li>Rechtsform: Einzelunternehmen.</li>
+          <li>Vertretungsberechtigte Person: Julia Allen.</li>
+          <li>Adresse: Hauptstrasse 39, 5070 Frick, Schweiz.</li>
+          <li>Kontakt: welcome@verahome.ch, +41 76 336 84 38.</li>
+          <li>MWST: aktuell nicht MWST-pflichtig.</li>
+          <li>Handelsregister / UID: intern prüfen, ob eine UID existiert oder genannt werden soll.</li>
+        </ul>
+
+        <h2>2. Externe Dienste und Anbieter</h2>
+        <ul class="legal-list">
+          <li>Vercel: Hosting laut Betreiberangabe. Projekt, Region, Log-Aufbewahrung und Vertrag/DPA prüfen.</li>
+          <li>Supabase: Projekt nutzt uulwvnoaszbnbhybssqr.supabase.co; Region laut Angabe Ireland. DPA, Subprozessoren, Backups, Auth-Logs und Storage-Region im Dashboard prüfen.</li>
+          <li>Google Fonts: externe Einbindung über Google-Server. Lokale Einbindung prüfen.</li>
+          <li>Google Maps: Karte im Kontaktbereich. Consent-Mechanismus oder statischer Link prüfen.</li>
+          <li>CDNs: jsDelivr, CDNJS und esm.sh. Integrität, Drittlandtransfer und lokale Alternativen prüfen.</li>
+          <li>Instagram / Meta und WhatsApp: externe Links; Datenübertragung beim Anklicken durch Nutzer.</li>
+          <li>E-Mail-Provider: aus Code nicht eindeutig erkennbar. Provider, DPA und Serverstandort prüfen.</li>
+          <li>Analytics / Tracking: im Code keine Google Analytics- oder Meta-Pixel-Tags gefunden; Hosting und externe Tools trotzdem bestätigen.</li>
+        </ul>
+
+        <h2>3. Öffentliche Website-Datenflüsse</h2>
+        <ul class="legal-list">
+          <li>Kontaktformular: Name, E-Mail, Telefon, Betreff, Nachricht, Datenschutz-Checkbox; Versand über mailto.</li>
+          <li>Wohnungsbewerbung: Name, E-Mail, Telefon, gewünschtes Objekt, Datei-Auswahl, Kurztext; Dateien werden nicht automatisch versendet.</li>
+          <li>Terminbuchung: Name, E-Mail, Telefon, Nachricht, Objekt, Zeitpunkt; Buchung wird über Supabase gespeichert.</li>
+          <li>Objektanzeige: öffentliche Objekte und Bilder werden aus Supabase geladen.</li>
+          <li>Karte: Google Maps iframe im Kontaktbereich.</li>
+          <li>Datenschutz-Einwilligung: Checkbox vorhanden; direkter Link zur Datenschutzerklärung im Checkbox-Text prüfen.</li>
+        </ul>
+
+        <h2>4. Vera Portal-Datenflüsse</h2>
+        <ul class="legal-list">
+          <li>Registrierung / Login: Supabase Auth, Profile, Kategorien, Mitgliedernummern, Status pending/active/suspended.</li>
+          <li>Profile: Vorname, Nachname, Telefon, Kategorie, Adresse, Status, Mitgliedernummer, Genehmigungsdaten.</li>
+          <li>Liegenschaften / Einheiten: Objekte, Einheiten, Sichtbarkeit, Bilder, Zuordnungen.</li>
+          <li>Mietverhältnisse / Eigentümerschaften: Mieter-, Eigentümer-, Objekt- und Einheitenzuweisungen.</li>
+          <li>Dokumente: Dokumenttitel, Kategorie, Status, Signatur-/Ausfüllstatus, private Storage-Buckets.</li>
+          <li>Nachrichten, Termine, Kalender, Schadensmeldungen, Hauswart-Rapporte, Rechnungen, Nebenkosten, Waschplan und Admin-Tickets.</li>
+        </ul>
+
+        <h2>5. Datenkategorien mit erhöhtem Risiko</h2>
+        <ul class="legal-list">
+          <li>Bewerbungsunterlagen: können Betreibungsregisterauszug, Lohn-/Bonitätsangaben oder weitere sensible Informationen enthalten.</li>
+          <li>Schadens- und Rapportfotos: können private Wohnräume, Personen oder persönliche Gegenstände zeigen.</li>
+          <li>Rechnungen und Bankdaten: Finanzdaten und Zahlungsstatus.</li>
+          <li>Portal-Dokumente: Verträge, Übergabeprotokolle, persönliche Angaben und Unterschriften.</li>
+          <li>Nachrichten: können vertrauliche Inhalte enthalten.</li>
+        </ul>
+
+        <h2>6. Zugriff, Rollen und Berechtigungen</h2>
+        <ul class="legal-list">
+          <li>Supabase Row Level Security ist im Schema für zentrale Tabellen und Storage-Buckets aktiviert.</li>
+          <li>Rollen im Code: admin, mieter, eigentuemer, partner, handwerker, hauswart.</li>
+          <li>Admin-Rechte, Genehmigungsprozess, Storage-Zugriffe und Offboarding intern dokumentieren.</li>
+        </ul>
+
+        <h2>7. Aufbewahrung und Löschung</h2>
+        <ul class="legal-list">
+          <li>Standardfrist laut Angabe: 10 Jahre. Je Datenart prüfen.</li>
+          <li>Bewerbungsdaten nicht angenommener Bewerber wahrscheinlich mit kürzerer Frist regeln.</li>
+          <li>Kontaktanfragen, Fotos aus Meldungen/Rapporten und technische Logs konkret befristen.</li>
+          <li>Löschprozess definieren: wer löscht wann, wie wird Löschung dokumentiert, was passiert mit Backups?</li>
+        </ul>
+
+        <h2>8. Verträge und Nachweise</h2>
+        <ul class="legal-list">
+          <li>Supabase DPA abschliessen/ablegen; Region Ireland und Subprozessoren dokumentieren.</li>
+          <li>Vercel DPA abschliessen/ablegen; Serverstandorte und Logs dokumentieren.</li>
+          <li>E-Mail-Provider identifizieren und DPA prüfen.</li>
+          <li>Google-Dienste und CDN-Dienste juristisch beurteilen; lokale Alternativen prüfen.</li>
+          <li>Interne Weisungen zu Zugriff, Passwort, Löschung und Incident-Prozess festhalten.</li>
+        </ul>
+
+        <h2>9. Technische To-dos aus dem Codebefund</h2>
+        <ul class="legal-list">
+          <li>Datenschutz-Link direkt im Kontaktformular-Text anklickbar machen.</li>
+          <li>Bewerbungsunterlagen-Prozess konkretisieren.</li>
+          <li>Supabase/Vercel DPA und Region im Betreiberordner ablegen.</li>
+          <li>Google Fonts lokal hosten oder bewusst dokumentieren.</li>
+          <li>Google Maps erst nach Nutzeraktion laden oder statischen Link nutzen.</li>
+          <li>CDN-Skripte lokal hosten oder Subresource Integrity einsetzen.</li>
+          <li>Löschfristen je Datenart technisch abbilden.</li>
+          <li>Admin-/Partner-Offboarding dokumentieren.</li>
+        </ul>
+
+        <h2>10. Fragen für die anwaltliche Prüfung</h2>
+        <ol class="legal-list">
+          <li>Reicht die Anbieterkennzeichnung für ein Einzelunternehmen ohne MWST-Pflicht und ohne UID-Angabe?</li>
+          <li>Ist die pauschale Aufbewahrungsfrist von 10 Jahren für alle Portal- und Kommunikationsdaten zulässig oder zu weit?</li>
+          <li>Welche Datenarten aus Bewerbungen gelten im konkreten Prozess als besonders schützenswert?</li>
+          <li>Muss für Google Maps, Google Fonts oder CDN-Skripte ein Consent-Mechanismus eingebaut werden?</li>
+          <li>Sind Supabase Ireland und Vercel mit den vorgesehenen Verträgen und Subprozessoren ausreichend abgedeckt?</li>
+          <li>Welche Mindestprozesse braucht Vera Home für Auskunft, Berichtigung, Löschung und Datenpannen?</li>
+        </ol>
+
+        <h2>11. Nächste sinnvolle Schritte</h2>
+        <ol class="legal-list">
+          <li>Supabase- und Vercel-DPA sowie E-Mail-Provider-DPA beschaffen und ablegen.</li>
+          <li>Supabase-Projektregion, Auth-/Storage-/Backup-Einstellungen mit Screenshots dokumentieren.</li>
+          <li>Rollenmatrix erstellen: Wer darf welche Portal-Daten sehen, bearbeiten, löschen und exportieren?</li>
+          <li>Löschkonzept je Datenart definieren.</li>
+          <li>Datenschutz-Link im Kontaktformular direkt verlinken.</li>
+          <li>Entscheidung treffen: Google Fonts/Maps/CDNs extern lassen, lokal hosten oder per Consent laden.</li>
+          <li>Rechtstexte mit Anwalt anhand dieser Checkliste final prüfen lassen.</li>
+        </ol>
+      </article>
+
+      <aside class="legal-card">
+        <h2>Direkte Links</h2>
+        <p><a href="/datenschutz.html">Datenschutzerklärung</a></p>
+        <p><a href="/impressum.html">Impressum</a></p>
+        <p><a href="/docs/datenschutz-audit-checkliste.md">Markdown-Datei öffnen</a></p>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="/public/js/nav.js"></script>
+</body>
+</html>
