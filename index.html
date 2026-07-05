@@ -231,8 +231,7 @@ document.documentElement.style.scrollBehavior = 'auto';
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h8l4 4v14h-12z"/><path d="M14.5 3v4h4"/><line x1="9" y1="12.5" x2="15" y2="12.5"/><line x1="9" y1="16.5" x2="13" y2="16.5"/></svg></div>
         <h3 data-i18n="tool1_title">Für Wohnung bewerben</h3>
         <p data-i18n="tool1_text">Laden Sie Ihre Bewerbungsunterlagen direkt hier hoch, ganz ohne Papierkram.</p>
-        <button type="button" class="btn btn-dark" id="toggleBewerbung" data-i18n="tool1_cta" aria-expanded="false">Für Wohnung bewerben</button>
-        <form class="upload-form" id="bewerbungForm">
+        <form class="upload-form open" id="bewerbungForm">
           <input type="text" id="bw_name" placeholder="Ihr Name" required data-i18n-ph="ph_name">
           <input type="email" id="bw_email" placeholder="Ihre E-Mail" required data-i18n-ph="ph_email">
           <input type="tel" id="bw_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
@@ -743,9 +742,8 @@ document.documentElement.style.scrollBehavior = 'auto';
   "use strict";
   try {
     if(!window.supabase || !window.VERA_SUPABASE_CONFIG) return;
-    var toggleBtn = document.getElementById('toggleBewerbung');
     var select = document.getElementById('bw_objekt');
-    if(!toggleBtn || !select) return;
+    if(!select) return;
 
     var client = window.supabase.createClient(
       window.VERA_SUPABASE_CONFIG.url,
@@ -773,7 +771,7 @@ document.documentElement.style.scrollBehavior = 'auto';
         .catch(function(){ /* Auswahl bleibt beim Standard-Eintrag */ });
     }
     window.VeraLoadApplicationProperties = loadApplicationProperties;
-    toggleBtn.addEventListener('click', loadApplicationProperties);
+    loadApplicationProperties();
   } catch(e) { /* dekorativ – Fehler hier dürfen nie auffallen */ }
 })();
 </script>
@@ -819,7 +817,7 @@ var translations = {
     s6_title:"Projektentwicklung", s6_text:"Machbarkeitsanalysen, Begleitung von Neubauprojekten, Koordination mit Behörden.",
     badge_core:"Kernleistung", badge_coop:"Kooperation", badge_new:"Aufbauphase", more_link:"Mehr erfahren",
     tools_head:"Tools für Mieter & Eigentümer", tools_sub:"Alles, was Sie als Mieter oder Eigentümer brauchen, direkt online.",
-    tool1_title:"Für Wohnung bewerben", tool1_text:"Laden Sie Ihre Bewerbungsunterlagen direkt hier hoch, ganz ohne Papierkram.", tool1_cta:"Für Wohnung bewerben", tool1_submit:"Bewerbung senden",
+    tool1_title:"Für Wohnung bewerben", tool1_text:"Laden Sie Ihre Bewerbungsunterlagen direkt hier hoch, ganz ohne Papierkram.", tool1_submit:"Bewerbung senden",
     tool2_title:"Termin vereinbaren", tool2_text:"Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch, wann es Ihnen passt.", tool2_cta:"Termin buchen",
     tool3_title:"Direkt schreiben", tool3_text:"Kurze Frage? Schreiben Sie uns per WhatsApp, wir antworten meist noch am selben Tag.", tool3_cta:"WhatsApp öffnen",
     tool4_title:"Formulare & Checklisten", tool4_text:"Kostenlose Downloads: Miet-Checklisten, Übergabeprotokolle und ein paar Tipps aus unserem Alltag als Verwaltung.", tool4_cta:"Downloads ansehen",
@@ -886,7 +884,7 @@ var translations = {
     s6_title:"Project Development", s6_text:"Feasibility studies, support for new-build projects, coordination with authorities.",
     badge_core:"Core service", badge_coop:"Cooperation", badge_new:"In development", more_link:"Learn more",
     tools_head:"Tools for Tenants & Owners", tools_sub:"Everything tenants and owners need, right online.",
-    tool1_title:"Apply for a flat", tool1_text:"Upload your application documents right here, no paperwork needed.", tool1_cta:"Apply now", tool1_submit:"Send application",
+    tool1_title:"Apply for a flat", tool1_text:"Upload your application documents right here, no paperwork needed.", tool1_submit:"Send application",
     tool2_title:"Book an appointment", tool2_text:"Book a viewing or consultation online, whenever it suits you.", tool2_cta:"Book appointment",
     tool3_title:"Message us directly", tool3_text:"Quick question? Message us on WhatsApp, we usually reply the same day.", tool3_cta:"Open WhatsApp",
     tool4_title:"Forms & Checklists", tool4_text:"Free downloads: rental checklists, handover protocols, and a few tips from our day-to-day work as a management company.", tool4_cta:"View downloads",
@@ -2079,18 +2077,9 @@ document.querySelectorAll('.faq-question').forEach(function(btn){
 });
 
 /* ============================================================
-   BEWERBUNG (APPLICATION) TOGGLE + FORM
+   BEWERBUNG (APPLICATION) FORM
 ============================================================ */
-var toggleBewerbung = document.getElementById('toggleBewerbung');
 var bewerbungForm = document.getElementById('bewerbungForm');
-toggleBewerbung.addEventListener('click', function(){
-  var open = bewerbungForm.classList.toggle('open');
-  toggleBewerbung.setAttribute('aria-expanded', open);
-});
-if(new URLSearchParams(window.location.search).get('bewerbung')){
-  toggleBewerbung.click();
-  if(window.VeraLoadApplicationProperties) window.VeraLoadApplicationProperties();
-}
 document.getElementById('bw_file').addEventListener('change', function(){
   var labelText = document.querySelector('label[for="bw_file"] [data-i18n="ph_upload"]');
   labelText.textContent = this.files.length ? (this.files.length + ' Datei(en) ausgewählt') : translations[currentLang].ph_upload;
