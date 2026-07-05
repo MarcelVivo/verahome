@@ -264,7 +264,7 @@ document.documentElement.style.scrollBehavior = 'auto';
             <div class="booking-week-days" id="bookingWeekDays"></div>
           </div>
           <div class="booking-slots" id="bookingSlots"></div>
-          <div class="booking-details" id="bookingDetails" style="display:none;">
+          <div class="booking-details" id="bookingDetails">
             <select id="bk_property" aria-label="Betreffendes Objekt">
               <option value="">Allgemeines Anliegen (kein bestimmtes Objekt)</option>
             </select>
@@ -272,7 +272,7 @@ document.documentElement.style.scrollBehavior = 'auto';
             <input type="email" id="bk_email" placeholder="Ihre E-Mail *" required>
             <input type="tel" id="bk_phone" placeholder="Telefon (optional)">
             <textarea id="bk_message" placeholder="Nachricht (optional)"></textarea>
-            <button type="submit" class="btn btn-primary">Termin bestätigen</button>
+            <button type="submit" class="btn btn-primary" id="bookingSubmitBtn" disabled>Termin bestätigen</button>
           </div>
           <p class="form-status" id="bookingStatus"></p>
         </form>
@@ -639,13 +639,22 @@ document.documentElement.style.scrollBehavior = 'auto';
     var prevWeekBtn = document.getElementById('bookingPrevWeek');
     var nextWeekBtn = document.getElementById('bookingNextWeek');
     var slotsEl = document.getElementById('bookingSlots');
-    var detailsEl = document.getElementById('bookingDetails');
     var statusEl = document.getElementById('bookingStatus');
     var propertySelect = document.getElementById('bk_property');
+    var nameInput = document.getElementById('bk_name');
+    var emailInput = document.getElementById('bk_email');
+    var submitBtn = document.getElementById('bookingSubmitBtn');
     var selectedSlot = null;
     var selectedDateStr = null;
     var weekOffset = 0;
     var WEEKDAY_LABELS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+    function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+    function updateSubmitState(){
+      submitBtn.disabled = !(selectedSlot && nameInput.value.trim() && isValidEmail(emailInput.value.trim()));
+    }
+    nameInput.addEventListener('input', updateSubmitState);
+    emailInput.addEventListener('input', updateSubmitState);
 
     client.from('units').select('id, label, properties(id, label, city)').eq('visibility', 'public')
       .then(function(res){
@@ -707,7 +716,7 @@ document.documentElement.style.scrollBehavior = 'auto';
     async function selectDay(dateStr){
       selectedDateStr = dateStr;
       selectedSlot = null;
-      detailsEl.style.display = 'none';
+      updateSubmitState();
       statusEl.classList.remove('show');
       weekDaysEl.querySelectorAll('.booking-day-btn').forEach(function(b){
         b.classList.toggle('selected', b.getAttribute('data-date') === dateStr);
@@ -728,7 +737,7 @@ document.documentElement.style.scrollBehavior = 'auto';
           slotsEl.querySelectorAll('.booking-slot-btn').forEach(function(b){ b.classList.remove('selected'); });
           btn.classList.add('selected');
           selectedSlot = btn.getAttribute('data-iso');
-          detailsEl.style.display = 'flex';
+          updateSubmitState();
         });
       });
     }
@@ -780,9 +789,9 @@ document.documentElement.style.scrollBehavior = 'auto';
       statusEl.textContent = 'Termin bestätigt! Wir freuen uns auf Sie.';
       form.reset();
       slotsEl.innerHTML = '';
-      detailsEl.style.display = 'none';
       selectedSlot = null;
       selectedDateStr = null;
+      updateSubmitState();
       renderWeek();
     });
   } catch(e) { /* dekorativ-kritisch, aber Fehler hier dürfen nie die restliche Seite stören */ }
