@@ -1,0 +1,40 @@
+/* =============================================================
+   LEGAL PAGES
+============================================================= */
+.legal-hero{
+  padding:calc(var(--nav-height) + 56px) 0 64px;
+  background-color:var(--color-navy);
+  --grid-line-color:rgba(255,255,255,.07);
+  text-align:center;
+}
+.legal-hero h1{color:var(--color-white);font-size:clamp(2.1rem,5vw,3.1rem);margin-bottom:16px;}
+.legal-hero p{color:rgba(255,255,255,.9);max-width:720px;margin:0 auto;font-size:1.05rem;font-weight:400;}
+.legal-content{background:var(--color-white);padding:76px 0;}
+.legal-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:56px;align-items:start;}
+.legal-doc{max-width:820px;}
+.legal-doc h2{font-size:1.45rem;margin:38px 0 14px;}
+.legal-doc h2:first-child{margin-top:0;}
+.legal-doc h3{font-size:1.05rem;margin:22px 0 10px;}
+.legal-doc p{color:var(--color-gray-text);margin-bottom:14px;}
+.legal-doc a{color:var(--color-blue-mid);font-weight:600;}
+.legal-doc a:hover{color:var(--color-gold);}
+.legal-list{display:flex;flex-direction:column;gap:10px;margin:16px 0 22px;}
+.legal-list li{position:relative;padding-left:20px;color:var(--color-gray-text);}
+.legal-list li::before{content:'';position:absolute;left:0;top:.72em;width:6px;height:6px;border-radius:50%;background:var(--color-gold);}
+.legal-note{
+  background:var(--color-bg);border-left:3px solid var(--color-gold);
+  border-radius:8px;padding:18px 20px;margin:24px 0;color:var(--color-navy);
+}
+.legal-card{
+  position:sticky;top:calc(var(--nav-height) + 24px);
+  background:var(--color-bg);border:1px solid var(--color-blue-light);border-radius:var(--radius);padding:24px;
+}
+.legal-card h2{font-size:1.05rem;margin-bottom:14px;}
+.legal-card p{font-size:.92rem;color:var(--color-gray-text);margin-bottom:10px;}
+.legal-card a{color:var(--color-blue-mid);font-weight:600;}
+.legal-card a:hover{color:var(--color-gold);}
+.legal-meta{font-size:.9rem;color:var(--color-gray-text);margin-bottom:24px;}
+@media (max-width:900px){
+  .legal-layout{grid-template-columns:1fr;}
+  .legal-card{position:static;}
+}

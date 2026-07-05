@@ -87,7 +87,6 @@ Kurzfassung – Fallback ohne Datei:
 - [ ] Geschäfts-E-Mail `julia@verahome.ch` einrichten und im Code ergänzen, sobald verfügbar
 - [ ] Echte Downloads (PDFs) unter `public/downloads/` ablegen (siehe `public/README.md` für exakte Dateinamen)
 - [ ] Fotos für die 3 Objekt-Platzhalterkarten unter `public/images/objekte/` ablegen (optional)
-- [ ] Rechtskonforme Texte für Impressum & Datenschutz ergänzen (Schweizer nDSG) – Footer-Links `#impressum`/`#datenschutz` sind aktuell Anker-Platzhalter ohne Inhalt
 - [ ] Für produktiven E-Mail-Versand ohne Mail-Client: Formspree o. Ä. anstelle von `mailto:` einbinden
 
 ## Anpassungen
