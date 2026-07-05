@@ -577,6 +577,14 @@ document.documentElement.style.scrollBehavior = 'auto';
         }).join('');
 
         grid.innerHTML = cardsHtml;
+        /* this can replace placeholder cards with different-height content
+           well after the page's own "load" event (network fetch, own
+           timing) — every ScrollTrigger further down the page was
+           positioned based on the layout before this ran, so it needs a
+           refresh now, and again shortly after once the property photos
+           themselves have actually finished loading in. */
+        if(window.ScrollTrigger) ScrollTrigger.refresh();
+        setTimeout(function(){ if(window.ScrollTrigger) ScrollTrigger.refresh(); }, 600);
       })
       .catch(function(){ /* dekorativ – Fehler hier dürfen nie auffallen */ });
   } catch(e) { /* dito */ }
@@ -758,6 +766,7 @@ var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matche
    innerhalb der Seite (Navigation, "Nach oben") wieder sanft scrollen. */
 window.addEventListener('load', function(){
   setTimeout(function(){ document.documentElement.style.scrollBehavior = ''; }, 100);
+  if(window.ScrollTrigger) ScrollTrigger.refresh();
 });
 
 /* ============================================================
