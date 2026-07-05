@@ -104,8 +104,33 @@
 }
 
 /* Termine — Wochenübersicht (Admin) */
-.cal-week-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.cal-week-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
 .cal-week-label{font-weight:600;color:var(--color-navy);flex-grow:1;text-align:center;font-size:.95rem;}
+.cal-jump-search{position:relative;margin-left:auto;}
+.cal-jump-search input{
+  width:240px;padding:8px 14px;border:1px solid var(--color-blue-light);border-radius:50px;
+  font-size:.82rem;font-family:var(--font-body);background:var(--color-white);
+}
+.cal-jump-search input:focus{outline:none;border-color:var(--color-gold);}
+.cal-jump-results{
+  position:absolute;top:calc(100% + 6px);right:0;width:280px;max-height:260px;overflow-y:auto;
+  background:var(--color-white);border:1px solid var(--color-blue-light);border-radius:8px;
+  box-shadow:var(--shadow-card);z-index:50;
+}
+.cal-jump-result-item{
+  display:block;width:100%;text-align:left;padding:9px 14px;border-bottom:1px solid var(--color-blue-light);
+  font-size:.82rem;color:var(--color-navy);cursor:pointer;background:none;
+}
+.cal-jump-result-item:last-child{border-bottom:none;}
+.cal-jump-result-item:hover{background:var(--color-bg);}
+.cal-jump-result-title{font-weight:600;display:block;}
+.cal-jump-result-meta{color:var(--color-gray-text);font-size:.76rem;}
+.cal-jump-no-results{padding:12px 14px;font-size:.82rem;color:var(--color-gray-text);}
+@keyframes calJumpHighlight{
+  0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0);}
+  50%{box-shadow:0 0 0 4px rgba(201,168,76,.65);}
+}
+.cal-jump-highlight{animation:calJumpHighlight 1s ease-in-out 3;z-index:5;}
 .cal-grid-wrap{overflow-x:auto;border:1px solid var(--color-blue-light);border-radius:var(--radius);}
 .cal-grid{display:flex;min-width:760px;}
 .cal-time-col{width:56px;flex-shrink:0;position:sticky;left:0;background:var(--color-white);z-index:2;border-right:1px solid var(--color-blue-light);}

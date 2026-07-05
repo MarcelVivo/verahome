@@ -69,6 +69,10 @@
           <button type="button" class="booking-week-nav-btn" id="calNextWeek" aria-label="Nächste Woche">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+          <div class="cal-jump-search">
+            <input type="text" id="calJumpSearch" placeholder="Suchen &amp; springen (Name, Titel, E-Mail) …" autocomplete="off">
+            <div class="cal-jump-results" id="calJumpResults" hidden></div>
+          </div>
         </div>
         <div class="cal-grid-wrap">
           <div class="cal-grid" id="calGrid"></div>
@@ -209,6 +213,7 @@
     document.getElementById('calPrevWeek').addEventListener('click', function(){ calWeekOffset--; loadCalWeek(); });
     document.getElementById('calNextWeek').addEventListener('click', function(){ calWeekOffset++; loadCalWeek(); });
     document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
+    initCalJumpSearch();
 
     computeCalHourRange().then(loadCalWeek);
     loadCalProperties();
@@ -373,6 +378,118 @@
     });
     calHourStart = Math.min(minH, 7);
     calHourEnd = Math.max(maxH, 21);
+  }
+
+  /* ============================================================
+     SUCHEN & SPRINGEN: durchsucht Buchungen + Termine (inkl.
+     eingeladener Teilnehmer) über ALLE Wochen, nicht nur die aktuell
+     angezeigte — die Wochenkacheln zeigen ja schon alles auf einen
+     Blick, eine reine Filterbox innerhalb einer Woche brächte kaum
+     Mehrwert. Bei Treffer springt die Ansicht zur passenden Woche und
+     hebt die Kachel kurz hervor.
+  ============================================================ */
+  function calWeekOffsetForDate(iso){
+    var todayMonday = calStartOfWeek(new Date());
+    var targetMonday = calStartOfWeek(new Date(iso));
+    var diffDays = Math.round((targetMonday - todayMonday) / 86400000);
+    return Math.round(diffDays / 7);
+  }
+
+  function calJumpResultLabel(r){
+    var dateLabel = new Date(r.starts_at).toLocaleDateString('de-CH', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+    var timeLabel = new Date(r.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return dateLabel + ', ' + timeLabel + ' Uhr';
+  }
+
+  async function calJumpSearchQuery(q){
+    var pattern = '%' + q.replace(/[%,]/g, '') + '%';
+    var now = new Date().toISOString();
+
+    var bookingsRes = await client.from('bookings')
+      .select('id, name, email, phone, starts_at')
+      .or('name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern);
+    var apptsByTextRes = await client.from('appointments')
+      .select('id, title, note, starts_at')
+      .or('title.ilike.' + pattern + ',note.ilike.' + pattern);
+    var apptsByParticipantRes = await client.from('appointment_participants')
+      .select('appointment_id, profiles!inner(first_name, last_name), appointments!inner(id, title, note, starts_at)')
+      .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern, { foreignTable: 'profiles' });
+
+    var results = [];
+    (bookingsRes.data || []).forEach(function(b){
+      results.push({ type: 'booking', id: b.id, starts_at: b.starts_at, title: b.name, meta: b.email });
+    });
+    var seenApptIds = {};
+    (apptsByTextRes.data || []).forEach(function(a){
+      seenApptIds[a.id] = true;
+      results.push({ type: 'appointment', id: a.id, starts_at: a.starts_at, title: a.title, meta: a.note || '' });
+    });
+    (apptsByParticipantRes.data || []).forEach(function(row){
+      var a = row.appointments;
+      if(!a || seenApptIds[a.id]) return;
+      seenApptIds[a.id] = true;
+      var p = row.profiles;
+      results.push({ type: 'appointment', id: a.id, starts_at: a.starts_at, title: a.title, meta: p ? (p.first_name + ' ' + p.last_name) : '' });
+    });
+
+    var future = results.filter(function(r){ return r.starts_at >= now; }).sort(function(a,b){ return a.starts_at < b.starts_at ? -1 : 1; });
+    var past = results.filter(function(r){ return r.starts_at < now; }).sort(function(a,b){ return a.starts_at > b.starts_at ? -1 : 1; });
+    return future.concat(past).slice(0, 8);
+  }
+
+  function calJumpToResult(r){
+    calWeekOffset = calWeekOffsetForDate(r.starts_at);
+    loadCalWeek().then(function(){
+      var grid = document.getElementById('calGrid');
+      var selector = r.type === 'booking' ? '[data-booking-id="' + r.id + '"]' : '[data-appointment-id="' + r.id + '"]';
+      var el = grid.querySelector(selector);
+      if(!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('cal-jump-highlight');
+      setTimeout(function(){ el.classList.remove('cal-jump-highlight'); }, 3000);
+      calPinnedKey = null;
+      el.click();
+    });
+  }
+
+  function initCalJumpSearch(){
+    var input = document.getElementById('calJumpSearch');
+    var resultsEl = document.getElementById('calJumpResults');
+    var debounceId = null;
+
+    function renderResults(rows){
+      if(!rows.length){
+        resultsEl.innerHTML = '<p class="cal-jump-no-results">Keine Treffer.</p>';
+      } else {
+        resultsEl.innerHTML = rows.map(function(r, i){
+          return '<button type="button" class="cal-jump-result-item" data-jump-index="' + i + '">' +
+            '<span class="cal-jump-result-title">' + VeraDashboard.escapeHtml(r.title) + '</span>' +
+            '<span class="cal-jump-result-meta">' + calJumpResultLabel(r) + (r.meta ? ' · ' + VeraDashboard.escapeHtml(r.meta) : '') + '</span>' +
+          '</button>';
+        }).join('');
+        resultsEl.querySelectorAll('.cal-jump-result-item').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var r = rows[parseInt(btn.getAttribute('data-jump-index'), 10)];
+            resultsEl.hidden = true;
+            input.value = '';
+            calJumpToResult(r);
+          });
+        });
+      }
+      resultsEl.hidden = false;
+    }
+
+    input.addEventListener('input', function(){
+      var q = input.value.trim();
+      if(debounceId) clearTimeout(debounceId);
+      if(q.length < 2){ resultsEl.hidden = true; return; }
+      debounceId = setTimeout(async function(){
+        renderResults(await calJumpSearchQuery(q));
+      }, 300);
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('.cal-jump-search')) resultsEl.hidden = true;
+    });
   }
 
   async function loadCalWeek(){
@@ -599,7 +716,7 @@
     calPinnedKey = null;
   }
   document.addEventListener('click', function(e){
-    if(calPinnedKey && !e.target.closest('.cal-event') && !e.target.closest('#calDetailPopover')){
+    if(calPinnedKey && !e.target.closest('.cal-event') && !e.target.closest('#calDetailPopover') && !e.target.closest('.cal-jump-search')){
       calHidePopover();
     }
   });
