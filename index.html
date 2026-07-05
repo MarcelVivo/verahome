@@ -1537,6 +1537,372 @@ function buildVeraHomeLogoGroup(opts){
       onComplete: function(){ introParticles.visible = false; }
     }, 'converged');
 
+  /* ---- wireframe group – holds the technical-drawing detail scatter
+     (corner angle marks, m² labels) and the animated measurement lines
+     behind the coin ---- */
+  var wireframeGroup = new THREE.Group();
+  scene.add(wireframeGroup);
+
+  /* sized generously past the visible frame at this depth so the detail
+     scatter always reaches every edge of the viewport, not just a patch
+     behind the coin */
+  var gridSize = 340, gridHalf = gridSize / 2;
+
+  /* ---- sparse technical-drawing details ----
+     A few faint 90° corner/angle marks and "m²" area labels, scattered at
+     random spots behind the coin, each fading in and out on its own loop –
+     never all at once, and much fainter than the skyline shapes. */
+  var detailSpreadX = gridHalf * 0.85, detailSpreadY = gridHalf * 0.85;
+  function randomDetailPos(){
+    return [(Math.random() - 0.5) * 2 * detailSpreadX, (Math.random() - 0.5) * 2 * detailSpreadY, -97 + Math.random() * 4];
+  }
+  function cycleDetail(mat, targetOpacity, reposition){
+    gsap.to(mat, {
+      opacity: 0, duration: 1.8, ease: 'power2.inOut',
+      onComplete: function(){
+        reposition();
+        gsap.to(mat, {
+          opacity: targetOpacity, duration: 1.8, ease: 'power2.out',
+          onComplete: function(){
+            gsap.delayedCall(4 + Math.random() * 7, function(){ cycleDetail(mat, targetOpacity, reposition); });
+          }
+        });
+      }
+    });
+  }
+
+  var angleMarkCount = 6;
+  var angleMarkSize = 5;
+  var angleGeo = new THREE.BufferGeometry();
+  angleGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    0, 0, 0,  angleMarkSize, 0, 0,
+    0, 0, 0,  0, angleMarkSize, 0,
+    angleMarkSize * 0.72, 0, 0,  angleMarkSize * 0.72, angleMarkSize * 0.28, 0,
+    0, angleMarkSize * 0.72, 0,  angleMarkSize * 0.28, angleMarkSize * 0.72, 0
+  ], 3));
+  for(var ai = 0; ai < angleMarkCount; ai++){
+    var angleMat = new THREE.LineBasicMaterial({ color: 0xd4af37, transparent: true, opacity: 0 });
+    var angleMesh = new THREE.LineSegments(angleGeo, angleMat);
+    var ap = randomDetailPos();
+    angleMesh.position.set(ap[0], ap[1], ap[2]);
+    angleMesh.rotation.z = Math.floor(Math.random() * 4) * Math.PI / 2;
+    wireframeGroup.add(angleMesh);
+    (function(mesh, mat){
+      gsap.delayedCall(1.5 + Math.random() * 4, function(){
+        cycleDetail(mat, 0.14, function(){
+          var p = randomDetailPos();
+          mesh.position.set(p[0], p[1], p[2]);
+          mesh.rotation.z = Math.floor(Math.random() * 4) * Math.PI / 2;
+        });
+      });
+    })(angleMesh, angleMat);
+  }
+
+  var m2Values = ['24 m²', '58 m²', '86 m²', '112 m²', '134 m²', '176 m²', '210 m²'];
+  function makeLabelTexture(text){
+    var c = document.createElement('canvas');
+    c.width = 160; c.height = 56;
+    var ctx = c.getContext('2d');
+    ctx.font = '28px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, 80, 28);
+    return new THREE.CanvasTexture(c);
+  }
+  var labelCount = 5;
+  for(var li = 0; li < labelCount; li++){
+    var labelMat = new THREE.SpriteMaterial({
+      map: makeLabelTexture(m2Values[Math.floor(Math.random() * m2Values.length)]),
+      color: 0xd4af37, transparent: true, opacity: 0, depthWrite: false
+    });
+    var labelSprite = new THREE.Sprite(labelMat);
+    labelSprite.scale.set(11, 3.85, 1);
+    var lp = randomDetailPos();
+    labelSprite.position.set(lp[0], lp[1], lp[2]);
+    wireframeGroup.add(labelSprite);
+    (function(sprite, mat){
+      gsap.delayedCall(2 + Math.random() * 5, function(){
+        cycleDetail(mat, 0.16, function(){
+          var p = randomDetailPos();
+          sprite.position.set(p[0], p[1], p[2]);
+          if(mat.map) mat.map.dispose();
+          mat.map = makeLabelTexture(m2Values[Math.floor(Math.random() * m2Values.length)]);
+        });
+      });
+    })(labelSprite, labelMat);
+  }
+
+  /* ---- animated gold measurement lines – 5 thin lines trace a random
+     right-angle path outward from the center, behind the coin (like a
+     floor plan being surveyed). Each bend fades in a small 90° arc +
+     degree label the instant it's reached; the growing tip carries a
+     small gold marker sphere with an m² counter that counts upward
+     alongside it. Once a line finishes its path it holds, fades out
+     completely, and restarts elsewhere – forever. */
+  /* index 4 is a dedicated "toward viewer" jump – only ever offered as a
+     turn option from the second bend onward (see spawnGrowLine), and with
+     a much longer reach than the horizontal/vertical segments so it reads
+     as a dramatic pop toward the camera rather than a subtle drift */
+  var growDirVecs = [
+    { x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 },
+    { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 },
+    { x: 0, y: 0, z: 1 }
+  ];
+  function dirAxis(idx){ return Math.floor(idx / 2); }
+  var introFovHalfRad = (45 * Math.PI / 180) / 2;
+  function edgeExtentAt(z){
+    var dist = introBaseZ - z;
+    var halfH = dist * Math.tan(introFovHalfRad);
+    var halfW = halfH * camera.aspect;
+    return { halfW: halfW * 0.96, halfH: halfH * 0.96 };
+  }
+  var degreeLabelTexture = makeLabelTexture('90°');
+  function writeVec3(arr, i, x, y, z){ arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = z; }
+  function formatM2(v){ return v.toFixed(1).replace('.', ',') + ' m²'; }
+
+  var growLineMaxPoints = 10;
+  function makeGrowLine(slotAngle){
+    var posArr = new Float32Array(growLineMaxPoints * 3);
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    geo.setDrawRange(0, 2);
+    var mat = new THREE.LineBasicMaterial({ color: 0xd4af37, transparent: true, opacity: 0 });
+    var line = new THREE.Line(geo, mat);
+    wireframeGroup.add(line);
+
+    var tipMat = new THREE.MeshBasicMaterial({ color: 0xf7dd8f, transparent: true, opacity: 0 });
+    var tipSphere = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 10), tipMat);
+    wireframeGroup.add(tipSphere);
+
+    var tipLabelMat = new THREE.SpriteMaterial({ color: 0xf5da8a, transparent: true, opacity: 0, depthWrite: false });
+    var tipLabel = new THREE.Sprite(tipLabelMat);
+    tipLabel.scale.set(10, 3.5, 1);
+    wireframeGroup.add(tipLabel);
+
+    return {
+      posArr: posArr, geo: geo, mat: mat,
+      tipSphere: tipSphere, tipMat: tipMat,
+      tipLabel: tipLabel, tipLabelMat: tipLabelMat,
+      bendMarks: [], lastTipText: null, slotAngle: slotAngle
+    };
+  }
+
+  function clearBendMarks(state){
+    state.bendMarks.forEach(function(b){
+      wireframeGroup.remove(b.arc);
+      wireframeGroup.remove(b.label);
+      b.arc.geometry.dispose();
+      b.arc.material.dispose();
+      b.label.material.dispose();
+    });
+    state.bendMarks = [];
+  }
+
+  function spawnBendMark(state, v, dirInIdx, dirOutIdx){
+    var inv = growDirVecs[dirInIdx], outv = growDirVecs[dirOutIdx];
+    var aX = -inv.x, aY = -inv.y, aZ = -inv.z;
+    var bX = outv.x, bY = outv.y, bZ = outv.z;
+    var radius = 3.2, steps = 8, pts = [];
+    for(var i = 0; i <= steps; i++){
+      var t = (i / steps) * (Math.PI / 2);
+      var c = Math.cos(t), s = Math.sin(t);
+      pts.push(v.x + (c * aX + s * bX) * radius, v.y + (c * aY + s * bY) * radius, v.z + (c * aZ + s * bZ) * radius);
+    }
+    var arcGeo = new THREE.BufferGeometry();
+    arcGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    var arcMat = new THREE.LineBasicMaterial({ color: 0xd4af37, transparent: true, opacity: 0 });
+    var arc = new THREE.Line(arcGeo, arcMat);
+    wireframeGroup.add(arc);
+
+    var bisX = aX + bX, bisY = aY + bY, bisZ = aZ + bZ;
+    var bLen = Math.hypot(bisX, bisY, bisZ) || 1;
+    var labelMat = new THREE.SpriteMaterial({
+      map: degreeLabelTexture, color: 0xd4af37, transparent: true, opacity: 0, depthWrite: false
+    });
+    var label = new THREE.Sprite(labelMat);
+    label.scale.set(7, 2.5, 1);
+    label.position.set(v.x + (bisX / bLen) * 6, v.y + (bisY / bLen) * 6, v.z + (bisZ / bLen) * 6);
+    wireframeGroup.add(label);
+
+    gsap.to(arcMat, { opacity: 0.4, duration: 1, ease: 'power2.out' });
+    gsap.to(labelMat, { opacity: 0.55, duration: 1, ease: 'power2.out' });
+
+    state.bendMarks.push({ arc: arc, label: label });
+  }
+
+  function perpFor(d){
+    var refX = 0, refY = 1, refZ = 0;
+    if(Math.abs(d.y) > 0.9){ refX = 1; refY = 0; refZ = 0; }
+    var px = d.y * refZ - d.z * refY;
+    var py = d.z * refX - d.x * refZ;
+    var pz = d.x * refY - d.y * refX;
+    var len = Math.hypot(px, py, pz) || 1;
+    return { x: px / len, y: py / len, z: pz / len };
+  }
+
+  function updateTipLabel(state, value, x, y, z, dirIdx){
+    var text = formatM2(value);
+    if(text !== state.lastTipText){
+      state.lastTipText = text;
+      if(state.tipLabelMat.map) state.tipLabelMat.map.dispose();
+      state.tipLabelMat.map = makeLabelTexture(text);
+      state.tipLabelMat.needsUpdate = true;
+    }
+    var d = growDirVecs[dirIdx];
+    var perp = perpFor(d);
+    state.tipLabel.position.set(
+      x - d.x * 6.5 + perp.x * 2.4,
+      y - d.y * 6.5 + perp.y * 2.4,
+      z - d.z * 6.5 + perp.z * 2.4
+    );
+    state.tipSphere.position.set(x, y, z);
+  }
+
+  function fadeOutGrowLine(state, onDone){
+    gsap.to(state.mat, { opacity: 0, duration: 1.2, ease: 'power2.inOut' });
+    gsap.to(state.tipMat, { opacity: 0, duration: 0.8, ease: 'power2.inOut' });
+    gsap.to(state.tipLabelMat, { opacity: 0, duration: 0.8, ease: 'power2.inOut' });
+    state.bendMarks.forEach(function(b){
+      gsap.to(b.arc.material, { opacity: 0, duration: 1, ease: 'power2.inOut' });
+      gsap.to(b.label.material, { opacity: 0, duration: 1, ease: 'power2.inOut' });
+    });
+    gsap.delayedCall(1.3, function(){
+      clearBendMarks(state);
+      onDone();
+    });
+  }
+
+  /* the coin sits at z=0 with an on-screen rim radius of ~12.5 world units;
+     since these lines start much farther back (z0 well below 0), the SAME
+     world-space radius would project to a much smaller apparent circle on
+     screen (perspective) – scale the start radius by depth so every line
+     still visually begins right at the coin's edge, however far back it is */
+  var coinRimRadius = 12.5;
+  function edgeRadiusAt(z){
+    return coinRimRadius * ((introBaseZ - z) / introBaseZ) * 1.1;
+  }
+  function spawnGrowLine(state){
+    var z0 = -70 - Math.random() * 40;
+    var forbiddenRadius = edgeRadiusAt(z0);
+    var startAngle = state.slotAngle;
+    var startX = Math.cos(startAngle) * forbiddenRadius;
+    var startY = Math.sin(startAngle) * forbiddenRadius;
+    var points = [{ x: startX, y: startY, z: z0 }];
+    var dirs = [];
+    var cur = { x: startX, y: startY, z: z0 };
+
+    /* first move is always the cardinal direction pointing most directly
+       away from the coin, so the line immediately clears the forbidden
+       circle instead of grazing along its rim */
+    var ax = Math.cos(startAngle), ay = Math.sin(startAngle);
+    var prevDirIdx = Math.abs(ax) >= Math.abs(ay) ? (ax >= 0 ? 0 : 1) : (ay >= 0 ? 2 : 3);
+    var prevAxis = dirAxis(prevDirIdx);
+    var firstLen = 18 + Math.random() * 26;
+    var d0 = growDirVecs[prevDirIdx];
+    cur = { x: cur.x + d0.x * firstLen, y: cur.y + d0.y * firstLen, z: z0 };
+    points.push(cur);
+    dirs.push(prevDirIdx);
+
+    /* remaining wander segments – perpendicular turns only, and never
+       allowed to dip back inside the coin's forbidden circle. From the
+       second bend onward, an extreme "toward viewer" pop becomes an
+       available turn option alongside the usual horizontal/vertical ones. */
+    var viewerPopNearLimit = -25;
+    var wanderCount = 3 + Math.floor(Math.random() * 4);
+    for(var i = 0; i < wanderCount; i++){
+      var candidateIdxs = [0, 1, 2, 3].filter(function(k){ return dirAxis(k) !== prevAxis; });
+      var allowViewerPop = i >= 1 && prevAxis !== 2 && cur.z + 40 < viewerPopNearLimit;
+      if(allowViewerPop) candidateIdxs.push(4);
+
+      var len = 18 + Math.random() * 26;
+      var options = candidateIdxs.map(function(k){
+        if(k === 4){
+          var zLen = 55 + Math.random() * 55;
+          var nz = Math.min(cur.z + zLen, viewerPopNearLimit);
+          return { dirIdx: 4, x: cur.x, y: cur.y, z: nz, r: Math.hypot(cur.x, cur.y) };
+        }
+        var dv = growDirVecs[k];
+        var nx = cur.x + dv.x * len, ny = cur.y + dv.y * len;
+        return { dirIdx: k, x: nx, y: ny, z: cur.z, r: Math.hypot(nx, ny) };
+      });
+      var safe = options.filter(function(o){ return o.r >= forbiddenRadius; });
+      var pool = safe.length ? safe : options.sort(function(a, b){ return b.r - a.r; }).slice(0, 1);
+      var best = pool[Math.floor(Math.random() * pool.length)];
+      var next = { x: best.x, y: best.y, z: best.z };
+      points.push(next);
+      dirs.push(best.dirIdx);
+      cur = next;
+      prevAxis = dirAxis(best.dirIdx);
+    }
+    /* final segment always locks onto a horizontal/vertical direction and
+       sweeps all the way out to that screen edge, at the current depth */
+    var edgeCandidates = [0, 1, 2, 3].filter(function(k){ return dirAxis(k) !== prevAxis; });
+    var finalDirIdx = edgeCandidates[Math.floor(Math.random() * edgeCandidates.length)];
+    var fd = growDirVecs[finalDirIdx];
+    var extent = edgeExtentAt(cur.z);
+    var edgeTarget = fd.x !== 0
+      ? { x: fd.x > 0 ? extent.halfW : -extent.halfW, y: cur.y, z: cur.z }
+      : { x: cur.x, y: fd.y > 0 ? extent.halfH : -extent.halfH, z: cur.z };
+    points.push(edgeTarget);
+    dirs.push(finalDirIdx);
+
+    var finalM2 = 6 + Math.random() * 18;
+    writeVec3(state.posArr, 0, points[0].x, points[0].y, points[0].z);
+    writeVec3(state.posArr, 1, points[0].x, points[0].y, points[0].z);
+    state.geo.attributes.position.needsUpdate = true;
+    state.geo.setDrawRange(0, 2);
+    state.lastTipText = null;
+
+    gsap.to(state.mat, { opacity: 0.42, duration: 0.6, ease: 'sine.out' });
+    gsap.to(state.tipMat, { opacity: 0.9, duration: 0.5, ease: 'sine.out' });
+    gsap.to(state.tipLabelMat, { opacity: 0.6, duration: 0.5, ease: 'sine.out', delay: 0.15 });
+
+    function drawSegment(segIndex){
+      if(segIndex >= points.length - 1){
+        gsap.delayedCall(4 + Math.random() * 5, function(){
+          fadeOutGrowLine(state, function(){
+            gsap.delayedCall(0.4 + Math.random() * 1.5, function(){ spawnGrowLine(state); });
+          });
+        });
+        return;
+      }
+      var from = points[segIndex], to = points[segIndex + 1];
+      var segLen = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+      var duration = segLen / 6.5;
+      var proxy = { t: 0 };
+      gsap.to(proxy, {
+        t: 1, duration: duration, ease: 'none',
+        onUpdate: function(){
+          var x = from.x + (to.x - from.x) * proxy.t;
+          var y = from.y + (to.y - from.y) * proxy.t;
+          var z = from.z + (to.z - from.z) * proxy.t;
+          writeVec3(state.posArr, segIndex + 1, x, y, z);
+          state.geo.attributes.position.needsUpdate = true;
+          state.geo.setDrawRange(0, segIndex + 2);
+          var overallT = (segIndex + proxy.t) / (points.length - 1);
+          updateTipLabel(state, finalM2 * overallT, x, y, z, dirs[segIndex]);
+        },
+        onComplete: function(){
+          if(segIndex + 1 < points.length - 1){
+            spawnBendMark(state, to, dirs[segIndex], dirs[segIndex + 1]);
+          }
+          drawSegment(segIndex + 1);
+        }
+      });
+    }
+    drawSegment(0);
+  }
+
+  var growLineCount = 10;
+  for(var gli = 0; gli < growLineCount; gli++){
+    (function(){
+      var slotAngle = (gli / growLineCount) * Math.PI * 2;
+      var state = makeGrowLine(slotAngle);
+      gsap.delayedCall(3, function(){ spawnGrowLine(state); });
+    })();
+  }
+
   function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
   function render(){ renderer.render(scene, camera); }
   render();
