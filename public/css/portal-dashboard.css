@@ -103,6 +103,72 @@
   background:var(--color-bg);font-family:inherit;font-size:.88rem;min-height:44px;resize:vertical;
 }
 
+/* Termine — Wochenübersicht (Admin) */
+.cal-week-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.cal-week-label{font-weight:600;color:var(--color-navy);flex-grow:1;text-align:center;font-size:.95rem;}
+.cal-grid-wrap{overflow-x:auto;border:1px solid var(--color-blue-light);border-radius:var(--radius);}
+.cal-grid{display:flex;min-width:760px;}
+.cal-time-col{width:56px;flex-shrink:0;position:sticky;left:0;background:var(--color-white);z-index:2;border-right:1px solid var(--color-blue-light);}
+.cal-corner{height:52px;border-bottom:1px solid var(--color-blue-light);}
+.cal-hour-label{
+  height:48px;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:flex-end;
+  padding:2px 8px 0 0;font-size:.7rem;color:var(--color-gray-text);border-bottom:1px solid var(--color-blue-light);
+}
+.cal-day-col{flex:1;min-width:100px;border-right:1px solid var(--color-blue-light);}
+.cal-day-col:last-child{border-right:none;}
+.cal-day-head{
+  height:52px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;font-size:.78rem;font-weight:600;color:var(--color-navy);border-bottom:1px solid var(--color-blue-light);
+  background:var(--color-bg);text-transform:uppercase;letter-spacing:.03em;
+}
+.cal-day-head.today{color:var(--color-gold);}
+.cal-day-body{position:relative;}
+.cal-hour-slot{height:48px;box-sizing:border-box;border-bottom:1px solid var(--color-blue-light);transition:background .15s;cursor:pointer;}
+.cal-hour-slot:hover{background:rgba(201,168,76,.1);}
+.cal-event{
+  position:absolute;left:2px;right:2px;border-radius:6px;font-size:.72rem;line-height:1.25;
+  overflow:hidden;padding:3px 6px;cursor:pointer;border:1px solid transparent;z-index:1;
+}
+.cal-event.pending{background:rgba(201,168,76,.2);border-color:var(--color-gold);color:#7a5f16;}
+.cal-event.confirmed{background:rgba(46,109,164,.16);border-color:var(--color-blue-mid);color:var(--color-navy);}
+.cal-event.blocked{
+  background:repeating-linear-gradient(45deg,rgba(24,24,24,.07) 0 6px,transparent 6px 12px);
+  border-color:var(--color-blue-light);color:var(--color-gray-text);
+}
+.cal-event-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.cal-event-time{opacity:.85;display:block;}
+/* Shared popover, positioned via JS (position:fixed) instead of being
+   nested inside each event — nesting it there meant it lived inside
+   .cal-grid-wrap's horizontal scroll container, which (per the CSS
+   overflow spec) silently forces overflow-y:auto too as soon as
+   overflow-x is non-visible, clipping the popover's own vertical
+   overflow. A single fixed-position element sidesteps that entirely. */
+.cal-event-detail{
+  position:fixed;width:230px;z-index:2000;
+  background:var(--color-navy-deep);color:var(--color-white);border-radius:10px;padding:14px 16px;
+  box-shadow:0 12px 28px rgba(13,36,64,.35);font-size:.8rem;line-height:1.5;
+  opacity:0;visibility:hidden;transform:translateY(4px);pointer-events:none;
+  transition:opacity .15s var(--ease),transform .15s var(--ease),visibility .15s;
+}
+.cal-event-detail.show{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
+.cal-event-detail p{margin:0 0 8px;color:rgba(255,255,255,.92);}
+.cal-event-detail p:last-of-type{margin-bottom:0;}
+.cal-event-detail strong{color:var(--color-gold-light);}
+.cal-event-detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.cal-event-detail-actions button{
+  padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid rgba(255,255,255,.3);
+  color:var(--color-white);transition:border-color .2s,background .2s;
+}
+.cal-event-detail-actions button:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
+.cal-event-detail-actions button.cal-confirm-btn{background:var(--color-gold);color:var(--color-navy-deep);border-color:var(--color-gold);}
+.cal-event-detail-actions button.cal-confirm-btn:hover{background:var(--color-gold-light);}
+.cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
+.cal-legend-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--color-gray-text);}
+.cal-swatch{width:14px;height:14px;border-radius:3px;display:inline-block;}
+.cal-swatch.pending{background:rgba(201,168,76,.35);border:1px solid var(--color-gold);}
+.cal-swatch.confirmed{background:rgba(46,109,164,.3);border:1px solid var(--color-blue-mid);}
+.cal-swatch.blocked{background:repeating-linear-gradient(45deg,rgba(24,24,24,.12) 0 4px,transparent 4px 8px);border:1px solid var(--color-blue-light);}
+
 /* Nachrichten */
 .msg-admin-layout{display:flex;gap:0;background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow-card);overflow:hidden;border:1px solid var(--color-blue-light);}
 .msg-partner-list{width:240px;flex-shrink:0;border-right:1px solid var(--color-blue-light);max-height:520px;overflow-y:auto;}

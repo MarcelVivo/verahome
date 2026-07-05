@@ -3102,3 +3102,341 @@ begin
   return result;
 end;
 $$;
+
+-- =====================================================================
+-- ADMIN-KALENDER "Termine": Wochenübersicht mit Bestätigen/Verschieben
+-- und manuell setzbaren Zeit-Blockern.
+--
+-- Neue Buchungen sind ab jetzt erst "angefragt" (nicht mehr sofort
+-- "bestaetigt") — der Admin bestätigt sie explizit im Kalender, was
+-- eine Bestätigungs-Mail an die anfragende Person auslöst
+-- (send-booking-confirmation Edge Function). Ein "angefragter" Termin
+-- blockiert den Slot bereits genau wie ein bestätigter, damit niemand
+-- zweimal denselben Slot anfragen kann, solange der Admin noch nicht
+-- reagiert hat.
+--
+-- WICHTIG: Die folgende Zeile muss EINZELN ausgeführt werden (separat
+-- vom Rest dieses Blocks) — Postgres erlaubt es nicht, einen frisch per
+-- ALTER TYPE hinzugefügten Enum-Wert in derselben Transaktion schon zu
+-- verwenden. Im Supabase SQL Editor: diese eine Zeile markieren, "Run"
+-- klicken, dann erst den Rest ab "create table public.booking_blocks".
+alter type public.booking_status add value if not exists 'angefragt';
+
+-- Vom Admin manuell gesperrte Zeiträume (z.B. "Dienstag 14-16 Uhr
+-- geblockt, kein öffentlicher Termin") — unabhängig von den ganztägigen
+-- booking_blocked_dates oben. Nur der Admin liest/schreibt hier direkt;
+-- get_available_slots()/create_booking() lesen das als security-definer
+-- Funktion mit, ganz ohne eigene public-Policy nötig.
+create table public.booking_blocks (
+  id         uuid primary key default gen_random_uuid(),
+  starts_at  timestamptz not null,
+  ends_at    timestamptz not null,
+  reason     text,
+  created_at timestamptz not null default now(),
+  created_by uuid references public.profiles(id),
+  check (ends_at > starts_at)
+);
+alter table public.booking_blocks enable row level security;
+alter table public.booking_blocks force row level security;
+create policy booking_blocks_admin_all on public.booking_blocks
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.get_available_slots(p_date date)
+returns setof timestamptz
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  duration interval := interval '60 minutes';
+  wd public.weekday;
+  win record;
+  slot_start timestamptz;
+  slot_end timestamptz;
+begin
+  if p_date < current_date then
+    return;
+  end if;
+  if exists (select 1 from public.booking_blocked_dates where blocked_date = p_date) then
+    return;
+  end if;
+
+  wd := (array['so','mo','di','mi','do','fr','sa'])[extract(dow from p_date)::int + 1];
+
+  for win in
+    select start_time, end_time from public.booking_availability where weekday = wd
+  loop
+    slot_start := p_date + win.start_time;
+    while slot_start + duration <= p_date + win.end_time loop
+      slot_end := slot_start + duration;
+      if slot_start > now()
+        and not exists (
+          select 1 from public.bookings b
+          where b.status in ('bestaetigt','angefragt') and b.starts_at < slot_end and b.ends_at > slot_start
+        )
+        and not exists (
+          select 1 from public.booking_blocks k
+          where k.starts_at < slot_end and k.ends_at > slot_start
+        )
+      then
+        return next slot_start;
+      end if;
+      slot_start := slot_end;
+    end loop;
+  end loop;
+  return;
+end;
+$$;
+
+create or replace function public.create_booking(
+  p_name text, p_email text, p_phone text, p_message text, p_starts_at timestamptz, p_property_id uuid default null
+)
+returns public.bookings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  duration interval := interval '60 minutes';
+  slot_end timestamptz := p_starts_at + duration;
+  wd public.weekday;
+  slot_date date := p_starts_at::date;
+  result public.bookings;
+begin
+  if p_name is null or length(trim(p_name)) = 0 then
+    raise exception 'Name fehlt.';
+  end if;
+  if p_email is null or length(trim(p_email)) = 0 then
+    raise exception 'E-Mail fehlt.';
+  end if;
+  if p_starts_at < now() then
+    raise exception 'Termin liegt in der Vergangenheit.';
+  end if;
+  if p_property_id is not null and not exists (
+    select 1 from public.properties where id = p_property_id and visibility = 'public'
+  ) then
+    raise exception 'Objekt nicht gefunden.';
+  end if;
+  if exists (select 1 from public.booking_blocked_dates where blocked_date = slot_date) then
+    raise exception 'An diesem Tag sind keine Termine verfügbar.';
+  end if;
+
+  wd := (array['so','mo','di','mi','do','fr','sa'])[extract(dow from slot_date)::int + 1];
+  if not exists (
+    select 1 from public.booking_availability
+    where weekday = wd and start_time <= p_starts_at::time and end_time >= slot_end::time
+  ) then
+    raise exception 'Dieser Zeitpunkt liegt ausserhalb der Verfügbarkeit.';
+  end if;
+
+  if exists (
+    select 1 from public.bookings b
+    where b.status in ('bestaetigt','angefragt') and b.starts_at < slot_end and b.ends_at > p_starts_at
+  ) then
+    raise exception 'Dieser Termin ist leider bereits vergeben.';
+  end if;
+
+  if exists (
+    select 1 from public.booking_blocks k
+    where k.starts_at < slot_end and k.ends_at > p_starts_at
+  ) then
+    raise exception 'Dieser Zeitpunkt ist gesperrt.';
+  end if;
+
+  insert into public.bookings (name, email, phone, message, starts_at, ends_at, property_id)
+  values (trim(p_name), trim(p_email), nullif(trim(coalesce(p_phone,'')),''), nullif(trim(coalesce(p_message,'')),''), p_starts_at, slot_end, p_property_id)
+  returning * into result;
+
+  return result;
+end;
+$$;
+
+-- Neue Buchungen starten neu als "angefragt", nicht direkt "bestaetigt"
+-- (siehe Hinweis oben) — der Tabellen-Default muss dafür ebenfalls
+-- angepasst werden (create_booking() selbst setzt status nie explizit,
+-- verlässt sich auf diesen Default).
+alter table public.bookings alter column status set default 'angefragt';
+
+-- Badge "Termine" soll auch bei neu eingegangenen (noch unbestätigten)
+-- Anfragen anspringen, nicht nur bei bereits bestätigten.
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_announcements int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+  c_rapporte int;
+  c_termine int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_documents
+  from public.documents
+  where owner_profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_announcements
+  from public.property_announcements pa
+  where created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    )
+    and (
+      exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = pa.property_id
+          and t.tenant_profile_id = me and t.status = 'active' and public.is_approved()
+      )
+      or exists (
+        select 1 from public.ownerships o
+        where (o.property_id = pa.property_id or o.unit_id in (select id from public.units where property_id = pa.property_id))
+          and o.owner_profile_id = me
+          and (o.end_date is null or o.end_date >= current_date)
+          and public.is_approved()
+      )
+      or public.has_property_permission(pa.property_id, 'hauswart')
+    );
+
+  c_documents := c_documents + c_announcements;
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or public.has_property_permission(l.property_id, 'hauswart')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  if am_admin then
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  if am_admin then
+    select count(*) into c_termine
+    from public.bookings
+    where status in ('bestaetigt','angefragt')
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'termine'),
+        '-infinity'::timestamptz
+      );
+  else
+    c_termine := 0;
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets),
+    ('rapporte',  c_rapporte),
+    ('termine',   c_termine);
+end;
+$$;

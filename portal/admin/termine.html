@@ -58,6 +58,30 @@
       <p class="dash-lead">Verfügbarkeit für die öffentliche Terminbuchung festlegen und eingehende Buchungen verwalten.</p>
 
       <div class="dash-card">
+        <h2>Wochenübersicht</h2>
+        <p class="doc-meta" style="margin-bottom:12px;">Alle Termine auf einen Blick. Klicken Sie auf ein Feld, um einen Termin zu bestätigen oder zu verschieben, oder auf eine freie Stunde, um sie zu sperren.</p>
+        <div class="cal-week-nav">
+          <button type="button" class="booking-week-nav-btn" id="calPrevWeek" aria-label="Vorherige Woche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="cal-week-label" id="calWeekLabel"></span>
+          <button type="button" class="dash-btn-sm" id="calTodayBtn">Heute</button>
+          <button type="button" class="booking-week-nav-btn" id="calNextWeek" aria-label="Nächste Woche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div class="cal-grid-wrap">
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <div id="calDetailPopover" class="cal-event-detail"></div>
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-swatch pending"></span>Angefragt</span>
+          <span class="cal-legend-item"><span class="cal-swatch confirmed"></span>Bestätigt</span>
+          <span class="cal-legend-item"><span class="cal-swatch blocked"></span>Gesperrt</span>
+        </div>
+      </div>
+
+      <div class="dash-card">
         <h2>Verfügbarkeit</h2>
         <p class="doc-meta" style="margin-bottom:8px;">Feste Wochentage/Uhrzeiten, in denen Besucher auf der Website einen 60-Minuten-Termin buchen können.</p>
         <form class="auth-form" id="newAvailabilityForm">
@@ -130,7 +154,8 @@
 
   var WEEKDAY_LABEL = { mo:'Montag', di:'Dienstag', mi:'Mittwoch', do:'Donnerstag', fr:'Freitag', sa:'Samstag', so:'Sonntag' };
   var WEEKDAY_ORDER = ['mo','di','mi','do','fr','sa','so'];
-  var STATUS_LABEL = { bestaetigt: 'Bestätigt', storniert: 'Storniert' };
+  var STATUS_LABEL = { angefragt: 'Angefragt', bestaetigt: 'Bestätigt', storniert: 'Storniert' };
+  var STATUS_BADGE_CLASS = { angefragt: 'pending', bestaetigt: 'active', storniert: 'suspended' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
@@ -179,6 +204,11 @@
       }));
     });
 
+    document.getElementById('calPrevWeek').addEventListener('click', function(){ calWeekOffset--; loadCalWeek(); });
+    document.getElementById('calNextWeek').addEventListener('click', function(){ calWeekOffset++; loadCalWeek(); });
+    document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
+
+    computeCalHourRange().then(loadCalWeek);
     loadAvailability();
     loadBlockedDates();
     loadBookings();
@@ -245,15 +275,303 @@
           '<td>'+VeraDashboard.escapeHtml(b.email)+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(b.phone||'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(b.message||'–')+'</td>' +
-          '<td><span class="status-badge '+(b.status==='bestaetigt'?'active':'suspended')+'">'+STATUS_LABEL[b.status]+'</span></td>' +
-          '<td>'+(b.status==='bestaetigt' ? '<button type="button" class="dash-btn-sm danger cancel-booking-btn" data-id="'+b.id+'">Stornieren</button>' : '')+'</td>' +
+          '<td><span class="status-badge '+STATUS_BADGE_CLASS[b.status]+'">'+STATUS_LABEL[b.status]+'</span></td>' +
+          '<td class="dash-btn-row">' +
+            (b.status==='angefragt' ? '<button type="button" class="dash-btn-sm confirm-booking-btn" data-id="'+b.id+'">Bestätigen</button>' : '') +
+            (b.status!=='storniert' ? '<button type="button" class="dash-btn-sm danger cancel-booking-btn" data-id="'+b.id+'">Stornieren</button>' : '') +
+          '</td>' +
         '</tr>';
       }).join('');
+    table.querySelectorAll('.confirm-booking-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var id = btn.getAttribute('data-id');
+        await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', id);
+        try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: id } }); } catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+        loadBookings();
+        loadCalWeek();
+      });
+    });
     table.querySelectorAll('.cancel-booking-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Buchung wirklich stornieren? Der Termin wird dadurch wieder frei.')) return;
         await client.from('bookings').update({ status: 'storniert' }).eq('id', btn.getAttribute('data-id'));
         loadBookings();
+        loadCalWeek();
+      });
+    });
+  }
+
+  /* ============================================================
+     WOCHENÜBERSICHT (Outlook-artiges Wochenraster)
+  ============================================================ */
+  var CAL_HOUR_HEIGHT = 48;
+  var calWeekOffset = 0;
+  var calBookings = [];
+  var calBlocks = [];
+  var calHourStart = 7, calHourEnd = 21;
+
+  function calDateStr(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function calStartOfWeek(d){
+    var day = d.getDay();
+    var diff = (day === 0 ? -6 : 1 - day);
+    var monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    monday.setHours(0,0,0,0);
+    return monday;
+  }
+  function calWeekDates(){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var monday = calStartOfWeek(today);
+    monday.setDate(monday.getDate() + calWeekOffset * 7);
+    var days = [];
+    for(var i = 0; i < 7; i++){
+      var d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  /* Der Stundenbereich des Rasters richtet sich nach der tatsächlich
+     hinterlegten Verfügbarkeit (plus etwas Puffer), statt fest verdrahtet
+     zu sein — passt sich automatisch an, wenn Julia die Öffnungszeiten
+     ändert. */
+  async function computeCalHourRange(){
+    var res = await client.from('booking_availability').select('start_time, end_time');
+    var rows = res.data || [];
+    if(!rows.length) return;
+    var minH = 24, maxH = 0;
+    rows.forEach(function(r){
+      var sh = parseInt(r.start_time.slice(0,2), 10);
+      var eh = parseInt(r.end_time.slice(0,2), 10) + (r.end_time.slice(3,5) !== '00' ? 1 : 0);
+      if(sh < minH) minH = sh;
+      if(eh > maxH) maxH = eh;
+    });
+    calHourStart = Math.min(minH, 7);
+    calHourEnd = Math.max(maxH, 21);
+  }
+
+  async function loadCalWeek(){
+    var days = calWeekDates();
+    var rangeStart = days[0];
+    var rangeEnd = new Date(days[6]);
+    rangeEnd.setDate(rangeEnd.getDate() + 1);
+
+    var firstLabel = days[0].toLocaleDateString('de-CH', { day:'numeric', month:'short' });
+    var lastLabel = days[6].toLocaleDateString('de-CH', { day:'numeric', month:'short', year:'numeric' });
+    document.getElementById('calWeekLabel').textContent = firstLabel + ' – ' + lastLabel;
+
+    var results = await Promise.all([
+      client.from('bookings').select('*, properties(label, city)')
+        .in('status', ['bestaetigt', 'angefragt'])
+        .gte('starts_at', rangeStart.toISOString())
+        .lt('starts_at', rangeEnd.toISOString())
+        .order('starts_at'),
+      client.from('booking_blocks').select('*')
+        .gte('starts_at', rangeStart.toISOString())
+        .lt('starts_at', rangeEnd.toISOString())
+        .order('starts_at')
+    ]);
+    calBookings = results[0].data || [];
+    calBlocks = results[1].data || [];
+    renderCalGrid(days);
+  }
+
+  function calEventPos(startIso, endIso){
+    var s = new Date(startIso), e = new Date(endIso);
+    var startMin = (s.getHours() - calHourStart) * 60 + s.getMinutes();
+    var durMin = (e - s) / 60000;
+    var top = (startMin / 60) * CAL_HOUR_HEIGHT;
+    var height = Math.max((durMin / 60) * CAL_HOUR_HEIGHT - 2, 20);
+    return { top: top, height: height };
+  }
+
+  function renderBookingEvent(b){
+    var pos = calEventPos(b.starts_at, b.ends_at);
+    var statusClass = b.status === 'angefragt' ? 'pending' : 'confirmed';
+    var timeLabel = new Date(b.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return '<div class="cal-event ' + statusClass + '" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-booking-id="' + b.id + '" tabindex="0">' +
+      '<span class="cal-event-time">' + timeLabel + '</span>' +
+      '<span class="cal-event-title">' + VeraDashboard.escapeHtml(b.name) + '</span>' +
+    '</div>';
+  }
+
+  function renderBlockEvent(k){
+    var pos = calEventPos(k.starts_at, k.ends_at);
+    var timeLabel = new Date(k.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return '<div class="cal-event blocked" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-block-id="' + k.id + '" tabindex="0">' +
+      '<span class="cal-event-time">' + timeLabel + '</span>' +
+      '<span class="cal-event-title">Gesperrt</span>' +
+    '</div>';
+  }
+
+  function calDetailHtmlForBooking(b){
+    var propertyLabel = b.properties ? VeraDashboard.escapeHtml(b.properties.label) : 'Allgemeines Anliegen';
+    return '<p><strong>Wer:</strong> ' + VeraDashboard.escapeHtml(b.name) + '<br>' + VeraDashboard.escapeHtml(b.email) + (b.phone ? '<br>' + VeraDashboard.escapeHtml(b.phone) : '') + '</p>' +
+      '<p><strong>Worum:</strong> ' + propertyLabel + '</p>' +
+      (b.message ? '<p><strong>Nachricht:</strong> ' + VeraDashboard.escapeHtml(b.message) + '</p>' : '') +
+      '<p><strong>Status:</strong> ' + STATUS_LABEL[b.status] + '</p>' +
+      '<div class="cal-event-detail-actions">' +
+        (b.status === 'angefragt' ? '<button type="button" class="cal-confirm-btn" data-confirm-id="' + b.id + '">Bestätigen</button>' : '') +
+        '<button type="button" class="cal-reschedule-btn" data-reschedule-id="' + b.id + '">Verschieben</button>' +
+      '</div>';
+  }
+
+  function calDetailHtmlForBlock(k){
+    return '<p>' + (k.reason ? VeraDashboard.escapeHtml(k.reason) : 'Kein Grund angegeben.') + '</p>' +
+      '<div class="cal-event-detail-actions">' +
+        '<button type="button" class="cal-unblock-btn" data-unblock-id="' + k.id + '">Freigeben</button>' +
+      '</div>';
+  }
+
+  function renderCalGrid(days){
+    var grid = document.getElementById('calGrid');
+    var todayStr = calDateStr(new Date());
+    var hourCount = calHourEnd - calHourStart;
+
+    var timeColHtml = '<div class="cal-corner"></div>';
+    for(var i = 0; i < hourCount; i++){
+      timeColHtml += '<div class="cal-hour-label">' + String(calHourStart + i).padStart(2,'0') + ':00</div>';
+    }
+
+    var dayColsHtml = days.map(function(d){
+      var dateStr = calDateStr(d);
+      var isToday = dateStr === todayStr;
+      var dayName = d.toLocaleDateString('de-CH', { weekday:'short' });
+      var head = '<div class="cal-day-head' + (isToday ? ' today' : '') + '">' + dayName + '<br>' + d.getDate() + '</div>';
+
+      var slotsHtml = '';
+      for(var h = calHourStart; h < calHourEnd; h++){
+        slotsHtml += '<div class="cal-hour-slot" data-date="' + dateStr + '" data-hour="' + h + '"></div>';
+      }
+
+      var dayBookings = calBookings.filter(function(b){ return calDateStr(new Date(b.starts_at)) === dateStr; });
+      var dayBlocks = calBlocks.filter(function(k){ return calDateStr(new Date(k.starts_at)) === dateStr; });
+      var eventsHtml = dayBookings.map(renderBookingEvent).join('') + dayBlocks.map(renderBlockEvent).join('');
+
+      return '<div class="cal-day-col">' + head +
+        '<div class="cal-day-body" style="height:' + (hourCount * CAL_HOUR_HEIGHT) + 'px;">' + slotsHtml + eventsHtml + '</div>' +
+      '</div>';
+    }).join('');
+
+    grid.innerHTML = '<div class="cal-time-col">' + timeColHtml + '</div>' + dayColsHtml;
+    attachCalHandlers(grid);
+  }
+
+  /* Ein einziges, wiederverwendetes Popover statt eines pro Termin —
+     position:fixed, per JS an das gehoverte/geklickte Feld ausgerichtet,
+     damit es dem horizontalen Scroll-Container (der Overflow-Clipping
+     auch vertikal erzwingt, siehe CSS-Kommentar) nicht zum Opfer fällt. */
+  var calPopover = document.getElementById('calDetailPopover');
+  var calPinnedKey = null;
+
+  function calPositionPopover(targetEl){
+    var rect = targetEl.getBoundingClientRect();
+    var popW = 230;
+    var left = Math.min(rect.right + 8, window.innerWidth - popW - 12);
+    if(left < 8) left = 8;
+    calPopover.style.left = left + 'px';
+    calPopover.style.top = rect.top + 'px';
+    requestAnimationFrame(function(){
+      var pr = calPopover.getBoundingClientRect();
+      if(pr.bottom > window.innerHeight - 8){
+        calPopover.style.top = Math.max(8, window.innerHeight - pr.height - 8) + 'px';
+      }
+    });
+  }
+  function calShowPopover(targetEl, html){
+    calPopover.innerHTML = html;
+    calPopover.classList.add('show');
+    calPositionPopover(targetEl);
+  }
+  function calHidePopover(){
+    calPopover.classList.remove('show');
+    calPinnedKey = null;
+  }
+  document.addEventListener('click', function(e){
+    if(calPinnedKey && !e.target.closest('.cal-event') && !e.target.closest('#calDetailPopover')){
+      calHidePopover();
+    }
+  });
+  // Event-Delegation für die Buttons im Popover — der Inhalt wird bei
+  // jedem Öffnen neu gesetzt, eine Delegation spart wiederholtes Binden.
+  calPopover.addEventListener('click', async function(e){
+    var confirmBtn = e.target.closest('.cal-confirm-btn');
+    var rescheduleBtn = e.target.closest('.cal-reschedule-btn');
+    var unblockBtn = e.target.closest('.cal-unblock-btn');
+
+    if(confirmBtn){
+      var cid = confirmBtn.getAttribute('data-confirm-id');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Wird bestätigt …';
+      await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', cid);
+      try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: cid } }); }
+      catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+      calHidePopover();
+      loadCalWeek();
+      loadBookings();
+    } else if(rescheduleBtn){
+      var rid = rescheduleBtn.getAttribute('data-reschedule-id');
+      if(!window.confirm('Diesen Termin wirklich verschieben? Die anfragende Person wird per E-Mail gebeten, einen neuen Termin zu buchen.')) return;
+      var message = window.prompt('Optionale Nachricht an die Person (wird in die E-Mail eingefügt):', '') || '';
+      rescheduleBtn.disabled = true;
+      rescheduleBtn.textContent = 'Wird verschoben …';
+      await client.from('bookings').update({ status: 'storniert' }).eq('id', rid);
+      try { await client.functions.invoke('send-booking-reschedule', { body: { bookingId: rid, message: message } }); }
+      catch(err) { /* Termin ist bereits storniert, Mail-Fehler blockiert nichts */ }
+      calHidePopover();
+      loadCalWeek();
+      loadBookings();
+    } else if(unblockBtn){
+      if(!window.confirm('Sperrung wirklich aufheben?')) return;
+      await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
+      calHidePopover();
+      loadCalWeek();
+    }
+  });
+
+  function attachCalHandlers(grid){
+    grid.querySelectorAll('.cal-event').forEach(function(el){
+      var isBlock = el.hasAttribute('data-block-id');
+      var key = isBlock ? 'block-' + el.getAttribute('data-block-id') : 'booking-' + el.getAttribute('data-booking-id');
+      function detailHtml(){
+        if(isBlock){
+          var k = calBlocks.find(function(x){ return x.id === el.getAttribute('data-block-id'); });
+          return k ? calDetailHtmlForBlock(k) : '';
+        }
+        var b = calBookings.find(function(x){ return x.id === el.getAttribute('data-booking-id'); });
+        return b ? calDetailHtmlForBooking(b) : '';
+      }
+      el.addEventListener('mouseenter', function(){
+        if(calPinnedKey) return;
+        calShowPopover(el, detailHtml());
+      });
+      el.addEventListener('mouseleave', function(){
+        if(calPinnedKey) return;
+        calHidePopover();
+      });
+      el.addEventListener('click', function(){
+        if(calPinnedKey === key){ calHidePopover(); return; }
+        calPinnedKey = key;
+        calShowPopover(el, detailHtml());
+      });
+      el.addEventListener('focus', function(){ calShowPopover(el, detailHtml()); });
+    });
+    grid.querySelectorAll('.cal-hour-slot').forEach(function(slot){
+      slot.addEventListener('click', async function(){
+        var dateStr = slot.getAttribute('data-date');
+        var hour = parseInt(slot.getAttribute('data-hour'), 10);
+        var label = String(hour).padStart(2,'0') + ':00–' + String(hour+1).padStart(2,'0') + ':00';
+        if(!window.confirm('Stunde ' + label + ' Uhr für öffentliche Buchungen sperren?')) return;
+        var reason = window.prompt('Grund (optional):', '') || null;
+        var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
+        var endsAt = new Date(startsAt.getTime() + 60 * 60000);
+        await client.from('booking_blocks').insert({
+          starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(), reason: reason, created_by: profile.id
+        });
+        loadCalWeek();
       });
     });
   }
