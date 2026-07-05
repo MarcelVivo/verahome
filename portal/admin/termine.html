@@ -209,6 +209,7 @@
     document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
 
     computeCalHourRange().then(loadCalWeek);
+    loadCalProperties();
     loadAvailability();
     loadBlockedDates();
     loadBookings();
@@ -308,7 +309,13 @@
   var calWeekOffset = 0;
   var calBookings = [];
   var calBlocks = [];
+  var calProperties = [];
   var calHourStart = 7, calHourEnd = 21;
+
+  async function loadCalProperties(){
+    var res = await client.from('properties').select('id, label, city').order('label');
+    calProperties = res.data || [];
+  }
 
   function calDateStr(d){
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -426,6 +433,43 @@
       '</div>';
   }
 
+  function calSlotTimeLabel(dateStr, hour){
+    var d = new Date(dateStr + 'T00:00:00');
+    var dateLabel = d.toLocaleDateString('de-CH', { weekday:'long', day:'numeric', month:'long' });
+    var timeLabel = String(hour).padStart(2,'0') + ':00–' + String(hour + 1).padStart(2,'0') + ':00';
+    return dateLabel + ', ' + timeLabel + ' Uhr';
+  }
+
+  /* Klick auf eine freie Stunde: erst die Wahl zwischen Sperren und
+     einem direkt vom Admin eingetragenen Termin (Meeting mit
+     Eigentümer, Handwerker-Termin, …) — komplett ohne den öffentlichen
+     Anfrage-Prozess, sofort als "bestaetigt" gespeichert. */
+  function calSlotChoiceHtml(dateStr, hour){
+    return '<p><strong>Freie Stunde</strong><br>' + calSlotTimeLabel(dateStr, hour) + '</p>' +
+      '<div class="cal-event-detail-actions">' +
+        '<button type="button" class="cal-slot-block-btn" data-date="' + dateStr + '" data-hour="' + hour + '">Sperren</button>' +
+        '<button type="button" class="cal-slot-new-btn" data-date="' + dateStr + '" data-hour="' + hour + '">Termin eintragen</button>' +
+      '</div>';
+  }
+
+  function calNewApptFormHtml(dateStr, hour){
+    var propertyOptions = '<option value="">Kein Objekt</option>' + calProperties.map(function(p){
+      return '<option value="' + p.id + '">' + VeraDashboard.escapeHtml(p.label) + (p.city ? ' (' + VeraDashboard.escapeHtml(p.city) + ')' : '') + '</option>';
+    }).join('');
+    return '<p><strong>Neuer Termin</strong><br>' + calSlotTimeLabel(dateStr, hour) + '</p>' +
+      '<form id="calNewApptForm" class="cal-new-appt-form">' +
+        '<input type="text" id="na_name" placeholder="Titel (z.B. Handwerker Müller, Meeting Herr Berger) *" required>' +
+        '<input type="email" id="na_email" placeholder="E-Mail (optional)">' +
+        '<input type="tel" id="na_phone" placeholder="Telefon (optional)">' +
+        '<select id="na_property" aria-label="Betreffendes Objekt">' + propertyOptions + '</select>' +
+        '<textarea id="na_note" placeholder="Notiz (optional)"></textarea>' +
+        '<input type="hidden" id="na_date" value="' + dateStr + '">' +
+        '<input type="hidden" id="na_hour" value="' + hour + '">' +
+        '<button type="submit" class="cal-save-appt-btn">Termin speichern</button>' +
+        '<p class="cal-new-appt-status" id="naStatus"></p>' +
+      '</form>';
+  }
+
   function renderCalGrid(days){
     var grid = document.getElementById('calGrid');
     var todayStr = calDateStr(new Date());
@@ -498,9 +542,18 @@
   // Event-Delegation für die Buttons im Popover — der Inhalt wird bei
   // jedem Öffnen neu gesetzt, eine Delegation spart wiederholtes Binden.
   calPopover.addEventListener('click', async function(e){
+    // Verhindert, dass dieser Klick zum document-Listener weiterläuft:
+    // sobald ein Handler unten das Popover-innerHTML ersetzt (z.B. um das
+    // "Neuer Termin"-Formular einzublenden), ist das geklickte Element
+    // vom DOM getrennt, und closest('#calDetailPopover') würde dort
+    // fälschlich nichts mehr finden — das Popover würde sich sofort
+    // wieder schliessen.
+    e.stopPropagation();
     var confirmBtn = e.target.closest('.cal-confirm-btn');
     var rescheduleBtn = e.target.closest('.cal-reschedule-btn');
     var unblockBtn = e.target.closest('.cal-unblock-btn');
+    var blockSlotBtn = e.target.closest('.cal-slot-block-btn');
+    var newApptBtn = e.target.closest('.cal-slot-new-btn');
 
     if(confirmBtn){
       var cid = confirmBtn.getAttribute('data-confirm-id');
@@ -529,7 +582,57 @@
       await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
       calHidePopover();
       loadCalWeek();
+    } else if(blockSlotBtn){
+      var bsDate = blockSlotBtn.getAttribute('data-date');
+      var bsHour = parseInt(blockSlotBtn.getAttribute('data-hour'), 10);
+      var bsLabel = String(bsHour).padStart(2,'0') + ':00–' + String(bsHour + 1).padStart(2,'0') + ':00';
+      if(!window.confirm('Stunde ' + bsLabel + ' Uhr für öffentliche Buchungen sperren?')) return;
+      var reason = window.prompt('Grund (optional):', '') || null;
+      var bsStarts = new Date(bsDate + 'T' + String(bsHour).padStart(2,'0') + ':00:00');
+      var bsEnds = new Date(bsStarts.getTime() + 60 * 60000);
+      await client.from('booking_blocks').insert({
+        starts_at: bsStarts.toISOString(), ends_at: bsEnds.toISOString(), reason: reason, created_by: profile.id
+      });
+      calHidePopover();
+      loadCalWeek();
+    } else if(newApptBtn){
+      var naDate = newApptBtn.getAttribute('data-date');
+      var naHour = parseInt(newApptBtn.getAttribute('data-hour'), 10);
+      calPopover.innerHTML = calNewApptFormHtml(naDate, naHour);
+      document.getElementById('na_name').focus();
     }
+  });
+  calPopover.addEventListener('submit', async function(e){
+    if(e.target.id !== 'calNewApptForm') return;
+    e.preventDefault();
+    var statusEl = document.getElementById('naStatus');
+    var name = document.getElementById('na_name').value.trim();
+    if(!name){
+      statusEl.textContent = 'Bitte einen Titel angeben.';
+      return;
+    }
+    var dateStr = document.getElementById('na_date').value;
+    var hour = parseInt(document.getElementById('na_hour').value, 10);
+    var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
+    var endsAt = new Date(startsAt.getTime() + 60 * 60000);
+    statusEl.textContent = 'Wird gespeichert …';
+    var res = await client.from('bookings').insert({
+      name: name,
+      email: document.getElementById('na_email').value.trim() || null,
+      phone: document.getElementById('na_phone').value.trim() || null,
+      message: document.getElementById('na_note').value.trim() || null,
+      property_id: document.getElementById('na_property').value || null,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: 'bestaetigt'
+    });
+    if(res.error){
+      statusEl.textContent = 'Fehler: ' + res.error.message;
+      return;
+    }
+    calHidePopover();
+    loadCalWeek();
+    loadBookings();
   });
 
   function attachCalHandlers(grid){
@@ -560,18 +663,12 @@
       el.addEventListener('focus', function(){ calShowPopover(el, detailHtml()); });
     });
     grid.querySelectorAll('.cal-hour-slot').forEach(function(slot){
-      slot.addEventListener('click', async function(){
+      slot.addEventListener('click', function(e){
+        e.stopPropagation();
         var dateStr = slot.getAttribute('data-date');
         var hour = parseInt(slot.getAttribute('data-hour'), 10);
-        var label = String(hour).padStart(2,'0') + ':00–' + String(hour+1).padStart(2,'0') + ':00';
-        if(!window.confirm('Stunde ' + label + ' Uhr für öffentliche Buchungen sperren?')) return;
-        var reason = window.prompt('Grund (optional):', '') || null;
-        var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
-        var endsAt = new Date(startsAt.getTime() + 60 * 60000);
-        await client.from('booking_blocks').insert({
-          starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(), reason: reason, created_by: profile.id
-        });
-        loadCalWeek();
+        calPinnedKey = 'slot-' + dateStr + '-' + hour;
+        calShowPopover(slot, calSlotChoiceHtml(dateStr, hour));
       });
     });
   }

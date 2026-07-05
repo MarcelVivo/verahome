@@ -144,7 +144,7 @@
    overflow-x is non-visible, clipping the popover's own vertical
    overflow. A single fixed-position element sidesteps that entirely. */
 .cal-event-detail{
-  position:fixed;width:230px;z-index:2000;
+  position:fixed;width:250px;z-index:2000;
   background:var(--color-navy-deep);color:var(--color-white);border-radius:10px;padding:14px 16px;
   box-shadow:0 12px 28px rgba(13,36,64,.35);font-size:.8rem;line-height:1.5;
   opacity:0;visibility:hidden;transform:translateY(4px);pointer-events:none;
@@ -162,6 +162,23 @@
 .cal-event-detail-actions button:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
 .cal-event-detail-actions button.cal-confirm-btn{background:var(--color-gold);color:var(--color-navy-deep);border-color:var(--color-gold);}
 .cal-event-detail-actions button.cal-confirm-btn:hover{background:var(--color-gold-light);}
+.cal-event-detail-actions button.cal-slot-new-btn{background:var(--color-gold);color:var(--color-navy-deep);border-color:var(--color-gold);}
+.cal-event-detail-actions button.cal-slot-new-btn:hover{background:var(--color-gold-light);}
+.cal-new-appt-form button.cal-save-appt-btn{
+  padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid var(--color-gold);
+  background:var(--color-gold);color:var(--color-navy-deep);transition:background .2s;
+}
+.cal-new-appt-form button.cal-save-appt-btn:hover{background:var(--color-gold-light);}
+.cal-new-appt-form{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{
+  padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.08);color:var(--color-white);font-family:inherit;font-size:.78rem;
+}
+.cal-new-appt-form input::placeholder,.cal-new-appt-form textarea::placeholder{color:rgba(255,255,255,.55);}
+.cal-new-appt-form select option{color:#000;}
+.cal-new-appt-form textarea{resize:vertical;min-height:46px;}
+.cal-new-appt-form .cal-confirm-btn{align-self:flex-start;margin-top:2px;}
+.cal-new-appt-status{font-size:.72rem;color:var(--color-gold-light);margin:2px 0 0;}
 .cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
 .cal-legend-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--color-gray-text);}
 .cal-swatch{width:14px;height:14px;border-radius:3px;display:inline-block;}

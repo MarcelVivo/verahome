@@ -3440,3 +3440,11 @@ begin
     ('termine',   c_termine);
 end;
 $$;
+
+-- Admin trägt intern Termine direkt ein (Meeting mit Eigentümer,
+-- Handwerker-Termin an einem Objekt, …), ganz ohne den öffentlichen
+-- Anfrage-Prozess und ohne dass die betroffene Person zwingend eine
+-- E-Mail-Adresse braucht (ein Handwerker hat oft keine im System) —
+-- der Admin fügt die Zeile per direktem Insert ein (bookings_admin_all
+-- Policy erlaubt das bereits), status gleich 'bestaetigt'.
+alter table public.bookings alter column email drop not null;
