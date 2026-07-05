@@ -394,6 +394,7 @@ section{position:relative;padding:110px 0;}
 .leistung-card{
   background:var(--color-white);border-radius:var(--radius);padding:36px 30px;position:relative;
   overflow:hidden;transition:transform .4s var(--ease),box-shadow .4s var(--ease);
+  min-width:0;
 }
 .leistung-card::before{
   content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:var(--color-gold);
@@ -444,6 +445,7 @@ section{position:relative;padding:110px 0;}
   background:var(--color-white);border-radius:var(--radius);padding:38px 34px;
   border:1px solid var(--color-blue-light);transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s;
   display:flex;flex-direction:column;align-items:flex-start;gap:14px;
+  min-width:0;
 }
 .tool-card:hover{transform:translateY(-8px);box-shadow:var(--shadow-card-hover);border-color:var(--color-gold);}
 .tool-card .icon{width:46px;height:46px;color:var(--color-gold);}
@@ -501,7 +503,7 @@ section{position:relative;padding:110px 0;}
 .objekte-cta-row{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;}
 .objekte-hint{text-align:center;color:var(--color-gray-text);font-size:.9rem;margin-bottom:56px;}
 .objekte-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;}
-.objekt-card{border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-card);background:var(--color-white);}
+.objekt-card{border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-card);background:var(--color-white);min-width:0;}
 .objekt-image{
   height:190px;background:linear-gradient(135deg,var(--color-navy) 0%,var(--color-blue-mid) 60%,var(--color-gold) 130%);
   position:relative;
@@ -541,6 +543,7 @@ section{position:relative;padding:110px 0;}
 .werte-card{
   background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius);
   padding:34px;color:var(--color-white);transition:border-color .3s,transform .35s var(--ease);
+  min-width:0;
 }
 .werte-card:hover{border-color:var(--color-gold);transform:translateY(-6px);}
 .werte-card .icon{width:38px;height:38px;margin-bottom:14px;color:var(--color-gold);}
@@ -571,6 +574,7 @@ section{position:relative;padding:110px 0;}
 .download-card{
   background:var(--color-bg);border:1px solid var(--color-blue-light);border-radius:var(--radius);
   padding:30px 24px;text-align:center;transition:transform .35s var(--ease),box-shadow .35s var(--ease);
+  min-width:0;
 }
 .download-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-card);}
 .download-card .icon{width:38px;height:38px;margin-bottom:14px;color:var(--color-gold);}
