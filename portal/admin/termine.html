@@ -78,6 +78,8 @@
           <span class="cal-legend-item"><span class="cal-swatch pending"></span>Angefragt</span>
           <span class="cal-legend-item"><span class="cal-swatch confirmed"></span>Bestätigt</span>
           <span class="cal-legend-item"><span class="cal-swatch blocked"></span>Gesperrt</span>
+          <span class="cal-legend-item"><span class="cal-swatch appt-mine"></span>Termin (ich nehme teil)</span>
+          <span class="cal-legend-item"><span class="cal-swatch appt-other"></span>Termin (ohne mich)</span>
         </div>
       </div>
 
@@ -210,6 +212,7 @@
 
     computeCalHourRange().then(loadCalWeek);
     loadCalProperties();
+    loadCalAllProfiles();
     loadAvailability();
     loadBlockedDates();
     loadBookings();
@@ -309,12 +312,24 @@
   var calWeekOffset = 0;
   var calBookings = [];
   var calBlocks = [];
+  var calAppointments = [];
   var calProperties = [];
+  var calAllProfiles = [];
   var calHourStart = 7, calHourEnd = 21;
+  var APPT_CATEGORY_LABEL = {
+    architekt: 'Architekt', eigentuemer: 'Eigentümer', mieter: 'Mieter',
+    handwerker: 'Handwerker', amt: 'Amt', andere: 'Andere'
+  };
 
   async function loadCalProperties(){
     var res = await client.from('properties').select('id, label, city').order('label');
     calProperties = res.data || [];
+  }
+
+  async function loadCalAllProfiles(){
+    var res = await client.from('profiles').select('id, first_name, last_name, category, email')
+      .eq('status', 'active').neq('category', 'admin').order('category').order('last_name');
+    calAllProfiles = res.data || [];
   }
 
   function calDateStr(d){
@@ -379,10 +394,15 @@
       client.from('booking_blocks').select('*')
         .gte('starts_at', rangeStart.toISOString())
         .lt('starts_at', rangeEnd.toISOString())
+        .order('starts_at'),
+      client.from('appointments').select('*, properties(label, city), appointment_participants(profile_id, status, profiles(first_name, last_name, category))')
+        .gte('starts_at', rangeStart.toISOString())
+        .lt('starts_at', rangeEnd.toISOString())
         .order('starts_at')
     ]);
     calBookings = results[0].data || [];
     calBlocks = results[1].data || [];
+    calAppointments = results[2].data || [];
     renderCalGrid(days);
   }
 
@@ -427,10 +447,41 @@
       '</div>';
   }
 
+  function renderAppointmentEvent(a){
+    var pos = calEventPos(a.starts_at, a.ends_at);
+    var styleClass = a.admin_participates ? 'appt-mine' : 'appt-other';
+    var timeLabel = new Date(a.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return '<div class="cal-event ' + styleClass + '" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-appointment-id="' + a.id + '" tabindex="0">' +
+      '<span class="cal-event-time">' + timeLabel + '</span>' +
+      '<span class="cal-event-title">' + VeraDashboard.escapeHtml(a.title) + '</span>' +
+    '</div>';
+  }
+
   function calDetailHtmlForBlock(k){
     return '<p>' + (k.reason ? VeraDashboard.escapeHtml(k.reason) : 'Kein Grund angegeben.') + '</p>' +
       '<div class="cal-event-detail-actions">' +
         '<button type="button" class="cal-unblock-btn" data-unblock-id="' + k.id + '">Freigeben</button>' +
+      '</div>';
+  }
+
+  function calDetailHtmlForAppointment(a){
+    var propertyLabel = a.properties ? VeraDashboard.escapeHtml(a.properties.label) : null;
+    var participants = a.appointment_participants || [];
+    var participantsHtml = participants.length
+      ? '<p><strong>Teilnehmer:</strong><br>' + participants.map(function(p){
+          var name = p.profiles ? VeraDashboard.escapeHtml(p.profiles.first_name + ' ' + p.profiles.last_name) : 'Unbekannt';
+          var catLabel = p.profiles ? VeraDashboard.categoryLabel(p.profiles.category) : '';
+          var mark = p.status === 'bestaetigt' ? '✓ bestätigt' : '⏳ offen';
+          return name + (catLabel ? ' (' + catLabel + ')' : '') + ' — ' + mark;
+        }).join('<br>') + '</p>'
+      : '';
+    return '<p><strong>' + (a.category ? APPT_CATEGORY_LABEL[a.category] || VeraDashboard.escapeHtml(a.category) : 'Termin') + '</strong></p>' +
+      (propertyLabel ? '<p><strong>Objekt:</strong> ' + propertyLabel + '</p>' : '') +
+      '<p><strong>Julia nimmt teil:</strong> ' + (a.admin_participates ? 'Ja' : 'Nein') + '</p>' +
+      participantsHtml +
+      (a.note ? '<p><strong>Notiz:</strong> ' + VeraDashboard.escapeHtml(a.note) + '</p>' : '') +
+      '<div class="cal-event-detail-actions">' +
+        '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + a.id + '">Löschen</button>' +
       '</div>';
   }
 
@@ -457,12 +508,23 @@
     var propertyOptions = '<option value="">Kein Objekt</option>' + calProperties.map(function(p){
       return '<option value="' + p.id + '">' + VeraDashboard.escapeHtml(p.label) + (p.city ? ' (' + VeraDashboard.escapeHtml(p.city) + ')' : '') + '</option>';
     }).join('');
+    var categoryOptions = Object.keys(APPT_CATEGORY_LABEL).map(function(key){
+      return '<option value="' + key + '">' + APPT_CATEGORY_LABEL[key] + '</option>';
+    }).join('');
+    var participantsHtml = calAllProfiles.length
+      ? '<div class="cal-participant-picker" id="na_participants">' + calAllProfiles.map(function(p){
+          return '<label><input type="checkbox" value="' + p.id + '"> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
+            ' <span class="cal-participant-cat">(' + VeraDashboard.categoryLabel(p.category) + ')</span></label>';
+        }).join('') + '</div>'
+      : '<p class="cal-new-appt-status">Keine registrierten Nutzer gefunden.</p>';
     return '<p><strong>Neuer Termin</strong><br>' + calSlotTimeLabel(dateStr, hour) + '</p>' +
       '<form id="calNewApptForm" class="cal-new-appt-form">' +
-        '<input type="text" id="na_name" placeholder="Titel (z.B. Handwerker Müller, Meeting Herr Berger) *" required>' +
-        '<input type="email" id="na_email" placeholder="E-Mail (optional)">' +
-        '<input type="tel" id="na_phone" placeholder="Telefon (optional)">' +
+        '<input type="text" id="na_name" placeholder="Titel (z.B. Fenster reparieren) *" required>' +
+        '<select id="na_category" aria-label="Kategorie">' + categoryOptions + '</select>' +
         '<select id="na_property" aria-label="Betreffendes Objekt">' + propertyOptions + '</select>' +
+        '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates" checked> Ich nehme selbst teil</label>' +
+        '<span class="cal-picker-label">Teilnehmer einladen (optional, werden per E-Mail benachrichtigt)</span>' +
+        participantsHtml +
         '<textarea id="na_note" placeholder="Notiz (optional)"></textarea>' +
         '<input type="hidden" id="na_date" value="' + dateStr + '">' +
         '<input type="hidden" id="na_hour" value="' + hour + '">' +
@@ -494,7 +556,8 @@
 
       var dayBookings = calBookings.filter(function(b){ return calDateStr(new Date(b.starts_at)) === dateStr; });
       var dayBlocks = calBlocks.filter(function(k){ return calDateStr(new Date(k.starts_at)) === dateStr; });
-      var eventsHtml = dayBookings.map(renderBookingEvent).join('') + dayBlocks.map(renderBlockEvent).join('');
+      var dayAppointments = calAppointments.filter(function(a){ return calDateStr(new Date(a.starts_at)) === dateStr; });
+      var eventsHtml = dayBookings.map(renderBookingEvent).join('') + dayBlocks.map(renderBlockEvent).join('') + dayAppointments.map(renderAppointmentEvent).join('');
 
       return '<div class="cal-day-col">' + head +
         '<div class="cal-day-body" style="height:' + (hourCount * CAL_HOUR_HEIGHT) + 'px;">' + slotsHtml + eventsHtml + '</div>' +
@@ -556,6 +619,7 @@
     var blockSlotBtn = e.target.closest('.cal-slot-block-btn');
     var newApptBtn = e.target.closest('.cal-slot-new-btn');
     var deleteBtn = e.target.closest('.cal-delete-btn');
+    var deleteApptBtn = e.target.closest('.cal-delete-appt-btn');
 
     if(confirmBtn){
       var cid = confirmBtn.getAttribute('data-confirm-id');
@@ -588,6 +652,14 @@
       calHidePopover();
       loadCalWeek();
       loadBookings();
+    } else if(deleteApptBtn){
+      var daid = deleteApptBtn.getAttribute('data-delete-appt-id');
+      if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Teilnehmer werden NICHT per E-Mail benachrichtigt.')) return;
+      deleteApptBtn.disabled = true;
+      deleteApptBtn.textContent = 'Wird gelöscht …';
+      await client.from('appointments').delete().eq('id', daid);
+      calHidePopover();
+      loadCalWeek();
     } else if(unblockBtn){
       if(!window.confirm('Sperrung wirklich aufheben?')) return;
       await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
@@ -626,34 +698,58 @@
     var hour = parseInt(document.getElementById('na_hour').value, 10);
     var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
     var endsAt = new Date(startsAt.getTime() + 60 * 60000);
+    var adminParticipates = document.getElementById('na_admin_participates').checked;
+    var participantIds = Array.prototype.slice.call(
+      document.querySelectorAll('#na_participants input[type=checkbox]:checked')
+    ).map(function(cb){ return cb.value; });
+
     statusEl.textContent = 'Wird gespeichert …';
-    var res = await client.from('bookings').insert({
-      name: name,
-      email: document.getElementById('na_email').value.trim() || null,
-      phone: document.getElementById('na_phone').value.trim() || null,
-      message: document.getElementById('na_note').value.trim() || null,
+    var res = await client.from('appointments').insert({
+      title: name,
+      category: document.getElementById('na_category').value || null,
+      note: document.getElementById('na_note').value.trim() || null,
       property_id: document.getElementById('na_property').value || null,
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
-      status: 'bestaetigt'
-    });
+      admin_participates: adminParticipates,
+      created_by: profile.id
+    }).select().single();
     if(res.error){
       statusEl.textContent = 'Fehler: ' + res.error.message;
       return;
     }
+
+    if(participantIds.length){
+      var participantRows = participantIds.map(function(pid){ return { appointment_id: res.data.id, profile_id: pid }; });
+      var partRes = await client.from('appointment_participants').insert(participantRows);
+      if(partRes.error){
+        statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht hinzugefügt werden: ' + partRes.error.message;
+        loadCalWeek();
+        return;
+      }
+      try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: res.data.id } }); }
+      catch(err) { /* Termin und Einladungen stehen, Mail-Fehler blockiert nichts */ }
+    }
+
     calHidePopover();
     loadCalWeek();
-    loadBookings();
   });
 
   function attachCalHandlers(grid){
     grid.querySelectorAll('.cal-event').forEach(function(el){
       var isBlock = el.hasAttribute('data-block-id');
-      var key = isBlock ? 'block-' + el.getAttribute('data-block-id') : 'booking-' + el.getAttribute('data-booking-id');
+      var isAppointment = el.hasAttribute('data-appointment-id');
+      var key = isBlock ? 'block-' + el.getAttribute('data-block-id')
+        : isAppointment ? 'appt-' + el.getAttribute('data-appointment-id')
+        : 'booking-' + el.getAttribute('data-booking-id');
       function detailHtml(){
         if(isBlock){
           var k = calBlocks.find(function(x){ return x.id === el.getAttribute('data-block-id'); });
           return k ? calDetailHtmlForBlock(k) : '';
+        }
+        if(isAppointment){
+          var a = calAppointments.find(function(x){ return x.id === el.getAttribute('data-appointment-id'); });
+          return a ? calDetailHtmlForAppointment(a) : '';
         }
         var b = calBookings.find(function(x){ return x.id === el.getAttribute('data-booking-id'); });
         return b ? calDetailHtmlForBooking(b) : '';

@@ -81,6 +81,12 @@
         <h2>Anstehende Termine</h2>
         <div class="cal-list" id="calList"></div>
       </div>
+
+      <div class="dash-card" id="apptCard" hidden>
+        <h2>Termineinladungen</h2>
+        <p class="dash-lead">Termine, zu denen Sie von Julia eingeladen wurden. Bitte bestätigen Sie diese.</p>
+        <div class="cal-list" id="apptList"></div>
+      </div>
     </section>
   </div>
 </main>
@@ -133,6 +139,8 @@
       }).join('');
     } else {
       document.getElementById('calLead').textContent = 'Ihre anstehenden Termine.';
+      document.getElementById('apptCard').hidden = false;
+      loadAppointmentInvites();
     }
 
     document.getElementById('newEventForm').addEventListener('submit', async function(e){
@@ -190,6 +198,57 @@
       '</div>';
     }).join('');
   }
+
+  var APPT_CATEGORY_LABEL = {
+    architekt: 'Architekt', eigentuemer: 'Eigentümer', mieter: 'Mieter',
+    handwerker: 'Handwerker', amt: 'Amt', andere: 'Andere'
+  };
+
+  /* Einfache Listenansicht der eigenen appointments-Einladungen (im
+     Gegensatz zum Kachel-Wochenkalender für Handwerker/Hauswart unter
+     /portal/my-appointments.html) — reicht für Mieter/Eigentümer, die
+     nur gelegentlich Termine haben. */
+  async function loadAppointmentInvites(){
+    var listEl = document.getElementById('apptList');
+    var res = await client.from('appointments')
+      .select('*, properties(label, city), appointment_participants!inner(profile_id, status)')
+      .eq('appointment_participants.profile_id', profile.id)
+      .order('starts_at');
+    var appts = res.data || [];
+    if(!appts.length){
+      listEl.innerHTML = '<p class="dash-empty">Keine Termineinladungen vorhanden.</p>';
+      return;
+    }
+    listEl.innerHTML = appts.map(function(a){
+      var status = (a.appointment_participants || [])[0] ? a.appointment_participants[0].status : 'eingeladen';
+      var propertyLabel = a.properties ? ' · ' + VeraDashboard.escapeHtml(a.properties.label) : '';
+      var catLabel = a.category ? (APPT_CATEGORY_LABEL[a.category] || VeraDashboard.escapeHtml(a.category)) : '';
+      var statusHtml = status === 'bestaetigt'
+        ? '<span class="cal-owner-label">✓ Bestätigt</span>'
+        : '<button type="button" class="dash-btn-sm cal-confirm-appt-btn" data-confirm-appt-id="'+a.id+'">Bestätigen</button>';
+      return '<div class="cal-event-row">' +
+        '<div class="cal-event-info"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>'+
+          (catLabel ? '<span class="cal-owner-label">'+catLabel+'</span>' : '')+propertyLabel+
+          (a.note ? '<br><span class="cal-owner-label">'+VeraDashboard.escapeHtml(a.note)+'</span>' : '')+
+        '</div>' +
+        '<span class="cal-event-time">'+VeraDashboard.formatDateTime(a.starts_at)+'</span>' +
+        statusHtml +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('apptList').addEventListener('click', async function(e){
+    var btn = e.target.closest('.cal-confirm-appt-btn');
+    if(!btn) return;
+    var aid = btn.getAttribute('data-confirm-appt-id');
+    btn.disabled = true;
+    btn.textContent = 'Wird bestätigt …';
+    await client.from('appointment_participants')
+      .update({ status: 'bestaetigt' })
+      .eq('appointment_id', aid)
+      .eq('profile_id', profile.id);
+    loadAppointmentInvites();
+  });
 })();
 </script>
 </body>

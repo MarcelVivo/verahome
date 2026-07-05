@@ -14,7 +14,8 @@ window.VeraDashboard = (function () {
       { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht" },
       { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
       { key: "messages", href: "/portal/messages.html", label: "Nachrichten" },
-      { key: "calendar", href: "/portal/calendar.html", label: "Kalender" }
+      { key: "calendar", href: "/portal/calendar.html", label: "Kalender" },
+      { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] }
     ]},
     { label: "Services", items: [
       { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },

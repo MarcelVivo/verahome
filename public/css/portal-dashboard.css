@@ -135,6 +135,13 @@
   background:repeating-linear-gradient(45deg,rgba(24,24,24,.07) 0 6px,transparent 6px 12px);
   border-color:var(--color-blue-light);color:var(--color-gray-text);
 }
+/* Termine mit Teilnehmern: "appt-mine" (Julia nimmt teil, blockiert
+   ihre Zeit) solide wie ein bestätigter Termin, nur in Teal statt Blau
+   zur Unterscheidung; "appt-other" (Julia nimmt nicht teil, rein
+   informativ) bewusst blass/gestrichelt, damit auf einen Blick klar
+   ist, dass dieser Slot für Website-Anfragen weiterhin frei bleibt. */
+.cal-event.appt-mine{background:rgba(43,146,116,.18);border-color:#2B9274;color:#1F6A55;}
+.cal-event.appt-other{background:rgba(43,146,116,.07);border-style:dashed;border-color:rgba(43,146,116,.5);color:#3E8571;}
 .cal-event-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
 .cal-event-time{opacity:.85;display:block;}
 /* Shared popover, positioned via JS (position:fixed) instead of being
@@ -166,6 +173,18 @@
 .cal-event-detail-actions button.cal-slot-new-btn:hover{background:var(--color-gold-light);}
 .cal-event-detail-actions button.cal-delete-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
 .cal-event-detail-actions button.cal-delete-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
+.cal-event-detail-actions button.cal-delete-appt-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
+.cal-event-detail-actions button.cal-delete-appt-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
+.cal-checkbox-label{display:flex;align-items:center;gap:8px;font-size:.78rem;color:rgba(255,255,255,.9);}
+.cal-checkbox-label input{width:auto;}
+.cal-picker-label{font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px;}
+.cal-participant-picker{
+  max-height:150px;overflow-y:auto;border:1px solid rgba(255,255,255,.25);border-radius:8px;
+  padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.05);
+}
+.cal-participant-picker label{display:flex;align-items:center;gap:8px;font-size:.76rem;color:rgba(255,255,255,.92);font-weight:400;}
+.cal-participant-picker input{width:auto;}
+.cal-participant-cat{color:rgba(255,255,255,.55);font-size:.7rem;}
 .cal-new-appt-form button.cal-save-appt-btn{
   padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid var(--color-gold);
   background:var(--color-gold);color:var(--color-navy-deep);transition:background .2s;
@@ -187,6 +206,8 @@
 .cal-swatch.pending{background:rgba(201,168,76,.35);border:1px solid var(--color-gold);}
 .cal-swatch.confirmed{background:rgba(46,109,164,.3);border:1px solid var(--color-blue-mid);}
 .cal-swatch.blocked{background:repeating-linear-gradient(45deg,rgba(24,24,24,.12) 0 4px,transparent 4px 8px);border:1px solid var(--color-blue-light);}
+.cal-swatch.appt-mine{background:rgba(43,146,116,.25);border:1px solid #2B9274;}
+.cal-swatch.appt-other{background:rgba(43,146,116,.1);border:1px dashed rgba(43,146,116,.7);}
 
 /* Nachrichten */
 .msg-admin-layout{display:flex;gap:0;background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow-card);overflow:hidden;border:1px solid var(--color-blue-light);}

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminkalender | Vera Portal – Vera Home Immobilien</title>
+<meta name="description" content="Ihre Termine im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien, Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Terminkalender</h1>
+      <p class="dash-lead">Ihre Wochenübersicht. Bestätigen Sie eingeladene Termine direkt in der Kachel.</p>
+
+      <div class="dash-card">
+        <div class="cal-week-nav">
+          <button type="button" class="booking-week-nav-btn" id="calPrevWeek" aria-label="Vorherige Woche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="cal-week-label" id="calWeekLabel"></span>
+          <button type="button" class="dash-btn-sm" id="calTodayBtn">Heute</button>
+          <button type="button" class="booking-week-nav-btn" id="calNextWeek" aria-label="Nächste Woche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div class="cal-grid-wrap">
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <div id="calDetailPopover" class="cal-event-detail"></div>
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-swatch pending"></span>Offen (bitte bestätigen)</span>
+          <span class="cal-legend-item"><span class="cal-swatch confirmed"></span>Bestätigt</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var profile, client;
+  var APPT_CATEGORY_LABEL = {
+    architekt: 'Architekt', eigentuemer: 'Eigentümer', mieter: 'Mieter',
+    handwerker: 'Handwerker', amt: 'Amt', andere: 'Andere'
+  };
+
+  VeraDashboard.init('my-appointments').then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    if(['handwerker', 'hauswart'].indexOf(profile.category) === -1){
+      window.location.href = '/portal/dashboard.html';
+      return;
+    }
+    client = VeraPortal.getClient();
+
+    document.getElementById('calPrevWeek').addEventListener('click', function(){ calWeekOffset--; loadCalWeek(); });
+    document.getElementById('calNextWeek').addEventListener('click', function(){ calWeekOffset++; loadCalWeek(); });
+    document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
+
+    loadCalWeek();
+  });
+
+  /* ============================================================
+     WOCHENÜBERSICHT — gleiches Grundgerüst wie im Admin-Kalender
+     (portal/admin/termine.html), aber nur mit den eigenen
+     appointments-Zeilen (RLS beschränkt select() automatisch auf
+     Termine, bei denen dieser Nutzer Teilnehmer ist) und ohne
+     Erstell-/Sperr-Funktionen, die nur der Admin hat.
+  ============================================================ */
+  var CAL_HOUR_HEIGHT = 48;
+  var calWeekOffset = 0;
+  var calAppointments = [];
+  var calHourStart = 7, calHourEnd = 20;
+
+  function calDateStr(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function calStartOfWeek(d){
+    var day = d.getDay();
+    var diff = (day === 0 ? -6 : 1 - day);
+    var monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    monday.setHours(0,0,0,0);
+    return monday;
+  }
+  function calWeekDates(){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var monday = calStartOfWeek(today);
+    monday.setDate(monday.getDate() + calWeekOffset * 7);
+    var days = [];
+    for(var i = 0; i < 7; i++){
+      var d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  async function loadCalWeek(){
+    var days = calWeekDates();
+    var rangeStart = days[0];
+    var rangeEnd = new Date(days[6]);
+    rangeEnd.setDate(rangeEnd.getDate() + 1);
+
+    var firstLabel = days[0].toLocaleDateString('de-CH', { day:'numeric', month:'short' });
+    var lastLabel = days[6].toLocaleDateString('de-CH', { day:'numeric', month:'short', year:'numeric' });
+    document.getElementById('calWeekLabel').textContent = firstLabel + ' – ' + lastLabel;
+
+    var res = await client.from('appointments')
+      .select('*, properties(label, city), appointment_participants!inner(profile_id, status)')
+      .eq('appointment_participants.profile_id', profile.id)
+      .gte('starts_at', rangeStart.toISOString())
+      .lt('starts_at', rangeEnd.toISOString())
+      .order('starts_at');
+    calAppointments = res.data || [];
+    renderCalGrid(days);
+  }
+
+  function calEventPos(startIso, endIso){
+    var s = new Date(startIso), e = new Date(endIso);
+    var startMin = (s.getHours() - calHourStart) * 60 + s.getMinutes();
+    var durMin = (e - s) / 60000;
+    var top = (startMin / 60) * CAL_HOUR_HEIGHT;
+    var height = Math.max((durMin / 60) * CAL_HOUR_HEIGHT - 2, 20);
+    return { top: top, height: height };
+  }
+
+  function myStatus(a){
+    var mine = (a.appointment_participants || [])[0];
+    return mine ? mine.status : 'eingeladen';
+  }
+
+  function renderAppointmentEvent(a){
+    var pos = calEventPos(a.starts_at, a.ends_at);
+    var statusClass = myStatus(a) === 'bestaetigt' ? 'confirmed' : 'pending';
+    var timeLabel = new Date(a.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return '<div class="cal-event ' + statusClass + '" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-appointment-id="' + a.id + '" tabindex="0">' +
+      '<span class="cal-event-time">' + timeLabel + '</span>' +
+      '<span class="cal-event-title">' + VeraDashboard.escapeHtml(a.title) + '</span>' +
+    '</div>';
+  }
+
+  function calDetailHtmlForAppointment(a){
+    var propertyLabel = a.properties ? VeraDashboard.escapeHtml(a.properties.label) : null;
+    var status = myStatus(a);
+    return '<p><strong>' + (a.category ? (APPT_CATEGORY_LABEL[a.category] || VeraDashboard.escapeHtml(a.category)) : 'Termin') + '</strong></p>' +
+      (propertyLabel ? '<p><strong>Objekt:</strong> ' + propertyLabel + '</p>' : '') +
+      (a.note ? '<p><strong>Notiz:</strong> ' + VeraDashboard.escapeHtml(a.note) + '</p>' : '') +
+      '<p><strong>Status:</strong> ' + (status === 'bestaetigt' ? '✓ Bestätigt' : '⏳ Noch offen') + '</p>' +
+      '<div class="cal-event-detail-actions">' +
+        (status === 'eingeladen' ? '<button type="button" class="cal-confirm-appt-btn" data-confirm-appt-id="' + a.id + '">Termin bestätigen</button>' : '') +
+      '</div>';
+  }
+
+  function renderCalGrid(days){
+    var grid = document.getElementById('calGrid');
+    var todayStr = calDateStr(new Date());
+    var hourCount = calHourEnd - calHourStart;
+
+    var timeColHtml = '<div class="cal-corner"></div>';
+    for(var i = 0; i < hourCount; i++){
+      timeColHtml += '<div class="cal-hour-label">' + String(calHourStart + i).padStart(2,'0') + ':00</div>';
+    }
+
+    var dayColsHtml = days.map(function(d){
+      var dateStr = calDateStr(d);
+      var isToday = dateStr === todayStr;
+      var dayName = d.toLocaleDateString('de-CH', { weekday:'short' });
+      var head = '<div class="cal-day-head' + (isToday ? ' today' : '') + '">' + dayName + '<br>' + d.getDate() + '</div>';
+
+      var slotsHtml = '';
+      for(var h = calHourStart; h < calHourEnd; h++){
+        slotsHtml += '<div class="cal-hour-slot" style="cursor:default;"></div>';
+      }
+
+      var dayAppointments = calAppointments.filter(function(a){ return calDateStr(new Date(a.starts_at)) === dateStr; });
+      var eventsHtml = dayAppointments.map(renderAppointmentEvent).join('');
+
+      return '<div class="cal-day-col">' + head +
+        '<div class="cal-day-body" style="height:' + (hourCount * CAL_HOUR_HEIGHT) + 'px;">' + slotsHtml + eventsHtml + '</div>' +
+      '</div>';
+    }).join('');
+
+    grid.innerHTML = '<div class="cal-time-col">' + timeColHtml + '</div>' + dayColsHtml;
+    attachCalHandlers(grid);
+  }
+
+  var calPopover = document.getElementById('calDetailPopover');
+  var calPinnedKey = null;
+
+  function calPositionPopover(targetEl){
+    var rect = targetEl.getBoundingClientRect();
+    var popW = 250;
+    var left = Math.min(rect.right + 8, window.innerWidth - popW - 12);
+    if(left < 8) left = 8;
+    calPopover.style.left = left + 'px';
+    calPopover.style.top = rect.top + 'px';
+    requestAnimationFrame(function(){
+      var pr = calPopover.getBoundingClientRect();
+      if(pr.bottom > window.innerHeight - 8){
+        calPopover.style.top = Math.max(8, window.innerHeight - pr.height - 8) + 'px';
+      }
+    });
+  }
+  function calShowPopover(targetEl, html){
+    calPopover.innerHTML = html;
+    calPopover.classList.add('show');
+    calPositionPopover(targetEl);
+  }
+  function calHidePopover(){
+    calPopover.classList.remove('show');
+    calPinnedKey = null;
+  }
+  document.addEventListener('click', function(e){
+    if(calPinnedKey && !e.target.closest('.cal-event') && !e.target.closest('#calDetailPopover')){
+      calHidePopover();
+    }
+  });
+  calPopover.addEventListener('click', async function(e){
+    e.stopPropagation();
+    var confirmBtn = e.target.closest('.cal-confirm-appt-btn');
+    if(confirmBtn){
+      var aid = confirmBtn.getAttribute('data-confirm-appt-id');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Wird bestätigt …';
+      await client.from('appointment_participants')
+        .update({ status: 'bestaetigt' })
+        .eq('appointment_id', aid)
+        .eq('profile_id', profile.id);
+      calHidePopover();
+      loadCalWeek();
+    }
+  });
+
+  function attachCalHandlers(grid){
+    grid.querySelectorAll('.cal-event').forEach(function(el){
+      var key = 'appt-' + el.getAttribute('data-appointment-id');
+      function detailHtml(){
+        var a = calAppointments.find(function(x){ return x.id === el.getAttribute('data-appointment-id'); });
+        return a ? calDetailHtmlForAppointment(a) : '';
+      }
+      el.addEventListener('mouseenter', function(){
+        if(calPinnedKey) return;
+        calShowPopover(el, detailHtml());
+      });
+      el.addEventListener('mouseleave', function(){
+        if(calPinnedKey) return;
+        calHidePopover();
+      });
+      el.addEventListener('click', function(){
+        if(calPinnedKey === key){ calHidePopover(); return; }
+        calPinnedKey = key;
+        calShowPopover(el, detailHtml());
+      });
+      el.addEventListener('focus', function(){ calShowPopover(el, detailHtml()); });
+    });
+  }
+})();
+</script>
+</body>
+</html>
