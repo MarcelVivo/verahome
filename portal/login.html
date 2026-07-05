@@ -68,8 +68,12 @@
             <input type="email" id="l_email" placeholder="E-Mail *" required>
             <p class="field-error">Bitte geben Sie eine gültige E-Mail-Adresse ein.</p>
           </div>
-          <div>
+          <div class="password-field">
             <input type="password" id="l_password" placeholder="Passwort *" required>
+            <button type="button" class="password-toggle" id="toggleLoginPassword" aria-label="Passwort anzeigen" aria-pressed="false">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.8"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.7a2.8 2.8 0 0 0 3.8 3.8"/><path d="M7.1 7.4C4.2 9.1 2.5 12 2.5 12s3.5 6 9.5 6c1.6 0 3-.4 4.2-1"/><path d="M17.7 14.3c2.4-1.7 3.8-4.3 3.8-4.3S18 6 12 6c-.8 0-1.6.1-2.3.3"/></svg>
+            </button>
             <p class="field-error">Bitte geben Sie Ihr Passwort ein.</p>
           </div>
 
@@ -118,12 +122,22 @@
   var form = document.getElementById('loginForm');
   var submitBtn = document.getElementById('loginSubmit');
   var statusEl = document.getElementById('loginStatus');
+  var passwordInput = document.getElementById('l_password');
+  var passwordToggle = document.getElementById('toggleLoginPassword');
+
+  passwordToggle.addEventListener('click', function(){
+    var shouldShow = passwordInput.type === 'password';
+    passwordInput.type = shouldShow ? 'text' : 'password';
+    passwordToggle.classList.toggle('is-visible', shouldShow);
+    passwordToggle.setAttribute('aria-pressed', shouldShow ? 'true' : 'false');
+    passwordToggle.setAttribute('aria-label', shouldShow ? 'Passwort verbergen' : 'Passwort anzeigen');
+  });
 
   form.addEventListener('submit', function(e){
     e.preventDefault();
 
     var email = document.getElementById('l_email');
-    var password = document.getElementById('l_password');
+    var password = passwordInput;
     var valid = true;
 
     function toggleError(field, ok){

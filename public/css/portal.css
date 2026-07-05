@@ -24,6 +24,18 @@
   background:var(--color-bg);transition:border-color .25s;font-family:inherit;font-size:1rem;
 }
 .auth-form input:focus,.auth-form select:focus,.auth-form textarea:focus{border-color:var(--color-gold);outline:none;}
+.password-field{position:relative;}
+.password-field input{padding-right:54px;}
+.password-toggle{
+  position:absolute;top:24px;right:10px;transform:translateY(-50%);
+  width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  color:var(--color-navy);transition:background .25s,color .25s;
+}
+.password-toggle:hover,.password-toggle:focus-visible{background:rgba(26,58,92,.08);color:var(--color-gold);}
+.password-toggle svg{width:18px;height:18px;}
+.password-toggle .icon-eye-off{display:none;}
+.password-toggle.is-visible .icon-eye{display:none;}
+.password-toggle.is-visible .icon-eye-off{display:block;}
 .auth-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .auth-form-row > div{min-width:0;}
 .auth-form button[type="submit"]{margin-top:6px;}
