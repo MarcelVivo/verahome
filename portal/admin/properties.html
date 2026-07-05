@@ -66,6 +66,10 @@
             <div><input id="p_zip" placeholder="PLZ"></div>
           </div>
           <input id="p_city" placeholder="Ort">
+          <label class="doc-meta" for="p_cover_image">Titelbild (optional, 1 Bild)</label>
+          <input type="file" id="p_cover_image" accept="image/*">
+          <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
+          <input type="file" id="p_detail_images" accept="image/*" multiple>
           <button type="submit" class="btn btn-primary">Objekt anlegen</button>
           <p class="form-status" id="newPropertyStatus"></p>
         </form>
@@ -103,6 +107,10 @@
           <input id="u_teaser" placeholder="Kurztext für Übersicht">
           <textarea id="u_description" placeholder="Beschreibung für Detailseite"></textarea>
           <textarea id="u_features" placeholder="Merkmale, je Zeile ein Punkt"></textarea>
+          <label class="doc-meta" for="u_cover_image">Titelbild (optional, 1 Bild)</label>
+          <input type="file" id="u_cover_image" accept="image/*">
+          <label class="doc-meta" for="u_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
+          <input type="file" id="u_detail_images" accept="image/*" multiple>
           <button type="submit" class="btn btn-primary">Einheit anlegen</button>
           <p class="form-status" id="newUnitStatus"></p>
         </form>
@@ -166,15 +174,35 @@
       var label = document.getElementById('p_label').value.trim();
       var statusEl = document.getElementById('newPropertyStatus');
       if(!label){ statusEl.textContent = 'Bitte Bezeichnung angeben.'; statusEl.classList.add('show'); return; }
+      var coverInput = document.getElementById('p_cover_image');
+      var detailInput = document.getElementById('p_detail_images');
+      var detailFiles = Array.prototype.slice.call(detailInput.files);
+      if(detailFiles.length > 10){
+        statusEl.textContent = 'Bitte maximal 10 Detailbilder auswählen.';
+        statusEl.classList.add('show');
+        return;
+      }
       var res = await client.from('properties').insert({
         label: label,
         street: document.getElementById('p_street').value.trim() || null,
         zip: document.getElementById('p_zip').value.trim() || null,
         city: document.getElementById('p_city').value.trim() || null
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt angelegt.';
+      }).select().single();
+      if(res.error){
+        statusEl.textContent = 'Fehler: ' + res.error.message;
+        statusEl.classList.add('show');
+        return;
+      }
+      var coverFile = coverInput.files[0] || null;
+      if(coverFile || detailFiles.length){
+        statusEl.textContent = 'Objekt angelegt, Bilder werden hochgeladen …';
+        statusEl.classList.add('show');
+        await uploadNewRecordImages('property', res.data.id, coverFile, detailFiles);
+      }
+      statusEl.textContent = 'Objekt angelegt.';
       statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newPropertyForm').reset(); loadAll(); }
+      document.getElementById('newPropertyForm').reset();
+      loadAll();
     });
 
     document.getElementById('newUnitForm').addEventListener('submit', async function(e){
@@ -183,6 +211,14 @@
       var label = document.getElementById('u_label').value.trim();
       var statusEl = document.getElementById('newUnitStatus');
       if(!propertyId || !label){ statusEl.textContent = 'Bitte Objekt und Bezeichnung angeben.'; statusEl.classList.add('show'); return; }
+      var uCoverInput = document.getElementById('u_cover_image');
+      var uDetailInput = document.getElementById('u_detail_images');
+      var uDetailFiles = Array.prototype.slice.call(uDetailInput.files);
+      if(uDetailFiles.length > 10){
+        statusEl.textContent = 'Bitte maximal 10 Detailbilder auswählen.';
+        statusEl.classList.add('show');
+        return;
+      }
       var res = await client.from('units').insert({
         property_id: propertyId,
         label: label,
@@ -197,10 +233,22 @@
         teaser: document.getElementById('u_teaser').value.trim() || null,
         description: document.getElementById('u_description').value.trim() || null,
         features: document.getElementById('u_features').value.trim() || null
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einheit angelegt.';
+      }).select().single();
+      if(res.error){
+        statusEl.textContent = 'Fehler: ' + res.error.message;
+        statusEl.classList.add('show');
+        return;
+      }
+      var uCoverFile = uCoverInput.files[0] || null;
+      if(uCoverFile || uDetailFiles.length){
+        statusEl.textContent = 'Einheit angelegt, Bilder werden hochgeladen …';
+        statusEl.classList.add('show');
+        await uploadNewRecordImages('unit', res.data.id, uCoverFile, uDetailFiles);
+      }
+      statusEl.textContent = 'Einheit angelegt.';
       statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newUnitForm').reset(); loadAll(); }
+      document.getElementById('newUnitForm').reset();
+      loadAll();
     });
 
     loadAll();
@@ -670,6 +718,30 @@
         loadThumbs(propertyId);
       });
     });
+  }
+
+  // Used right after creating a new property/unit: uploads an optional
+  // cover image plus up to 10 detail images in one go, so the admin
+  // doesn't have to save first and then reopen "Verwalten" separately.
+  async function uploadNewRecordImages(kind, recordId, coverFile, detailFiles){
+    var table = kind === 'unit' ? 'unit_images' : 'property_images';
+    var idField = kind === 'unit' ? 'unit_id' : 'property_id';
+    var pathPrefix = (kind === 'unit' ? 'units/' + recordId : recordId) + '/';
+    var queue = [];
+    if(coverFile) queue.push({ file: coverFile, is_cover: true });
+    detailFiles.slice(0, 10).forEach(function(f){ queue.push({ file: f, is_cover: false }); });
+
+    for(var i = 0; i < queue.length; i++){
+      var file = queue[i].file;
+      var imageId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var path = pathPrefix + imageId + '-' + safeName;
+      var upRes = await client.storage.from('property-images').upload(path, file);
+      if(upRes.error) continue;
+      var row = { id: imageId, file_path: path, is_cover: queue[i].is_cover, sort_order: i };
+      row[idField] = recordId;
+      await client.from(table).insert(row);
+    }
   }
 
   async function uploadImages(propertyId){
