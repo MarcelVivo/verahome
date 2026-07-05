@@ -9,19 +9,17 @@
 window.VeraDashboard = (function () {
   "use strict";
 
+  /* Reihenfolge in der Sidebar bewusst: (1) taegliches Geschaeft ganz
+     oben, mit dem Terminkalender zuoberst, (2) Verwaltung/Stammdaten
+     (nur Admin), (3) wiederkehrende Services zuunterst. */
   var NAV_GROUPS = [
     { label: null, items: [
+      { key: "termine", href: "/portal/admin/termine.html", label: "Termine", roles: ["admin"] },
+      { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] },
       { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht" },
-      { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
-      { key: "messages", href: "/portal/messages.html", label: "Nachrichten" },
       { key: "calendar", href: "/portal/calendar.html", label: "Kalender" },
-      { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] }
-    ]},
-    { label: "Services", items: [
-      { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },
-      { key: "invoices", href: "/portal/invoices.html", label: "Rechnungen" },
-      { key: "waschplan", href: "/portal/waschplan.html", label: "Waschplan" },
-      { key: "rapporte", href: "/portal/rapporte.html", label: "Rapporte", roles: ["hauswart", "admin"] }
+      { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
+      { key: "messages", href: "/portal/messages.html", label: "Nachrichten" }
     ]}
   ];
   var ADMIN_NAV_GROUP = { label: "Verwaltung", items: [
@@ -29,8 +27,13 @@ window.VeraDashboard = (function () {
     { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte" },
     { key: "admin-tenancies", href: "/portal/admin/tenancies.html", label: "Mietverhältnisse" },
     { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" },
-    { key: "tickets", href: "/portal/admin/tickets.html", label: "Tickets" },
-    { key: "termine", href: "/portal/admin/termine.html", label: "Termine" }
+    { key: "tickets", href: "/portal/admin/tickets.html", label: "Tickets" }
+  ]};
+  var SERVICES_NAV_GROUP = { label: "Services", items: [
+    { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },
+    { key: "invoices", href: "/portal/invoices.html", label: "Rechnungen" },
+    { key: "waschplan", href: "/portal/waschplan.html", label: "Waschplan" },
+    { key: "rapporte", href: "/portal/rapporte.html", label: "Rapporte", roles: ["hauswart", "admin"] }
   ]};
   /* Nav item keys that get an unread-count badge, and the subset of
      those for which visiting the page should mark the section "seen"
@@ -164,6 +167,8 @@ window.VeraDashboard = (function () {
     if (profile.category === "admin") {
       linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, profile.category);
     }
+
+    linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, profile.category);
 
     el.innerHTML =
       '<div class="dash-sidebar-header">' +
