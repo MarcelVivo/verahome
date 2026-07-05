@@ -55,7 +55,7 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Mietverhältnisse</h1>
-      <p class="dash-lead">Mieter, Eigentümer und Partner/Handwerker Objekten und Einheiten zuordnen.</p>
+      <p class="dash-lead">Mieter, Eigentümer, Hauswarte und Partner/Handwerker Objekten und Einheiten zuordnen.</p>
 
       <!-- Mietverhältnisse -->
       <div class="dash-card">
@@ -95,12 +95,29 @@
         <table class="dash-table" id="ownershipsTable"></table>
       </div>
 
+      <!-- Hauswart-Zuweisungen -->
+      <div class="dash-card">
+        <h2>Neue Hauswart-Zuweisung</h2>
+        <form class="auth-form" id="newHauswartForm">
+          <select id="h_profile" required><option value="" disabled selected>Hauswart wählen *</option></select>
+          <select id="h_property" required><option value="" disabled selected>Objekt wählen *</option></select>
+          <button type="submit" class="btn btn-primary">Hauswart zuweisen</button>
+          <p class="form-status" id="newHauswartStatus"></p>
+        </form>
+      </div>
+      <div class="dash-card">
+        <h2>Bestehende Hauswart-Zuweisungen</h2>
+        <input type="text" class="dash-search-input" id="hauswartSearch" placeholder="Suchen nach Hauswart oder Objekt …">
+        <table class="dash-table" id="hauswartsTable"></table>
+      </div>
+
       <!-- Auftragszuweisungen -->
       <div class="dash-card">
         <h2>Neue Auftragszuweisung</h2>
         <form class="auth-form" id="newJobForm">
           <select id="j_profile" required><option value="" disabled selected>Partner/Handwerker wählen *</option></select>
           <select id="j_property"><option value="">– kein Objekt –</option></select>
+          <select id="j_unit"><option value="">– keine Einheit –</option></select>
           <input id="j_title" placeholder="Titel *" required>
           <textarea id="j_description" placeholder="Beschreibung"></textarea>
           <select id="j_status">
@@ -168,6 +185,7 @@
     var profiles = profilesRes.data || [];
     var tenants = profiles.filter(function(p){ return p.category === 'mieter'; });
     var owners = profiles.filter(function(p){ return p.category === 'eigentuemer'; });
+    var hauswarts = profiles.filter(function(p){ return p.category === 'hauswart'; });
     var jobProfiles = profiles.filter(function(p){ return p.category === 'partner' || p.category === 'handwerker'; });
 
     var propertiesRes = await client.from('properties').select('*').order('label');
@@ -187,14 +205,22 @@
     document.getElementById('o_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
       units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
 
+    document.getElementById('h_profile').innerHTML = '<option value="" disabled selected>Hauswart wählen *</option>' +
+      hauswarts.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
+    document.getElementById('h_property').innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
+      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+
     document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker wählen *</option>' +
       jobProfiles.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+VeraDashboard.categoryLabel(p.category))+'</option>'; }).join('');
     document.getElementById('j_property').innerHTML = '<option value="">– kein Objekt –</option>' +
       properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+    document.getElementById('j_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
+      units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
 
     wireForms();
     loadTenancies();
     loadOwnerships();
+    loadHauswarts();
     loadJobs();
 
     document.getElementById('tenancySearch').addEventListener('input', function(){
@@ -211,11 +237,18 @@
         return VeraDashboard.matchesSearch([o.owner?o.owner.last_name+' '+o.owner.first_name:'', scope], q);
       }));
     });
+    document.getElementById('hauswartSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderHauswartsTable(allHauswarts.filter(function(h){
+        return VeraDashboard.matchesSearch([h.profile?h.profile.last_name+' '+h.profile.first_name:'', h.properties?h.properties.label:''], q);
+      }));
+    });
     document.getElementById('jobSearch').addEventListener('input', function(){
       var q = this.value.trim();
       renderJobsTable(allJobs.filter(function(j){
+        var unitLabel = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : '';
         return VeraDashboard.matchesSearch(
-          [j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'', j.title, j.properties?j.properties.label:'', JOB_STATUS_LABEL[j.status]||j.status], q
+          [j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'', j.title, j.properties?j.properties.label:'', unitLabel, JOB_STATUS_LABEL[j.status]||j.status], q
         );
       }));
     });
@@ -255,6 +288,22 @@
       if(!res.error){ document.getElementById('newOwnershipForm').reset(); loadOwnerships(); }
     });
 
+    document.getElementById('newHauswartForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('newHauswartStatus');
+      var profileId = document.getElementById('h_profile').value;
+      var propertyId = document.getElementById('h_property').value;
+      if(!profileId || !propertyId){ statusEl.textContent = 'Bitte Hauswart und Objekt wählen.'; statusEl.classList.add('show'); return; }
+      var res = await client.from('property_permissions').insert({
+        profile_id: profileId,
+        property_id: propertyId,
+        permission: 'hauswart'
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Hauswart zugewiesen.';
+      statusEl.classList.add('show');
+      if(!res.error){ document.getElementById('newHauswartForm').reset(); loadHauswarts(); }
+    });
+
     document.getElementById('newJobForm').addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('newJobStatus');
@@ -264,6 +313,7 @@
       var res = await client.from('job_assignments').insert({
         profile_id: profileId,
         property_id: document.getElementById('j_property').value || null,
+        unit_id: document.getElementById('j_unit').value || null,
         title: title,
         description: document.getElementById('j_description').value.trim() || null,
         status: document.getElementById('j_status').value
@@ -276,6 +326,7 @@
 
   var allTenancies = [];
   var allOwnerships = [];
+  var allHauswarts = [];
   var allJobs = [];
 
   async function loadTenancies(){
@@ -319,9 +370,29 @@
       }).join('');
   }
 
+  async function loadHauswarts(){
+    var res = await client.from('property_permissions')
+      .select('*, profile:profiles!profile_id(first_name,last_name,member_number), properties(label)')
+      .eq('permission', 'hauswart')
+      .order('created_at', { ascending:false });
+    allHauswarts = res.data || [];
+    renderHauswartsTable(allHauswarts);
+  }
+
+  function renderHauswartsTable(rows){
+    var table = document.getElementById('hauswartsTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allHauswarts.length?'Keine Treffer.':'Noch keine Hauswart-Zuweisungen.')+'</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Hauswart</th><th>Objekt</th></tr>' +
+      rows.map(function(h){
+        var name = h.profile ? h.profile.last_name+' '+h.profile.first_name+' ('+h.profile.member_number+')' : '–';
+        return '<tr><td>'+VeraDashboard.escapeHtml(name)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(h.properties?h.properties.label:'–')+'</td></tr>';
+      }).join('');
+  }
+
   async function loadJobs(){
     var res = await client.from('job_assignments')
-      .select('*, assignee:profiles!profile_id(first_name,last_name,category), properties(label)')
+      .select('*, assignee:profiles!profile_id(first_name,last_name,category), properties(label), units(label, properties(label))')
       .order('created_at', { ascending:false });
     allJobs = res.data || [];
     renderJobsTable(allJobs);
@@ -330,11 +401,12 @@
   function renderJobsTable(rows){
     var table = document.getElementById('jobsTable');
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allJobs.length?'Keine Treffer.':'Noch keine Auftragszuweisungen.')+'</td></tr>'; return; }
-    table.innerHTML = '<tr><th>Zugewiesen an</th><th>Titel</th><th>Objekt</th><th>Status</th></tr>' +
+    table.innerHTML = '<tr><th>Zugewiesen an</th><th>Titel</th><th>Objekt/Einheit</th><th>Status</th></tr>' +
       rows.map(function(j){
+        var scope = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : (j.properties ? j.properties.label : '–');
         return '<tr><td>'+VeraDashboard.escapeHtml(j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(j.title)+(j.source_issue_report_id ? ' <span class="doc-meta">aus Meldung</span>' : '')+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(j.properties?j.properties.label:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(scope)+'</td>' +
           '<td>'+(JOB_STATUS_LABEL[j.status]||j.status)+'</td></tr>';
       }).join('');
   }
