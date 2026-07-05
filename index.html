@@ -1412,7 +1412,12 @@ function buildVeraHomeLogoGroup(opts){
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 200);
+  /* Wider field of view on mobile/tablet zooms the whole scene out (camera
+     position and the fly-through's world-space distances stay untouched),
+     so the badge renders noticeably smaller with real breathing room on
+     both sides instead of nearly filling the narrow viewport edge-to-edge. */
+  function introFovFor(w){ return w <= 1024 ? 80 : 45; }
+  var camera = new THREE.PerspectiveCamera(introFovFor(window.innerWidth), window.innerWidth/window.innerHeight, 0.1, 200);
   var introBaseZ = 46;
   camera.position.set(0, 0, introBaseZ);
 
@@ -2220,6 +2225,7 @@ function buildVeraHomeLogoGroup(opts){
   window.addEventListener('resize', function(){
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
+    camera.fov = introFovFor(window.innerWidth);
     camera.updateProjectionMatrix();
     render();
   });

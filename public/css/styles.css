@@ -267,6 +267,7 @@ section{position:relative;padding:110px 0;}
 }
 .intro-hint{
   position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:3;
+  width:90%;max-width:320px;text-align:center;
   color:var(--color-gold-light);font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;
   animation:bounceDown 1.8s ease-in-out infinite;
 }
