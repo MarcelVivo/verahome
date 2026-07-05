@@ -979,6 +979,13 @@ buildChars();
 ============================================================ */
 if(window.gsap && !reducedMotion){
   gsap.registerPlugin(ScrollTrigger);
+  /* Mobile Safari resizes the visual viewport as the address bar
+     hides/shows while scrolling — without this, ScrollTrigger treats
+     that as a real layout change and recalculates/repositions
+     everything mid-scroll, which is what caused the page to suddenly
+     jump (often straight to the top) while scrolling or right as a
+     touch stopped momentum scrolling. */
+  ScrollTrigger.config({ ignoreMobileResize: true });
 
   gsap.set('.hero-headline .char', {y:40, opacity:0});
   gsap.to('.hero-headline .char', {

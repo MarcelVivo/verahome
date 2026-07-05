@@ -230,7 +230,16 @@ section{position:relative;padding:110px 0;}
 /* =============================================================
    3D INTRO SCROLL SEQUENCE
 ============================================================= */
-#intro-track{height:220vh;background:var(--color-navy-deep);}
+#intro-track{
+  height:220vh;
+  /* svh ("small viewport height") stays fixed as the mobile address bar
+     hides/shows while scrolling, unlike plain vh — which keeps
+     recalculating this element's height mid-scroll and was pushing all
+     page content up/down under the user, causing sudden jumps. Falls
+     back to the vh value above in browsers that don't support svh. */
+  height:220svh;
+  background:var(--color-navy-deep);
+}
 #intro-overlay{
   position:fixed;inset:0;z-index:900;
   background:linear-gradient(135deg,var(--color-navy-deep) 0%,var(--color-navy) 55%,var(--color-blue-mid) 100%);
