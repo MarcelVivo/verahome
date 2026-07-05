@@ -475,8 +475,6 @@ section{position:relative;padding:110px 0;}
   background-repeat:no-repeat,no-repeat;
   background-color:var(--color-white);
 }
-.objekte-cta-row{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;}
-.objekte-hint{text-align:center;color:var(--color-gray-text);font-size:.9rem;margin-bottom:56px;}
 .objekte-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;}
 .objekte-empty{
   grid-column:1 / -1;text-align:center;background:rgba(255,255,255,.92);border:1px solid var(--color-blue-light);
