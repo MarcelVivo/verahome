@@ -55,7 +55,7 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Objekte</h1>
-      <p class="dash-lead">Objekte, Einheiten, Bilder und Dokumente verwalten. "Öffentliche" Objekte erscheinen auch im "Objekte"-Bereich der Website.</p>
+      <p class="dash-lead">Objekte sind Gebäude/Liegenschaften. Einheiten sind Wohnungen, Studios oder Garagen darin. Veröffentlicht werden einzelne Einheiten als Inserat.</p>
 
       <div class="dash-card">
         <h2>Neues Objekt</h2>
@@ -66,26 +66,6 @@
             <div><input id="p_zip" placeholder="PLZ"></div>
           </div>
           <input id="p_city" placeholder="Ort">
-          <select id="p_visibility">
-            <option value="private" selected>Privat (nur im Portal, für zugeordnete Nutzer)</option>
-            <option value="public">Öffentlich (erscheint auf der Webseite)</option>
-          </select>
-          <div class="auth-form-row">
-            <div>
-              <select id="p_offer_type">
-                <option value="">Art des Angebots</option>
-                <option value="Miete">Miete</option>
-                <option value="Kauf">Kauf</option>
-                <option value="Auf Anfrage">Auf Anfrage</option>
-              </select>
-            </div>
-            <div><input type="number" step="0.01" min="0" id="p_area" placeholder="Wohnfläche m²"></div>
-          </div>
-          <div class="auth-form-row">
-            <div><input type="number" step="0.5" min="0" id="p_rooms" placeholder="Zimmer"></div>
-            <div><input id="p_available" placeholder="Verfügbar ab"></div>
-          </div>
-          <input id="p_teaser" placeholder="Kurztext für Übersicht">
           <button type="submit" class="btn btn-primary">Objekt anlegen</button>
           <p class="form-status" id="newPropertyStatus"></p>
         </form>
@@ -95,7 +75,34 @@
         <h2>Neue Einheit</h2>
         <form class="auth-form" id="newUnitForm">
           <select id="u_property" required><option value="" disabled selected>Objekt wählen *</option></select>
-          <input id="u_label" placeholder="Bezeichnung (z.B. 3. OG rechts) *" required>
+          <input id="u_label" placeholder="Einheit (z.B. 3.5-Zimmer-Wohnung EG links) *" required>
+          <select id="u_visibility">
+            <option value="private" selected>Nicht veröffentlichen</option>
+            <option value="public">Als Inserat veröffentlichen</option>
+          </select>
+          <div class="auth-form-row">
+            <div>
+              <select id="u_offer_type">
+                <option value="">Art des Angebots</option>
+                <option value="Miete">Miete</option>
+                <option value="Kauf">Kauf</option>
+                <option value="Auf Anfrage">Auf Anfrage</option>
+              </select>
+            </div>
+            <div><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
+          </div>
+          <div class="auth-form-row">
+            <div><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
+            <div><input id="u_floor" placeholder="Etage / Lage im Haus"></div>
+          </div>
+          <div class="auth-form-row">
+            <div><input type="number" step="0.01" min="0" id="u_rent" placeholder="Mietzins / Preis CHF"></div>
+            <div><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
+          </div>
+          <input id="u_available" placeholder="Verfügbar ab">
+          <input id="u_teaser" placeholder="Kurztext für Übersicht">
+          <textarea id="u_description" placeholder="Beschreibung für Detailseite"></textarea>
+          <textarea id="u_features" placeholder="Merkmale, je Zeile ein Punkt"></textarea>
           <button type="submit" class="btn btn-primary">Einheit anlegen</button>
           <p class="form-status" id="newUnitStatus"></p>
         </form>
@@ -163,13 +170,7 @@
         label: label,
         street: document.getElementById('p_street').value.trim() || null,
         zip: document.getElementById('p_zip').value.trim() || null,
-        city: document.getElementById('p_city').value.trim() || null,
-        visibility: document.getElementById('p_visibility').value,
-        offer_type: document.getElementById('p_offer_type').value || null,
-        living_area_m2: numberOrNull(document.getElementById('p_area').value),
-        rooms: numberOrNull(document.getElementById('p_rooms').value),
-        available_from: document.getElementById('p_available').value.trim() || null,
-        teaser: document.getElementById('p_teaser').value.trim() || null
+        city: document.getElementById('p_city').value.trim() || null
       });
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt angelegt.';
       statusEl.classList.add('show');
@@ -182,7 +183,21 @@
       var label = document.getElementById('u_label').value.trim();
       var statusEl = document.getElementById('newUnitStatus');
       if(!propertyId || !label){ statusEl.textContent = 'Bitte Objekt und Bezeichnung angeben.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('units').insert({ property_id: propertyId, label: label });
+      var res = await client.from('units').insert({
+        property_id: propertyId,
+        label: label,
+        visibility: document.getElementById('u_visibility').value,
+        offer_type: document.getElementById('u_offer_type').value || null,
+        living_area_m2: numberOrNull(document.getElementById('u_area').value),
+        rooms: numberOrNull(document.getElementById('u_rooms').value),
+        floor: document.getElementById('u_floor').value.trim() || null,
+        rent_chf: numberOrNull(document.getElementById('u_rent').value),
+        extra_costs_chf: numberOrNull(document.getElementById('u_extra_costs').value),
+        available_from: document.getElementById('u_available').value.trim() || null,
+        teaser: document.getElementById('u_teaser').value.trim() || null,
+        description: document.getElementById('u_description').value.trim() || null,
+        features: document.getElementById('u_features').value.trim() || null
+      });
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einheit angelegt.';
       statusEl.classList.add('show');
       if(!res.error){ document.getElementById('newUnitForm').reset(); loadAll(); }
@@ -222,14 +237,18 @@
     }
     listEl.innerHTML = properties.map(function(p){
       var propUnits = allUnits.filter(function(u){ return u.property_id === p.id; });
-      var visBadge = p.visibility === 'public'
-        ? '<span class="status-badge active">Öffentlich</span>'
-        : '<span class="status-badge pending">Privat</span>';
+      var publicCount = propUnits.filter(function(u){ return u.visibility === 'public'; }).length;
+      var visBadge = publicCount
+        ? '<span class="status-badge active">'+publicCount+' Inserat(e) online</span>'
+        : '<span class="status-badge pending">Keine Veröffentlichung</span>';
       return '<div class="prop-row" style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--color-blue-light);">' +
         '<strong>'+VeraDashboard.escapeHtml(p.label)+'</strong> ' + visBadge +
         (p.street ? ' <span class="doc-meta">'+VeraDashboard.escapeHtml(p.street)+', '+VeraDashboard.escapeHtml(p.zip||'')+' '+VeraDashboard.escapeHtml(p.city||'')+'</span>' : '') +
         '<div class="dash-btn-row" style="margin-top:8px;">' +
-        (propUnits.length ? propUnits.map(function(u){ return '<span class="dash-btn-sm" style="pointer-events:none;">'+VeraDashboard.escapeHtml(u.label)+'</span>'; }).join('') : '<span class="doc-meta">Noch keine Einheiten</span>') +
+        (propUnits.length ? propUnits.map(function(u){
+          var unitBadge = u.visibility === 'public' ? ' · online' : ' · privat';
+          return '<span class="dash-btn-sm" style="pointer-events:none;">'+VeraDashboard.escapeHtml(u.label + unitBadge)+'</span>';
+        }).join('') : '<span class="doc-meta">Noch keine Einheiten</span>') +
         '<button type="button" class="dash-btn-sm manage-btn" data-id="'+p.id+'">Verwalten</button>' +
         '<button type="button" class="dash-btn-sm danger delete-property-btn" data-id="'+p.id+'" data-label="'+VeraDashboard.escapeHtml(p.label)+'">Objekt löschen</button>' +
         '</div>' +
@@ -267,34 +286,48 @@
   }
 
   function renderManagePanel(propertyId, panel){
-    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0] || {};
+    var propertyUnits = allUnits.filter(function(u){ return u.property_id === propertyId; });
     panel.innerHTML =
-      '<h3 style="font-size:.95rem;margin-bottom:10px;">Inserat</h3>' +
-      '<form class="auth-form" id="listingForm-'+propertyId+'">' +
-        '<div class="auth-form-row">' +
-          '<div><select id="listingOfferType-'+propertyId+'">' +
-            '<option value="">Art des Angebots</option>' +
-            '<option value="Miete"'+(property.offer_type === 'Miete' ? ' selected' : '')+'>Miete</option>' +
-            '<option value="Kauf"'+(property.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
-            '<option value="Auf Anfrage"'+(property.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
-          '</select></div>' +
-          '<div><input type="number" step="0.01" min="0" id="listingArea-'+propertyId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(property.living_area_m2 || '')+'"></div>' +
-        '</div>' +
-        '<div class="auth-form-row">' +
-          '<div><input type="number" step="0.5" min="0" id="listingRooms-'+propertyId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(property.rooms || '')+'"></div>' +
-          '<div><input id="listingFloor-'+propertyId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(property.floor || '')+'"></div>' +
-        '</div>' +
-        '<div class="auth-form-row">' +
-          '<div><input type="number" step="0.01" min="0" id="listingRent-'+propertyId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(property.rent_chf || '')+'"></div>' +
-          '<div><input type="number" step="0.01" min="0" id="listingExtraCosts-'+propertyId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(property.extra_costs_chf || '')+'"></div>' +
-        '</div>' +
-        '<input id="listingAvailable-'+propertyId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(property.available_from || '')+'">' +
-        '<input id="listingTeaser-'+propertyId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(property.teaser || '')+'">' +
-        '<textarea id="listingDescription-'+propertyId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(property.description || '')+'</textarea>' +
-        '<textarea id="listingFeatures-'+propertyId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(property.features || '')+'</textarea>' +
-        '<button type="submit" class="dash-btn-sm">Inserat speichern</button>' +
-        '<p class="form-status" id="listingStatus-'+propertyId+'"></p>' +
-      '</form>' +
+      '<h3 style="font-size:.95rem;margin-bottom:10px;">Einheiten &amp; Inserate</h3>' +
+      '<p class="doc-meta" style="margin-bottom:12px;">Hier veröffentlichst du einzelne Wohnungen/Garagen/Studios. Das Objekt liefert Adresse, Bilder, Dokumente und Lageplan.</p>' +
+      (propertyUnits.length ? propertyUnits.map(function(unit){
+        var unitId = unit.id;
+        return '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'" style="padding:14px;margin-bottom:14px;border:1px solid var(--color-blue-light);border-radius:12px;">' +
+          '<strong>'+VeraDashboard.escapeHtml(unit.label)+'</strong>' +
+          '<select id="unitVisibility-'+unitId+'">' +
+            '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
+            '<option value="public"'+(unit.visibility === 'public' ? ' selected' : '')+'>Als Inserat veröffentlichen</option>' +
+          '</select>' +
+          '<div class="auth-form-row">' +
+            '<div><select id="unitOfferType-'+unitId+'">' +
+              '<option value="">Art des Angebots</option>' +
+              '<option value="Miete"'+(unit.offer_type === 'Miete' ? ' selected' : '')+'>Miete</option>' +
+              '<option value="Kauf"'+(unit.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
+              '<option value="Auf Anfrage"'+(unit.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
+            '</select></div>' +
+            '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
+          '</div>' +
+          '<div class="auth-form-row">' +
+            '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
+            '<div><input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'"></div>' +
+          '</div>' +
+          '<div class="auth-form-row">' +
+            '<div><input type="number" step="0.01" min="0" id="unitRent-'+unitId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(unit.rent_chf || '')+'"></div>' +
+            '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
+          '</div>' +
+          '<input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'">' +
+          '<input id="unitTeaser-'+unitId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(unit.teaser || '')+'">' +
+          '<textarea id="unitDescription-'+unitId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(unit.description || '')+'</textarea>' +
+          '<textarea id="unitFeatures-'+unitId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(unit.features || '')+'</textarea>' +
+          '<h4 style="font-size:.9rem;margin:10px 0 8px;">Bilder dieser Einheit</h4>' +
+          '<div class="prop-thumb-grid" id="unitThumbs-'+unitId+'"></div>' +
+          '<input type="file" id="unitImgInput-'+unitId+'" accept="image/*" multiple>' +
+          '<button type="button" class="dash-btn-sm unit-img-upload-btn" data-unit-id="'+unitId+'" style="margin-top:8px;">Einheitsbilder hochladen</button>' +
+          '<p class="form-status" id="unitImgStatus-'+unitId+'"></p>' +
+          '<button type="submit" class="dash-btn-sm">Einheit speichern</button>' +
+          '<p class="form-status" id="unitListingStatus-'+unitId+'"></p>' +
+        '</form>';
+      }).join('') : '<p class="dash-empty">Noch keine Einheiten vorhanden. Lege zuerst oben eine Einheit an.</p>') +
 
       '<h3 style="font-size:.95rem;margin-bottom:10px;">Bilder</h3>' +
       '<div class="prop-thumb-grid" id="thumbs-'+propertyId+'"></div>' +
@@ -369,8 +402,16 @@
     loadHauswartAssignments(propertyId);
     loadPropertyAnnouncements(propertyId);
 
-    document.getElementById('listingForm-'+propertyId).addEventListener('submit', function(e){
-      saveListingDetails(e, propertyId);
+    propertyUnits.forEach(function(unit){
+      loadUnitThumbs(unit.id);
+      document.getElementById('unitListingForm-'+unit.id).addEventListener('submit', function(e){
+        saveUnitListingDetails(e, unit.id);
+      });
+    });
+    panel.querySelectorAll('.unit-img-upload-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        uploadUnitImages(btn.getAttribute('data-unit-id'));
+      });
     });
     document.getElementById('announceForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
@@ -415,24 +456,28 @@
     return Number.isFinite(number) ? number : null;
   }
 
-  async function saveListingDetails(e, propertyId){
+  async function saveUnitListingDetails(e, unitId){
     e.preventDefault();
-    var statusEl = document.getElementById('listingStatus-'+propertyId);
-    var res = await client.from('properties').update({
-      offer_type: document.getElementById('listingOfferType-'+propertyId).value || null,
-      living_area_m2: numberOrNull(document.getElementById('listingArea-'+propertyId).value),
-      rooms: numberOrNull(document.getElementById('listingRooms-'+propertyId).value),
-      floor: document.getElementById('listingFloor-'+propertyId).value.trim() || null,
-      rent_chf: numberOrNull(document.getElementById('listingRent-'+propertyId).value),
-      extra_costs_chf: numberOrNull(document.getElementById('listingExtraCosts-'+propertyId).value),
-      available_from: document.getElementById('listingAvailable-'+propertyId).value.trim() || null,
-      teaser: document.getElementById('listingTeaser-'+propertyId).value.trim() || null,
-      description: document.getElementById('listingDescription-'+propertyId).value.trim() || null,
-      features: document.getElementById('listingFeatures-'+propertyId).value.trim() || null
-    }).eq('id', propertyId);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Inserat gespeichert.';
+    var statusEl = document.getElementById('unitListingStatus-'+unitId);
+    var res = await client.from('units').update({
+      visibility: document.getElementById('unitVisibility-'+unitId).value,
+      offer_type: document.getElementById('unitOfferType-'+unitId).value || null,
+      living_area_m2: numberOrNull(document.getElementById('unitArea-'+unitId).value),
+      rooms: numberOrNull(document.getElementById('unitRooms-'+unitId).value),
+      floor: document.getElementById('unitFloor-'+unitId).value.trim() || null,
+      rent_chf: numberOrNull(document.getElementById('unitRent-'+unitId).value),
+      extra_costs_chf: numberOrNull(document.getElementById('unitExtraCosts-'+unitId).value),
+      available_from: document.getElementById('unitAvailable-'+unitId).value.trim() || null,
+      teaser: document.getElementById('unitTeaser-'+unitId).value.trim() || null,
+      description: document.getElementById('unitDescription-'+unitId).value.trim() || null,
+      features: document.getElementById('unitFeatures-'+unitId).value.trim() || null
+    }).eq('id', unitId);
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einheit gespeichert.';
     statusEl.classList.add('show');
-    if(!res.error) loadAll();
+    if(!res.error){
+      await loadAll();
+      openPanels = {};
+    }
   }
 
   async function loadHauswartAssignments(propertyId){
@@ -659,6 +704,85 @@
     statusEl.textContent = 'Bilder hochgeladen.';
     input.value = '';
     loadThumbs(propertyId);
+  }
+
+  async function loadUnitThumbs(unitId){
+    var res = await client.from('unit_images').select('*').eq('unit_id', unitId).order('sort_order');
+    var images = res.data || [];
+    var el = document.getElementById('unitThumbs-'+unitId);
+    if(!el) return;
+    if(!images.length){ el.innerHTML = '<p class="dash-empty">Noch keine Bilder für diese Einheit.</p>'; return; }
+    el.innerHTML = images.map(function(img, idx){
+      var url = client.storage.from('property-images').getPublicUrl(img.file_path).data.publicUrl;
+      return '<div class="prop-thumb'+(img.is_cover?' is-cover':'')+'">' +
+        (img.is_cover ? '<span class="prop-thumb-cover-badge">Titelbild</span>' : '') +
+        '<img src="'+url+'" alt="">' +
+        '<div class="prop-thumb-actions">' +
+          '<button type="button" class="prop-icon-btn unit-cover-btn" data-id="'+img.id+'" title="Als Titelbild">★</button>' +
+          (idx > 0 ? '<button type="button" class="prop-icon-btn unit-up-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach oben">↑</button>' : '') +
+          (idx < images.length - 1 ? '<button type="button" class="prop-icon-btn unit-down-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach unten">↓</button>' : '') +
+          '<button type="button" class="prop-icon-btn danger unit-del-btn" data-id="'+img.id+'" data-path="'+img.file_path+'" title="Löschen">✕</button>' +
+        '</div></div>';
+    }).join('');
+
+    el.querySelectorAll('.unit-cover-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await client.rpc('set_unit_cover_image', { p_unit_id: unitId, p_image_id: btn.getAttribute('data-id') });
+        loadUnitThumbs(unitId);
+      });
+    });
+    el.querySelectorAll('.unit-up-btn, .unit-down-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var swapIdx = btn.classList.contains('unit-up-btn') ? idx - 1 : idx + 1;
+        var a = images[idx], b = images[swapIdx];
+        if(!a || !b) return;
+        await client.from('unit_images').update({ sort_order: b.sort_order }).eq('id', a.id);
+        await client.from('unit_images').update({ sort_order: a.sort_order }).eq('id', b.id);
+        loadUnitThumbs(unitId);
+      });
+    });
+    el.querySelectorAll('.unit-del-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
+        await client.from('unit_images').delete().eq('id', btn.getAttribute('data-id'));
+        loadUnitThumbs(unitId);
+      });
+    });
+  }
+
+  async function uploadUnitImages(unitId){
+    var input = document.getElementById('unitImgInput-'+unitId);
+    var files = Array.prototype.slice.call(input.files);
+    var statusEl = document.getElementById('unitImgStatus-'+unitId);
+    if(!files.length){ statusEl.textContent = 'Bitte mindestens ein Bild wählen.'; statusEl.classList.add('show'); return; }
+
+    statusEl.textContent = 'Wird hochgeladen …';
+    statusEl.classList.add('show');
+
+    var existingRes = await client.from('unit_images').select('id, sort_order').eq('unit_id', unitId);
+    var existing = existingRes.data || [];
+    var nextOrder = existing.length ? Math.max.apply(null, existing.map(function(i){ return i.sort_order; })) + 1 : 0;
+    var hasCover = existing.length > 0;
+
+    for(var i = 0; i < files.length; i++){
+      var file = files[i];
+      var imageId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var path = 'units/' + unitId + '/' + imageId + '-' + safeName;
+      var upRes = await client.storage.from('property-images').upload(path, file);
+      if(upRes.error){ statusEl.textContent = 'Fehler: ' + upRes.error.message; continue; }
+      await client.from('unit_images').insert({
+        id: imageId, unit_id: unitId, file_path: path,
+        is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
+      });
+      hasCover = true;
+      nextOrder++;
+    }
+
+    statusEl.textContent = 'Einheitsbilder hochgeladen.';
+    input.value = '';
+    loadUnitThumbs(unitId);
   }
 
   async function loadUserPicker(propertyId){

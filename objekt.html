@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Objekt Details | Vera Home Immobilien</title>
-<meta name="description" content="Details zu einem aktuellen Objekt von Vera Home Immobilien.">
+<title>Inserat Details | Vera Home Immobilien</title>
+<meta name="description" content="Details zu einem aktuellen Immobilien-Inserat von Vera Home Immobilien.">
 <meta name="theme-color" content="#1A3A5C">
 <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
 <link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
@@ -70,7 +70,7 @@
 
       <aside class="property-detail-aside">
         <div class="property-facts" id="propertyFacts"></div>
-        <a class="btn btn-primary" id="propertyApply" href="/index.html#mietertools">Für dieses Objekt bewerben</a>
+        <a class="btn btn-primary" id="propertyApply" href="/index.html#mietertools">Für diese Einheit bewerben</a>
         <a class="btn btn-dark" href="/index.html#kontakt">Frage zum Objekt stellen</a>
       </aside>
     </div>
@@ -105,7 +105,7 @@
 (function(){
   "use strict";
   var params = new URLSearchParams(window.location.search);
-  var propertyId = params.get('id');
+  var unitId = params.get('einheit') || params.get('id');
   var titleEl = document.getElementById('propertyTitle');
   var leadEl = document.getElementById('propertyLead');
   var breadcrumbEl = document.getElementById('propertyBreadcrumb');
@@ -117,7 +117,7 @@
   var factsEl = document.getElementById('propertyFacts');
   var applyEl = document.getElementById('propertyApply');
 
-  if(!propertyId){
+  if(!unitId){
     showMissing();
     return;
   }
@@ -149,12 +149,12 @@
   }
 
   function showMissing(){
-    titleEl.textContent = 'Objekt nicht gefunden';
-    leadEl.textContent = 'Bitte wählen Sie ein aktuelles Objekt aus der Übersicht.';
+    titleEl.textContent = 'Inserat nicht gefunden';
+    leadEl.textContent = 'Bitte wählen Sie ein aktuelles Inserat aus der Übersicht.';
   }
 
   function showError(message){
-    titleEl.textContent = 'Objekt nicht verfügbar';
+    titleEl.textContent = 'Inserat nicht verfügbar';
     leadEl.textContent = message;
   }
 
@@ -172,28 +172,28 @@
     }).join('');
   }
 
-  function renderFacts(property){
+  function renderFacts(unit, property){
     var facts = [
       ['Ort', property.city || 'Auf Anfrage'],
-      ['Wohnfläche', property.living_area_m2 ? formatNumber(property.living_area_m2) + ' m²' : 'Auf Anfrage'],
-      ['Zimmer', property.rooms ? formatNumber(property.rooms) : 'Auf Anfrage'],
-      ['Etage', property.floor || 'Auf Anfrage'],
-      ['Mietzins / Preis', property.rent_chf ? formatMoney(property.rent_chf) : 'Auf Anfrage'],
-      ['Nebenkosten', property.extra_costs_chf ? formatMoney(property.extra_costs_chf) : 'Auf Anfrage'],
-      ['Verfügbar ab', property.available_from || 'Auf Anfrage']
+      ['Wohnfläche', unit.living_area_m2 ? formatNumber(unit.living_area_m2) + ' m²' : 'Auf Anfrage'],
+      ['Zimmer', unit.rooms ? formatNumber(unit.rooms) : 'Auf Anfrage'],
+      ['Etage', unit.floor || 'Auf Anfrage'],
+      ['Mietzins / Preis', unit.rent_chf ? formatMoney(unit.rent_chf) : 'Auf Anfrage'],
+      ['Nebenkosten', unit.extra_costs_chf ? formatMoney(unit.extra_costs_chf) : 'Auf Anfrage'],
+      ['Verfügbar ab', unit.available_from || 'Auf Anfrage']
     ];
     factsEl.innerHTML = '<h2>Objektdaten</h2>' + facts.map(function(fact){
       return '<div class="property-fact"><span>'+escapeHtml(fact[0])+'</span><strong>'+escapeHtml(fact[1])+'</strong></div>';
     }).join('');
   }
 
-  function renderDescription(property){
-    var description = property.description || property.teaser || 'Weitere Informationen erhalten Sie gerne auf Anfrage.';
+  function renderDescription(unit){
+    var description = unit.description || unit.teaser || 'Weitere Informationen erhalten Sie gerne auf Anfrage.';
     descriptionEl.innerHTML = '<h2>Beschreibung</h2><p>'+escapeHtml(description).replace(/\n/g, '<br>')+'</p>';
   }
 
-  function renderFeatures(property){
-    var features = (property.features || '').split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean);
+  function renderFeatures(unit){
+    var features = (unit.features || '').split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean);
     if(!features.length){
       featuresEl.innerHTML = '';
       return;
@@ -231,36 +231,47 @@
       '<div class="map-embed"><iframe src="https://maps.google.com/maps?q='+encodeURIComponent(address)+'&output=embed" width="100%" height="280" loading="lazy" title="Lageplan '+escapeHtml(property.label)+'"></iframe></div>';
   }
 
-  Promise.all([
-    client.from('properties').select('*').eq('id', propertyId).eq('visibility', 'public').single(),
-    client.from('property_images').select('*').eq('property_id', propertyId).order('sort_order'),
-    client.from('property_documents').select('*').eq('property_id', propertyId).eq('visibility', 'public').order('created_at', { ascending:false })
-  ]).then(function(results){
-    var propertyRes = results[0];
-    if(propertyRes.error || !propertyRes.data){
+  client.from('units')
+    .select('*, properties(*)')
+    .eq('id', unitId)
+    .eq('visibility', 'public')
+    .single()
+    .then(function(unitRes){
+    if(unitRes.error || !unitRes.data){
       showMissing();
       return;
     }
-    var property = propertyRes.data;
-    var images = (results[1].data || []).slice().sort(function(a,b){
+    var unit = unitRes.data;
+    var property = unit.properties || {};
+
+    Promise.all([
+      client.from('unit_images').select('*').eq('unit_id', unit.id).order('sort_order'),
+      client.from('property_images').select('*').eq('property_id', property.id).order('sort_order'),
+      client.from('property_documents').select('*').eq('property_id', property.id).eq('visibility', 'public').order('created_at', { ascending:false })
+    ]).then(function(results){
+    var unitImages = results[0].data || [];
+    var propertyImages = results[1].data || [];
+    var images = (unitImages.length ? unitImages : propertyImages).slice().sort(function(a,b){
       if(a.is_cover && !b.is_cover) return -1;
       if(!a.is_cover && b.is_cover) return 1;
       return a.sort_order - b.sort_order;
     });
     var documents = results[2].data || [];
 
-    document.title = property.label + ' | Vera Home Immobilien';
-    titleEl.textContent = property.label;
-    breadcrumbEl.textContent = property.label;
-    leadEl.textContent = property.teaser || [property.city, property.offer_type].filter(Boolean).join(' · ') || 'Aktuelles Objekt von Vera Home Immobilien.';
-    applyEl.href = '/index.html?bewerbung=' + encodeURIComponent(property.id) + '#mietertools';
+    var pageTitle = unit.label + (property.city ? ' · ' + property.city : '');
+    document.title = pageTitle + ' | Vera Home Immobilien';
+    titleEl.textContent = pageTitle;
+    breadcrumbEl.textContent = unit.label;
+    leadEl.textContent = unit.teaser || [property.label, unit.offer_type].filter(Boolean).join(' · ') || 'Aktuelles Inserat von Vera Home Immobilien.';
+    applyEl.href = '/index.html?bewerbung=' + encodeURIComponent(unit.id) + '#mietertools';
 
     renderGallery(images);
-    renderFacts(property);
-    renderDescription(property);
-    renderFeatures(property);
+    renderFacts(unit, property);
+    renderDescription(unit);
+    renderFeatures(unit);
     renderDocuments(documents);
     renderLocation(property);
+    });
   }).catch(function(){
     showError('Beim Laden der Objektinformationen ist ein Fehler aufgetreten.');
   });

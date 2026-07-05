@@ -571,15 +571,16 @@ document.documentElement.style.scrollBehavior = 'auto';
     }
 
     client
-      .from('properties')
-      .select('id, label, city, offer_type, living_area_m2, rooms, teaser, property_images(file_path, is_cover, sort_order)')
+      .from('units')
+      .select('id, label, offer_type, living_area_m2, rooms, teaser, unit_images(file_path, is_cover, sort_order), properties(id, label, city, property_images(file_path, is_cover, sort_order))')
       .eq('visibility', 'public')
       .order('created_at', { ascending: false })
       .then(function(res){
         if(res.error || !res.data || !res.data.length) return; // statische Platzhalter-Karten bleiben stehen
 
-        var cardsHtml = res.data.map(function(p){
-          var images = (p.property_images || []).slice().sort(function(a,b){ return a.sort_order - b.sort_order; });
+        var cardsHtml = res.data.map(function(unit){
+          var property = unit.properties || {};
+          var images = (unit.unit_images && unit.unit_images.length ? unit.unit_images : (property.property_images || [])).slice().sort(function(a,b){ return a.sort_order - b.sort_order; });
           var cover = images.filter(function(img){ return img.is_cover; })[0] || images[0];
           var imgHtml = '';
           if(cover){
@@ -587,13 +588,14 @@ document.documentElement.style.scrollBehavior = 'auto';
             imgHtml = '<img src="'+url+'" alt="" onerror="this.remove()">';
           }
           var metaParts = [];
-          if(p.rooms) metaParts.push(p.rooms + ' Zimmer');
-          if(p.living_area_m2) metaParts.push(Number(p.living_area_m2).toLocaleString('de-CH') + ' m²');
-          var subline = p.teaser || metaParts.join(' · ') || p.city || 'Details ansehen';
-          var badge = p.offer_type || 'Auf Anfrage';
-          return '<a class="objekt-card" href="/objekt.html?id='+encodeURIComponent(p.id)+'" aria-label="Details zu '+escapeHtml(p.label)+' ansehen">' +
+          if(unit.rooms) metaParts.push(unit.rooms + ' Zimmer');
+          if(unit.living_area_m2) metaParts.push(Number(unit.living_area_m2).toLocaleString('de-CH') + ' m²');
+          var subline = unit.teaser || metaParts.join(' · ') || property.city || 'Details ansehen';
+          var title = unit.label + (property.city ? ' · ' + property.city : '');
+          var badge = unit.offer_type || 'Auf Anfrage';
+          return '<a class="objekt-card" href="/objekt.html?einheit='+encodeURIComponent(unit.id)+'" aria-label="Details zu '+escapeHtml(title)+' ansehen">' +
             '<div class="objekt-image">'+imgHtml+'<span class="objekt-badge">'+escapeHtml(badge)+'</span></div>' +
-            '<div class="objekt-info"><h4>'+escapeHtml(p.label)+'</h4><p>'+escapeHtml(subline)+'</p></div>' +
+            '<div class="objekt-info"><h4>'+escapeHtml(title)+'</h4><p>'+escapeHtml(subline)+'</p></div>' +
           '</a>';
         }).join('');
 
@@ -651,13 +653,15 @@ document.documentElement.style.scrollBehavior = 'auto';
       toggleBtn.setAttribute('aria-expanded', open);
       if(open && !propertiesLoaded){
         propertiesLoaded = true;
-        client.from('properties').select('id, label, city').eq('visibility', 'public')
+        client.from('units').select('id, label, properties(id, label, city)').eq('visibility', 'public')
           .then(function(res){
             if(res.error || !res.data) return;
-            res.data.forEach(function(p){
+            res.data.forEach(function(unit){
+              var property = unit.properties || {};
+              if(!property.id) return;
               var opt = document.createElement('option');
-              opt.value = p.id;
-              opt.textContent = p.label + (p.city ? ' (' + p.city + ')' : '');
+              opt.value = property.id;
+              opt.textContent = unit.label + (property.city ? ' (' + property.city + ')' : '');
               propertySelect.appendChild(opt);
             });
           })
@@ -757,19 +761,20 @@ document.documentElement.style.scrollBehavior = 'auto';
     );
 
     var loaded = false;
-    var pendingPropertyId = new URLSearchParams(window.location.search).get('bewerbung');
+    var pendingUnitId = new URLSearchParams(window.location.search).get('bewerbung');
     function loadApplicationProperties(){
       if(loaded) return;
       loaded = true;
-      client.from('properties').select('id, label, city').eq('visibility', 'public')
+      client.from('units').select('id, label, properties(label, city)').eq('visibility', 'public')
         .then(function(res){
           if(res.error || !res.data) return;
-          res.data.forEach(function(p){
+          res.data.forEach(function(unit){
+            var property = unit.properties || {};
             var opt = document.createElement('option');
-            opt.value = p.label + (p.city ? ', ' + p.city : '');
-            opt.textContent = p.label + (p.city ? ' (' + p.city + ')' : '');
-            opt.setAttribute('data-id', p.id);
-            if(pendingPropertyId && p.id === pendingPropertyId) opt.selected = true;
+            opt.value = unit.label + (property.label ? ', ' + property.label : '') + (property.city ? ', ' + property.city : '');
+            opt.textContent = unit.label + (property.city ? ' (' + property.city + ')' : '');
+            opt.setAttribute('data-id', unit.id);
+            if(pendingUnitId && unit.id === pendingUnitId) opt.selected = true;
             select.appendChild(opt);
           });
         })
