@@ -64,6 +64,15 @@ h1,h2,h3,h4{font-family:var(--font-heading);color:var(--color-navy);font-weight:
   transform:scaleX(0);transform-origin:left;
 }
 .gold-line.left{margin:18px 0 0;}
+.back-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  color:rgba(255,255,255,.9);font-size:.9rem;font-weight:600;
+  padding:4px 0;margin-bottom:22px;
+  transition:color .25s var(--ease);
+}
+.back-btn svg{width:16px;height:16px;flex-shrink:0;transition:transform .25s var(--ease);}
+.back-btn:hover,.back-btn:focus-visible{color:var(--color-gold);}
+.back-btn:hover svg,.back-btn:focus-visible svg{transform:translateX(-3px);}
 section{position:relative;padding:110px 0;}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:10px;
