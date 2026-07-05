@@ -626,6 +626,18 @@ create type public.property_visibility as enum ('public', 'private');
 alter table public.properties
   add column if not exists visibility public.property_visibility not null default 'private';
 
+alter table public.properties
+  add column if not exists offer_type text,
+  add column if not exists living_area_m2 numeric(8,2),
+  add column if not exists rooms numeric(4,1),
+  add column if not exists floor text,
+  add column if not exists rent_chf numeric(10,2),
+  add column if not exists extra_costs_chf numeric(10,2),
+  add column if not exists available_from text,
+  add column if not exists teaser text,
+  add column if not exists description text,
+  add column if not exists features text;
+
 -- Multiple photos per property; exactly one may be flagged as the
 -- cover/profile image (enforced below via a partial unique index, not
 -- just UI discipline), sortable via sort_order.

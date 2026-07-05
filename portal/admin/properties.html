@@ -70,6 +70,22 @@
             <option value="private" selected>Privat (nur im Portal, für zugeordnete Nutzer)</option>
             <option value="public">Öffentlich (erscheint auf der Webseite)</option>
           </select>
+          <div class="auth-form-row">
+            <div>
+              <select id="p_offer_type">
+                <option value="">Art des Angebots</option>
+                <option value="Miete">Miete</option>
+                <option value="Kauf">Kauf</option>
+                <option value="Auf Anfrage">Auf Anfrage</option>
+              </select>
+            </div>
+            <div><input type="number" step="0.01" min="0" id="p_area" placeholder="Wohnfläche m²"></div>
+          </div>
+          <div class="auth-form-row">
+            <div><input type="number" step="0.5" min="0" id="p_rooms" placeholder="Zimmer"></div>
+            <div><input id="p_available" placeholder="Verfügbar ab"></div>
+          </div>
+          <input id="p_teaser" placeholder="Kurztext für Übersicht">
           <button type="submit" class="btn btn-primary">Objekt anlegen</button>
           <p class="form-status" id="newPropertyStatus"></p>
         </form>
@@ -148,7 +164,12 @@
         street: document.getElementById('p_street').value.trim() || null,
         zip: document.getElementById('p_zip').value.trim() || null,
         city: document.getElementById('p_city').value.trim() || null,
-        visibility: document.getElementById('p_visibility').value
+        visibility: document.getElementById('p_visibility').value,
+        offer_type: document.getElementById('p_offer_type').value || null,
+        living_area_m2: numberOrNull(document.getElementById('p_area').value),
+        rooms: numberOrNull(document.getElementById('p_rooms').value),
+        available_from: document.getElementById('p_available').value.trim() || null,
+        teaser: document.getElementById('p_teaser').value.trim() || null
       });
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt angelegt.';
       statusEl.classList.add('show');
@@ -246,7 +267,35 @@
   }
 
   function renderManagePanel(propertyId, panel){
+    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0] || {};
     panel.innerHTML =
+      '<h3 style="font-size:.95rem;margin-bottom:10px;">Inserat</h3>' +
+      '<form class="auth-form" id="listingForm-'+propertyId+'">' +
+        '<div class="auth-form-row">' +
+          '<div><select id="listingOfferType-'+propertyId+'">' +
+            '<option value="">Art des Angebots</option>' +
+            '<option value="Miete"'+(property.offer_type === 'Miete' ? ' selected' : '')+'>Miete</option>' +
+            '<option value="Kauf"'+(property.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
+            '<option value="Auf Anfrage"'+(property.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
+          '</select></div>' +
+          '<div><input type="number" step="0.01" min="0" id="listingArea-'+propertyId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(property.living_area_m2 || '')+'"></div>' +
+        '</div>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.5" min="0" id="listingRooms-'+propertyId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(property.rooms || '')+'"></div>' +
+          '<div><input id="listingFloor-'+propertyId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(property.floor || '')+'"></div>' +
+        '</div>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.01" min="0" id="listingRent-'+propertyId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(property.rent_chf || '')+'"></div>' +
+          '<div><input type="number" step="0.01" min="0" id="listingExtraCosts-'+propertyId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(property.extra_costs_chf || '')+'"></div>' +
+        '</div>' +
+        '<input id="listingAvailable-'+propertyId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(property.available_from || '')+'">' +
+        '<input id="listingTeaser-'+propertyId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(property.teaser || '')+'">' +
+        '<textarea id="listingDescription-'+propertyId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(property.description || '')+'</textarea>' +
+        '<textarea id="listingFeatures-'+propertyId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(property.features || '')+'</textarea>' +
+        '<button type="submit" class="dash-btn-sm">Inserat speichern</button>' +
+        '<p class="form-status" id="listingStatus-'+propertyId+'"></p>' +
+      '</form>' +
+
       '<h3 style="font-size:.95rem;margin-bottom:10px;">Bilder</h3>' +
       '<div class="prop-thumb-grid" id="thumbs-'+propertyId+'"></div>' +
       '<input type="file" id="imgInput-'+propertyId+'" accept="image/*" multiple>' +
@@ -320,6 +369,9 @@
     loadHauswartAssignments(propertyId);
     loadPropertyAnnouncements(propertyId);
 
+    document.getElementById('listingForm-'+propertyId).addEventListener('submit', function(e){
+      saveListingDetails(e, propertyId);
+    });
     document.getElementById('announceForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('announceStatus-'+propertyId);
@@ -355,6 +407,32 @@
     document.getElementById('hauswartSaveBtn-'+propertyId).addEventListener('click', function(){
       saveHauswartAssignments(propertyId);
     });
+  }
+
+  function numberOrNull(value){
+    if(value === '') return null;
+    var number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  async function saveListingDetails(e, propertyId){
+    e.preventDefault();
+    var statusEl = document.getElementById('listingStatus-'+propertyId);
+    var res = await client.from('properties').update({
+      offer_type: document.getElementById('listingOfferType-'+propertyId).value || null,
+      living_area_m2: numberOrNull(document.getElementById('listingArea-'+propertyId).value),
+      rooms: numberOrNull(document.getElementById('listingRooms-'+propertyId).value),
+      floor: document.getElementById('listingFloor-'+propertyId).value.trim() || null,
+      rent_chf: numberOrNull(document.getElementById('listingRent-'+propertyId).value),
+      extra_costs_chf: numberOrNull(document.getElementById('listingExtraCosts-'+propertyId).value),
+      available_from: document.getElementById('listingAvailable-'+propertyId).value.trim() || null,
+      teaser: document.getElementById('listingTeaser-'+propertyId).value.trim() || null,
+      description: document.getElementById('listingDescription-'+propertyId).value.trim() || null,
+      features: document.getElementById('listingFeatures-'+propertyId).value.trim() || null
+    }).eq('id', propertyId);
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Inserat gespeichert.';
+    statusEl.classList.add('show');
+    if(!res.error) loadAll();
   }
 
   async function loadHauswartAssignments(propertyId){

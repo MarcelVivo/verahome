@@ -572,7 +572,7 @@ document.documentElement.style.scrollBehavior = 'auto';
 
     client
       .from('properties')
-      .select('id, label, city, property_images(file_path, is_cover, sort_order)')
+      .select('id, label, city, offer_type, living_area_m2, rooms, teaser, property_images(file_path, is_cover, sort_order)')
       .eq('visibility', 'public')
       .order('created_at', { ascending: false })
       .then(function(res){
@@ -586,10 +586,15 @@ document.documentElement.style.scrollBehavior = 'auto';
             var url = client.storage.from('property-images').getPublicUrl(cover.file_path).data.publicUrl;
             imgHtml = '<img src="'+url+'" alt="" onerror="this.remove()">';
           }
-          return '<div class="objekt-card">' +
-            '<div class="objekt-image">'+imgHtml+'<span class="objekt-badge">Auf Anfrage</span></div>' +
-            '<div class="objekt-info"><h4>'+escapeHtml(p.label)+'</h4><p>'+escapeHtml(p.city||'')+'</p></div>' +
-          '</div>';
+          var metaParts = [];
+          if(p.rooms) metaParts.push(p.rooms + ' Zimmer');
+          if(p.living_area_m2) metaParts.push(Number(p.living_area_m2).toLocaleString('de-CH') + ' m²');
+          var subline = p.teaser || metaParts.join(' · ') || p.city || 'Details ansehen';
+          var badge = p.offer_type || 'Auf Anfrage';
+          return '<a class="objekt-card" href="/objekt.html?id='+encodeURIComponent(p.id)+'" aria-label="Details zu '+escapeHtml(p.label)+' ansehen">' +
+            '<div class="objekt-image">'+imgHtml+'<span class="objekt-badge">'+escapeHtml(badge)+'</span></div>' +
+            '<div class="objekt-info"><h4>'+escapeHtml(p.label)+'</h4><p>'+escapeHtml(subline)+'</p></div>' +
+          '</a>';
         }).join('');
 
         grid.innerHTML = cardsHtml;
@@ -752,7 +757,8 @@ document.documentElement.style.scrollBehavior = 'auto';
     );
 
     var loaded = false;
-    toggleBtn.addEventListener('click', function(){
+    var pendingPropertyId = new URLSearchParams(window.location.search).get('bewerbung');
+    function loadApplicationProperties(){
       if(loaded) return;
       loaded = true;
       client.from('properties').select('id, label, city').eq('visibility', 'public')
@@ -762,11 +768,15 @@ document.documentElement.style.scrollBehavior = 'auto';
             var opt = document.createElement('option');
             opt.value = p.label + (p.city ? ', ' + p.city : '');
             opt.textContent = p.label + (p.city ? ' (' + p.city + ')' : '');
+            opt.setAttribute('data-id', p.id);
+            if(pendingPropertyId && p.id === pendingPropertyId) opt.selected = true;
             select.appendChild(opt);
           });
         })
         .catch(function(){ /* Auswahl bleibt beim Standard-Eintrag */ });
-    });
+    }
+    window.VeraLoadApplicationProperties = loadApplicationProperties;
+    toggleBtn.addEventListener('click', loadApplicationProperties);
   } catch(e) { /* dekorativ – Fehler hier dürfen nie auffallen */ }
 })();
 </script>
@@ -2296,6 +2306,10 @@ toggleBewerbung.addEventListener('click', function(){
   var open = bewerbungForm.classList.toggle('open');
   toggleBewerbung.setAttribute('aria-expanded', open);
 });
+if(new URLSearchParams(window.location.search).get('bewerbung')){
+  toggleBewerbung.click();
+  if(window.VeraLoadApplicationProperties) window.VeraLoadApplicationProperties();
+}
 document.getElementById('bw_file').addEventListener('change', function(){
   var labelText = document.querySelector('label[for="bw_file"] [data-i18n="ph_upload"]');
   labelText.textContent = this.files.length ? (this.files.length + ' Datei(en) ausgewählt') : translations[currentLang].ph_upload;

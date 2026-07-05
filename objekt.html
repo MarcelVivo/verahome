@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Objekt Details | Vera Home Immobilien</title>
+<meta name="description" content="Details zu einem aktuellen Objekt von Vera Home Immobilien.">
+<meta name="theme-color" content="#1A3A5C">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien, Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <section class="property-detail-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/index.html">Start</a> <span>/</span> <a href="/index.html#objekte">Objekte</a> <span>/</span> <span aria-current="page" id="propertyBreadcrumb">Objekt</span>
+      </nav>
+      <p class="eyebrow">Aktuelles Inserat</p>
+      <h1 id="propertyTitle">Objekt wird geladen …</h1>
+      <p id="propertyLead">Bitte einen Moment Geduld.</p>
+    </div>
+  </section>
+
+  <section class="property-detail-content">
+    <div class="container property-detail-grid">
+      <article>
+        <div class="property-gallery" id="propertyGallery"></div>
+        <div class="property-section" id="propertyDescription"></div>
+        <div class="property-section" id="propertyFeatures"></div>
+        <div class="property-section" id="propertyDocuments"></div>
+        <div class="property-section" id="propertyLocation"></div>
+      </article>
+
+      <aside class="property-detail-aside">
+        <div class="property-facts" id="propertyFacts"></div>
+        <a class="btn btn-primary" id="propertyApply" href="/index.html#mietertools">Für dieses Objekt bewerben</a>
+        <a class="btn btn-dark" href="/index.html#kontakt">Frage zum Objekt stellen</a>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var params = new URLSearchParams(window.location.search);
+  var propertyId = params.get('id');
+  var titleEl = document.getElementById('propertyTitle');
+  var leadEl = document.getElementById('propertyLead');
+  var breadcrumbEl = document.getElementById('propertyBreadcrumb');
+  var galleryEl = document.getElementById('propertyGallery');
+  var descriptionEl = document.getElementById('propertyDescription');
+  var featuresEl = document.getElementById('propertyFeatures');
+  var documentsEl = document.getElementById('propertyDocuments');
+  var locationEl = document.getElementById('propertyLocation');
+  var factsEl = document.getElementById('propertyFacts');
+  var applyEl = document.getElementById('propertyApply');
+
+  if(!propertyId){
+    showMissing();
+    return;
+  }
+
+  if(!window.supabase || !window.VERA_SUPABASE_CONFIG){
+    showError('Die Objektinformationen konnten nicht geladen werden.');
+    return;
+  }
+
+  var client = window.supabase.createClient(
+    window.VERA_SUPABASE_CONFIG.url,
+    window.VERA_SUPABASE_CONFIG.anonKey
+  );
+
+  function escapeHtml(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function formatNumber(value){
+    if(value == null || value === '') return '';
+    return Number(value).toLocaleString('de-CH', { maximumFractionDigits: 1 });
+  }
+
+  function formatMoney(value){
+    if(value == null || value === '') return '';
+    return 'CHF ' + Number(value).toLocaleString('de-CH', { maximumFractionDigits: 0 });
+  }
+
+  function showMissing(){
+    titleEl.textContent = 'Objekt nicht gefunden';
+    leadEl.textContent = 'Bitte wählen Sie ein aktuelles Objekt aus der Übersicht.';
+  }
+
+  function showError(message){
+    titleEl.textContent = 'Objekt nicht verfügbar';
+    leadEl.textContent = message;
+  }
+
+  function imageUrl(filePath){
+    return client.storage.from('property-images').getPublicUrl(filePath).data.publicUrl;
+  }
+
+  function renderGallery(images){
+    if(!images.length){
+      galleryEl.innerHTML = '<div class="property-gallery-empty">Noch keine Bilder vorhanden.</div>';
+      return;
+    }
+    galleryEl.innerHTML = images.map(function(img, index){
+      return '<figure class="'+(index === 0 ? 'is-main' : '')+'"><img src="'+imageUrl(img.file_path)+'" alt=""></figure>';
+    }).join('');
+  }
+
+  function renderFacts(property){
+    var facts = [
+      ['Ort', property.city || 'Auf Anfrage'],
+      ['Wohnfläche', property.living_area_m2 ? formatNumber(property.living_area_m2) + ' m²' : 'Auf Anfrage'],
+      ['Zimmer', property.rooms ? formatNumber(property.rooms) : 'Auf Anfrage'],
+      ['Etage', property.floor || 'Auf Anfrage'],
+      ['Mietzins / Preis', property.rent_chf ? formatMoney(property.rent_chf) : 'Auf Anfrage'],
+      ['Nebenkosten', property.extra_costs_chf ? formatMoney(property.extra_costs_chf) : 'Auf Anfrage'],
+      ['Verfügbar ab', property.available_from || 'Auf Anfrage']
+    ];
+    factsEl.innerHTML = '<h2>Objektdaten</h2>' + facts.map(function(fact){
+      return '<div class="property-fact"><span>'+escapeHtml(fact[0])+'</span><strong>'+escapeHtml(fact[1])+'</strong></div>';
+    }).join('');
+  }
+
+  function renderDescription(property){
+    var description = property.description || property.teaser || 'Weitere Informationen erhalten Sie gerne auf Anfrage.';
+    descriptionEl.innerHTML = '<h2>Beschreibung</h2><p>'+escapeHtml(description).replace(/\n/g, '<br>')+'</p>';
+  }
+
+  function renderFeatures(property){
+    var features = (property.features || '').split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean);
+    if(!features.length){
+      featuresEl.innerHTML = '';
+      return;
+    }
+    featuresEl.innerHTML = '<h2>Merkmale</h2><ul class="property-feature-list">' + features.map(function(item){
+      return '<li>'+escapeHtml(item)+'</li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderDocuments(documents){
+    if(!documents.length){
+      documentsEl.innerHTML = '';
+      return;
+    }
+    documentsEl.innerHTML = '<h2>Pläne & Unterlagen</h2><div class="property-doc-links">' + documents.map(function(doc){
+      return '<a href="#" data-path="'+escapeHtml(doc.file_path)+'">'+escapeHtml(doc.title)+'</a>';
+    }).join('') + '</div>';
+    documentsEl.querySelectorAll('a[data-path]').forEach(function(link){
+      link.addEventListener('click', function(e){
+        e.preventDefault();
+        client.storage.from('property-documents').createSignedUrl(link.getAttribute('data-path'), 120).then(function(res){
+          if(res.data && res.data.signedUrl) window.open(res.data.signedUrl, '_blank', 'noopener');
+        });
+      });
+    });
+  }
+
+  function renderLocation(property){
+    var address = [property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    if(!address){
+      locationEl.innerHTML = '';
+      return;
+    }
+    locationEl.innerHTML = '<h2>Lage</h2><p>'+escapeHtml(address)+'</p>' +
+      '<div class="map-embed"><iframe src="https://maps.google.com/maps?q='+encodeURIComponent(address)+'&output=embed" width="100%" height="280" loading="lazy" title="Lageplan '+escapeHtml(property.label)+'"></iframe></div>';
+  }
+
+  Promise.all([
+    client.from('properties').select('*').eq('id', propertyId).eq('visibility', 'public').single(),
+    client.from('property_images').select('*').eq('property_id', propertyId).order('sort_order'),
+    client.from('property_documents').select('*').eq('property_id', propertyId).eq('visibility', 'public').order('created_at', { ascending:false })
+  ]).then(function(results){
+    var propertyRes = results[0];
+    if(propertyRes.error || !propertyRes.data){
+      showMissing();
+      return;
+    }
+    var property = propertyRes.data;
+    var images = (results[1].data || []).slice().sort(function(a,b){
+      if(a.is_cover && !b.is_cover) return -1;
+      if(!a.is_cover && b.is_cover) return 1;
+      return a.sort_order - b.sort_order;
+    });
+    var documents = results[2].data || [];
+
+    document.title = property.label + ' | Vera Home Immobilien';
+    titleEl.textContent = property.label;
+    breadcrumbEl.textContent = property.label;
+    leadEl.textContent = property.teaser || [property.city, property.offer_type].filter(Boolean).join(' · ') || 'Aktuelles Objekt von Vera Home Immobilien.';
+    applyEl.href = '/index.html?bewerbung=' + encodeURIComponent(property.id) + '#mietertools';
+
+    renderGallery(images);
+    renderFacts(property);
+    renderDescription(property);
+    renderFeatures(property);
+    renderDocuments(documents);
+    renderLocation(property);
+  }).catch(function(){
+    showError('Beim Laden der Objektinformationen ist ein Fehler aufgetreten.');
+  });
+})();
+</script>
+</body>
+</html>
