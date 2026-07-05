@@ -683,17 +683,23 @@ section{position:relative;padding:110px 0;}
 #kontakt .checkbox-row{color:rgba(255,255,255,.8);}
 #kontakt .field-error{color:#FFB4A8;}
 #kontakt .form-status{color:var(--color-white);}
-.kontakt-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;}
-.kontakt-form{display:flex;flex-direction:column;gap:16px;}
+.kontakt-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:clamp(32px,5vw,64px);align-items:start;}
+.kontakt-form{display:flex;flex-direction:column;gap:18px;}
 .kontakt-form input,.kontakt-form select,.kontakt-form textarea{
-  padding:14px 16px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
-  transition:border-color .25s;
+  width:100%;min-height:58px;padding:16px 18px;border:1px solid rgba(214,228,240,.85);
+  border-radius:8px;background:rgba(247,249,251,.96);color:var(--color-gray-text);
+  transition:border-color .25s,box-shadow .25s,background .25s;
 }
-.kontakt-form input:focus,.kontakt-form select:focus,.kontakt-form textarea:focus{border-color:var(--color-gold);}
-.kontakt-form textarea{min-height:130px;resize:vertical;}
-.kontakt-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.kontakt-form input:focus,.kontakt-form select:focus,.kontakt-form textarea:focus{border-color:var(--color-gold);box-shadow:0 0 0 3px rgba(201,168,76,.18);outline:none;background:var(--color-white);}
+.kontakt-form textarea{min-height:230px;resize:vertical;line-height:1.55;}
+.kontakt-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
 .kontakt-form-row > div,.kontakt-form-row > input{min-width:0;}
-@media (max-width:560px){.kontakt-form-row{grid-template-columns:1fr;}}
+.kontakt-message-field{min-width:0;}
+#kontakt .kontakt-form .btn{min-height:58px;width:100%;margin-top:2px;}
+@media (max-width:640px){
+  .kontakt-form-row{grid-template-columns:1fr;}
+  .kontakt-form textarea{min-height:190px;}
+}
 .checkbox-row{display:flex;align-items:flex-start;gap:10px;font-size:.85rem;color:var(--color-gray-text);}
 .checkbox-row input{margin-top:4px;}
 .field-error{color:#B3261E;font-size:.78rem;display:none;}

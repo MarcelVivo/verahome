@@ -467,19 +467,23 @@ document.documentElement.style.scrollBehavior = 'auto';
           </div>
         </div>
         <div class="kontakt-form-row">
-          <input type="tel" id="c_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
+          <div>
+            <input type="tel" id="c_tel" placeholder="Telefon" data-i18n-ph="ph_tel">
+          </div>
+          <div>
+            <select id="c_subject" aria-label="Betreff">
+              <option value="Mietverwaltung" data-i18n="opt_1">Mietverwaltung</option>
+              <option value="Stockwerkeigentum (STWEG)" data-i18n="opt_2">Stockwerkeigentum (STWEG)</option>
+              <option value="Erstvermietung" data-i18n="opt_3">Erstvermietung</option>
+              <option value="Bauleitung" data-i18n="opt_4">Bauleitung</option>
+              <option value="Immobilienverkauf" data-i18n="opt_5">Immobilienverkauf</option>
+              <option value="Projektentwicklung" data-i18n="opt_8">Projektentwicklung</option>
+              <option value="Wohnungsbewerbung" data-i18n="opt_6">Wohnungsbewerbung</option>
+              <option value="Allgemeine Anfrage" data-i18n="opt_7">Allgemeine Anfrage</option>
+            </select>
+          </div>
         </div>
-        <select id="c_subject" aria-label="Betreff">
-          <option value="Mietverwaltung" data-i18n="opt_1">Mietverwaltung</option>
-          <option value="Stockwerkeigentum (STWEG)" data-i18n="opt_2">Stockwerkeigentum (STWEG)</option>
-          <option value="Erstvermietung" data-i18n="opt_3">Erstvermietung</option>
-          <option value="Bauleitung" data-i18n="opt_4">Bauleitung</option>
-          <option value="Immobilienverkauf" data-i18n="opt_5">Immobilienverkauf</option>
-          <option value="Projektentwicklung" data-i18n="opt_8">Projektentwicklung</option>
-          <option value="Wohnungsbewerbung" data-i18n="opt_6">Wohnungsbewerbung</option>
-          <option value="Allgemeine Anfrage" data-i18n="opt_7">Allgemeine Anfrage</option>
-        </select>
-        <div>
+        <div class="kontakt-message-field">
           <textarea id="c_message" placeholder="Nachricht *" data-i18n-ph="ph_message_req" required></textarea>
           <p class="field-error" data-i18n="err_message">Bitte geben Sie eine Nachricht ein.</p>
         </div>
