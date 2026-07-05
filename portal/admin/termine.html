@@ -423,6 +423,7 @@
       '<div class="cal-event-detail-actions">' +
         (b.status === 'angefragt' ? '<button type="button" class="cal-confirm-btn" data-confirm-id="' + b.id + '">Bestätigen</button>' : '') +
         '<button type="button" class="cal-reschedule-btn" data-reschedule-id="' + b.id + '">Verschieben</button>' +
+        '<button type="button" class="cal-delete-btn" data-delete-id="' + b.id + '">Löschen</button>' +
       '</div>';
   }
 
@@ -554,6 +555,7 @@
     var unblockBtn = e.target.closest('.cal-unblock-btn');
     var blockSlotBtn = e.target.closest('.cal-slot-block-btn');
     var newApptBtn = e.target.closest('.cal-slot-new-btn');
+    var deleteBtn = e.target.closest('.cal-delete-btn');
 
     if(confirmBtn){
       var cid = confirmBtn.getAttribute('data-confirm-id');
@@ -574,6 +576,15 @@
       await client.from('bookings').update({ status: 'storniert' }).eq('id', rid);
       try { await client.functions.invoke('send-booking-reschedule', { body: { bookingId: rid, message: message } }); }
       catch(err) { /* Termin ist bereits storniert, Mail-Fehler blockiert nichts */ }
+      calHidePopover();
+      loadCalWeek();
+      loadBookings();
+    } else if(deleteBtn){
+      var did = deleteBtn.getAttribute('data-delete-id');
+      if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Anders als bei "Verschieben" wird niemand per E-Mail benachrichtigt.')) return;
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Wird gelöscht …';
+      await client.from('bookings').delete().eq('id', did);
       calHidePopover();
       loadCalWeek();
       loadBookings();

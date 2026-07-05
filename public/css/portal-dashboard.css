@@ -164,6 +164,8 @@
 .cal-event-detail-actions button.cal-confirm-btn:hover{background:var(--color-gold-light);}
 .cal-event-detail-actions button.cal-slot-new-btn{background:var(--color-gold);color:var(--color-navy-deep);border-color:var(--color-gold);}
 .cal-event-detail-actions button.cal-slot-new-btn:hover{background:var(--color-gold-light);}
+.cal-event-detail-actions button.cal-delete-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
+.cal-event-detail-actions button.cal-delete-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
 .cal-new-appt-form button.cal-save-appt-btn{
   padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid var(--color-gold);
   background:var(--color-gold);color:var(--color-navy-deep);transition:background .2s;
