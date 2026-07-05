@@ -299,17 +299,10 @@ document.documentElement.style.scrollBehavior = 'auto';
     </div>
     <p class="objekte-hint reveal" data-i18n="objects_hint">Alle aktuellen Inserate von Vera Home finden Sie direkt auf Homegate und ImmoScout24.</p>
     <div class="objekte-grid">
-      <div class="objekt-card">
-        <div class="objekt-image"><img src="public/images/objekte/objekt-1.jpg" alt="" onerror="this.remove()"><span class="objekt-badge" data-i18n="objects_request">Auf Anfrage</span></div>
-        <div class="objekt-info"><h4 data-i18n="objects_dummy1">Wohnung, Frick</h4><p data-i18n="objects_dummy_sub">Details auf Anfrage</p></div>
-      </div>
-      <div class="objekt-card">
-        <div class="objekt-image"><img src="public/images/objekte/objekt-2.jpg" alt="" onerror="this.remove()"><span class="objekt-badge" data-i18n="objects_request">Auf Anfrage</span></div>
-        <div class="objekt-info"><h4 data-i18n="objects_dummy2">Haus, Rheinfelden</h4><p data-i18n="objects_dummy_sub">Details auf Anfrage</p></div>
-      </div>
-      <div class="objekt-card">
-        <div class="objekt-image"><img src="public/images/objekte/objekt-3.jpg" alt="" onerror="this.remove()"><span class="objekt-badge" data-i18n="objects_request">Auf Anfrage</span></div>
-        <div class="objekt-info"><h4 data-i18n="objects_dummy3">STWEG, Möhlin</h4><p data-i18n="objects_dummy_sub">Details auf Anfrage</p></div>
+      <div class="objekte-empty">
+        <h4>Aktuell keine veröffentlichten Inserate</h4>
+        <p>Sobald im Vera Portal eine Einheit als Inserat veröffentlicht wird, erscheint sie hier automatisch.</p>
+        <a href="#kontakt" class="btn btn-dark">Objekt anfragen</a>
       </div>
     </div>
   </div>
@@ -576,7 +569,11 @@ document.documentElement.style.scrollBehavior = 'auto';
       .eq('visibility', 'public')
       .order('created_at', { ascending: false })
       .then(function(res){
-        if(res.error || !res.data || !res.data.length) return; // statische Platzhalter-Karten bleiben stehen
+        if(res.error){
+          grid.innerHTML = '<div class="objekte-empty"><h4>Inserate konnten nicht geladen werden</h4><p>Bitte versuchen Sie es später erneut oder kontaktieren Sie Vera Home direkt.</p><a href="#kontakt" class="btn btn-dark">Kontakt aufnehmen</a></div>';
+          return;
+        }
+        if(!res.data || !res.data.length) return;
 
         var cardsHtml = res.data.map(function(unit){
           var property = unit.properties || {};
