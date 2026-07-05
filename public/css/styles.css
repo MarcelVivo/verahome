@@ -209,7 +209,7 @@ section{position:relative;padding:110px 0;}
 
 @media (max-width:1024px){
   .nav-links{
-    position:fixed;top:0;right:0;height:100vh;width:min(320px,80vw);
+    position:fixed;top:0;left:auto;right:0;height:100vh;width:min(320px,80vw);
     background:var(--color-navy-deep);flex-direction:column;justify-content:center;
     align-items:flex-start;padding:40px;gap:26px;transform:translateX(100%);
     box-shadow:-10px 0 40px rgba(0,0,0,.3);
@@ -433,7 +433,7 @@ section{position:relative;padding:110px 0;}
 .tool-card.featured{
   grid-column:1 / -1;max-width:560px;margin:0 auto;width:100%;
 }
-@media (max-width:768px){.tools-grid{grid-template-columns:1fr;}.tool-card.featured{max-width:none;}}
+@media (max-width:640px){.tools-grid{grid-template-columns:1fr;}.tool-card.featured{max-width:none;}}
 
 /* Upload form */
 .upload-form{width:100%;margin-top:6px;display:none;flex-direction:column;gap:12px;}
@@ -512,7 +512,7 @@ section{position:relative;padding:110px 0;}
 .werte-card .icon svg{width:100%;height:100%;}
 .werte-card h3{color:var(--color-white);font-size:1.2rem;margin-bottom:10px;}
 .werte-card p{color:rgba(255,255,255,.95);font-size:.95rem;}
-@media (max-width:768px){.werte-grid{grid-template-columns:1fr;}}
+@media (max-width:640px){.werte-grid{grid-template-columns:1fr;}}
 
 /* =============================================================
    DOWNLOADS
@@ -562,6 +562,9 @@ section{position:relative;padding:110px 0;}
 }
 .kennzahl .label{margin-top:8px;color:var(--color-gray-text);font-size:.9rem;}
 .region-badges{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;}
+@media (max-width:640px){
+  .kennzahlen{flex-direction:column;align-items:center;gap:32px;margin:40px 0;}
+}
 .region-badge{
   background:var(--color-blue-light);color:var(--color-navy);padding:9px 20px;border-radius:50px;
   font-size:.88rem;font-weight:600;
