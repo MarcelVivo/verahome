@@ -4123,3 +4123,13 @@ create policy storage_message_attachments_select on storage.objects
         and (m.sender_profile_id = auth.uid() or m.recipient_profile_id = auth.uid() or public.is_admin())
     )
   );
+
+-- Kategorisiert Einheiten (Wohnung/Garage/etc.) fuer die
+-- Spalten-Ansicht der Objekte-Seite -- text + check statt enum, damit
+-- der Wertebereich spaeter ohne ALTER TYPE-Transaktionsprobleme
+-- erweitert werden kann (gleiches Muster wie
+-- property_permissions.permission/recurring_invoices.due_rule).
+-- Bestehende Einheiten fallen auf den Default "sonstiges", nichts
+-- verschwindet -- koennen danach einzeln umkategorisiert werden.
+alter table public.units add column if not exists unit_type text not null default 'sonstiges'
+  check (unit_type in ('wohnung','garage','studio','lager','gewerbe','sonstiges'));

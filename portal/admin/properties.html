@@ -55,75 +55,98 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Objekte</h1>
-      <p class="dash-lead">Objekte sind Gebäude/Liegenschaften. Einheiten sind Wohnungen, Studios oder Garagen darin. Veröffentlicht werden einzelne Einheiten als Inserat.</p>
+      <p class="dash-lead">Objekte sind Gebäude/Liegenschaften. Einheiten sind Wohnungen, Studios, Garagen usw. darin — je eine Spalte pro Typ. Klicken Sie einen Eintrag an, um ihn zu bearbeiten, zu löschen oder zu versenden.</p>
 
-      <div class="dash-card">
-        <h2>Neues Objekt</h2>
-        <form class="auth-form" id="newPropertyForm">
-          <input id="p_label" placeholder="Bezeichnung (z.B. Hauptstrasse 39, Frick) *" required>
-          <div class="auth-form-row">
-            <div><input id="p_street" placeholder="Strasse, Nr."></div>
-            <div><input id="p_zip" placeholder="PLZ"></div>
-          </div>
-          <input id="p_city" placeholder="Ort">
-          <label class="doc-meta" for="p_cover_image">Titelbild (optional, 1 Bild)</label>
-          <input type="file" id="p_cover_image" accept="image/*">
-          <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
-          <input type="file" id="p_detail_images" accept="image/*" multiple>
-          <button type="submit" class="btn btn-primary">Objekt anlegen</button>
-          <p class="form-status" id="newPropertyStatus"></p>
-        </form>
-      </div>
-
-      <div class="dash-card">
-        <h2>Neue Einheit</h2>
-        <form class="auth-form" id="newUnitForm">
-          <select id="u_property" required><option value="" disabled selected>Objekt wählen *</option></select>
-          <input id="u_label" placeholder="Einheit (z.B. 3.5-Zimmer-Wohnung EG links) *" required>
-          <select id="u_visibility">
-            <option value="private" selected>Nicht veröffentlichen</option>
-            <option value="public">Als Inserat veröffentlichen</option>
-          </select>
-          <div class="auth-form-row">
-            <div>
-              <select id="u_offer_type">
-                <option value="">Art des Angebots</option>
-                <option value="Miete">Miete</option>
-                <option value="Kauf">Kauf</option>
-                <option value="Auf Anfrage">Auf Anfrage</option>
-              </select>
-            </div>
-            <div><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
-          </div>
-          <div class="auth-form-row">
-            <div><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
-            <div><input id="u_floor" placeholder="Etage / Lage im Haus"></div>
-          </div>
-          <div class="auth-form-row">
-            <div><input type="number" step="0.01" min="0" id="u_rent" placeholder="Mietzins / Preis CHF"></div>
-            <div><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
-          </div>
-          <input id="u_available" placeholder="Verfügbar ab">
-          <input id="u_teaser" placeholder="Kurztext für Übersicht">
-          <textarea id="u_description" placeholder="Beschreibung für Detailseite"></textarea>
-          <textarea id="u_features" placeholder="Merkmale, je Zeile ein Punkt"></textarea>
-          <label class="doc-meta" for="u_cover_image">Titelbild (optional, 1 Bild)</label>
-          <input type="file" id="u_cover_image" accept="image/*">
-          <label class="doc-meta" for="u_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
-          <input type="file" id="u_detail_images" accept="image/*" multiple>
-          <button type="submit" class="btn btn-primary">Einheit anlegen</button>
-          <p class="form-status" id="newUnitStatus"></p>
-        </form>
-      </div>
-
-      <div class="dash-card">
-        <h2>Objekte &amp; Einheiten</h2>
-        <input type="text" class="dash-search-input" id="propertySearch" placeholder="Suchen nach Bezeichnung, Strasse, Ort …">
-        <div id="propertiesList"></div>
+      <div class="obj-columns-wrap">
+        <div class="obj-columns" id="objColumns"></div>
       </div>
     </section>
   </div>
 </main>
+
+<!-- Objekt-Detail-Modal -->
+<div class="share-modal-backdrop" id="propertyModalBackdrop" hidden>
+  <div class="share-modal obj-modal">
+    <button type="button" class="obj-modal-close" id="propertyModalClose" aria-label="Schliessen">✕</button>
+    <div id="propertyModalBody"></div>
+  </div>
+</div>
+
+<!-- Einheit-Detail-Modal -->
+<div class="share-modal-backdrop" id="unitModalBackdrop" hidden>
+  <div class="share-modal obj-modal">
+    <button type="button" class="obj-modal-close" id="unitModalClose" aria-label="Schliessen">✕</button>
+    <div id="unitModalBody"></div>
+  </div>
+</div>
+
+<!-- Neues Objekt Modal -->
+<div class="share-modal-backdrop" id="newPropertyModalBackdrop" hidden>
+  <div class="share-modal">
+    <button type="button" class="obj-modal-close" id="newPropertyModalClose" aria-label="Schliessen">✕</button>
+    <h3>Neues Objekt</h3>
+    <form class="auth-form" id="newPropertyForm">
+      <input id="p_label" placeholder="Bezeichnung (z.B. Hauptstrasse 39, Frick) *" required>
+      <div class="auth-form-row">
+        <div><input id="p_street" placeholder="Strasse, Nr."></div>
+        <div><input id="p_zip" placeholder="PLZ"></div>
+      </div>
+      <input id="p_city" placeholder="Ort">
+      <label class="doc-meta" for="p_cover_image">Titelbild (optional, 1 Bild)</label>
+      <input type="file" id="p_cover_image" accept="image/*">
+      <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
+      <input type="file" id="p_detail_images" accept="image/*" multiple>
+      <button type="submit" class="btn btn-primary">Objekt anlegen</button>
+      <p class="form-status" id="newPropertyStatus"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Neue Einheit Modal -->
+<div class="share-modal-backdrop" id="newUnitModalBackdrop" hidden>
+  <div class="share-modal">
+    <button type="button" class="obj-modal-close" id="newUnitModalClose" aria-label="Schliessen">✕</button>
+    <h3>Neue Einheit</h3>
+    <form class="auth-form" id="newUnitForm">
+      <select id="u_property" required><option value="" disabled selected>Objekt wählen *</option></select>
+      <select id="u_type"></select>
+      <input id="u_label" placeholder="Einheit (z.B. 3.5-Zimmer-Wohnung EG links) *" required>
+      <select id="u_visibility">
+        <option value="private" selected>Nicht veröffentlichen</option>
+        <option value="public">Als Inserat veröffentlichen</option>
+      </select>
+      <div class="auth-form-row">
+        <div>
+          <select id="u_offer_type">
+            <option value="">Art des Angebots</option>
+            <option value="Miete">Miete</option>
+            <option value="Kauf">Kauf</option>
+            <option value="Auf Anfrage">Auf Anfrage</option>
+          </select>
+        </div>
+        <div><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
+      </div>
+      <div class="auth-form-row">
+        <div><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
+        <div><input id="u_floor" placeholder="Etage / Lage im Haus"></div>
+      </div>
+      <div class="auth-form-row">
+        <div><input type="number" step="0.01" min="0" id="u_rent" placeholder="Mietzins / Preis CHF"></div>
+        <div><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
+      </div>
+      <input id="u_available" placeholder="Verfügbar ab">
+      <input id="u_teaser" placeholder="Kurztext für Übersicht">
+      <textarea id="u_description" placeholder="Beschreibung für Detailseite"></textarea>
+      <textarea id="u_features" placeholder="Merkmale, je Zeile ein Punkt"></textarea>
+      <label class="doc-meta" for="u_cover_image">Titelbild (optional, 1 Bild)</label>
+      <input type="file" id="u_cover_image" accept="image/*">
+      <label class="doc-meta" for="u_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
+      <input type="file" id="u_detail_images" accept="image/*" multiple>
+      <button type="submit" class="btn btn-primary">Einheit anlegen</button>
+      <p class="form-status" id="newUnitStatus"></p>
+    </form>
+  </div>
+</div>
 
 <!-- =================== FOOTER =================== -->
 <footer>
@@ -156,9 +179,11 @@
 (function(){
   "use strict";
   var client, profile;
-  var openPanels = {}; // propertyId -> true once rendered/opened
 
   var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
+  var UNIT_TYPE_LABELS = { wohnung: 'Wohnungen', garage: 'Garagen', studio: 'Studios', lager: 'Lager', gewerbe: 'Gewerbe', sonstiges: 'Sonstiges' };
+  var UNIT_TYPE_ORDER = ['wohnung', 'garage', 'studio', 'lager', 'gewerbe', 'sonstiges'];
+  var UNIT_TYPE_SINGULAR = { wohnung: 'Wohnung', garage: 'Garage', studio: 'Studio', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', sonstiges: 'Einheit' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
@@ -167,6 +192,8 @@
     client = VeraPortal.getClient();
     init();
   });
+
+  var columnSearchState = {};
 
   function init(){
     document.getElementById('newPropertyForm').addEventListener('submit', async function(e){
@@ -202,7 +229,8 @@
       statusEl.textContent = 'Objekt angelegt.';
       statusEl.classList.add('show');
       document.getElementById('newPropertyForm').reset();
-      loadAll();
+      await loadAll();
+      renderAllColumns();
     });
 
     document.getElementById('newUnitForm').addEventListener('submit', async function(e){
@@ -221,6 +249,7 @@
       }
       var res = await client.from('units').insert({
         property_id: propertyId,
+        unit_type: document.getElementById('u_type').value,
         label: label,
         visibility: document.getElementById('u_visibility').value,
         offer_type: document.getElementById('u_offer_type').value || null,
@@ -248,20 +277,55 @@
       statusEl.textContent = 'Einheit angelegt.';
       statusEl.classList.add('show');
       document.getElementById('newUnitForm').reset();
-      loadAll();
+      await loadAll();
+      renderAllColumns();
     });
 
-    loadAll().then(function(){ VeraDashboard.applyQueryParamSearch('propertySearch'); });
-    document.getElementById('propertySearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderPropertiesList(allProperties.filter(function(p){
-        return VeraDashboard.matchesSearch([p.label, p.street, p.zip, p.city], q);
-      }));
+    // "+"-Buttons, Zeilen-Klicks und Such-Eingaben laufen über
+    // Event-Delegation auf dem Spalten-Container, weil dessen Inhalt
+    // bei jedem renderAllColumns() komplett neu aufgebaut wird.
+    document.getElementById('objColumns').addEventListener('click', function(e){
+      var openProp = e.target.closest('[data-open-property]');
+      var openUnit = e.target.closest('[data-open-unit]');
+      var addBtn = e.target.closest('[data-add]');
+      if(openProp) openPropertyModal(openProp.getAttribute('data-open-property'));
+      else if(openUnit) openUnitModal(openUnit.getAttribute('data-open-unit'));
+      else if(addBtn) openCreateModal(addBtn.getAttribute('data-add'));
     });
+    document.getElementById('objColumns').addEventListener('input', function(e){
+      if(!e.target.classList.contains('obj-column-search')) return;
+      var key = e.target.getAttribute('data-search-key');
+      columnSearchState[key] = e.target.value;
+      refreshColumnRows(key);
+    });
+
+    document.getElementById('propertyModalClose').addEventListener('click', closePropertyModal);
+    document.getElementById('unitModalClose').addEventListener('click', closeUnitModal);
+    document.getElementById('newPropertyModalClose').addEventListener('click', function(){
+      document.getElementById('newPropertyModalBackdrop').hidden = true;
+    });
+    document.getElementById('newUnitModalClose').addEventListener('click', function(){
+      document.getElementById('newUnitModalBackdrop').hidden = true;
+    });
+
+    loadAll().then(renderAllColumns);
+  }
+
+  function numberOrNull(value){
+    if(value === '') return null;
+    var number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function unitTypeOptionsHtml(selected){
+    return UNIT_TYPE_ORDER.map(function(t){
+      return '<option value="'+t+'"'+(t===selected?' selected':'')+'>'+UNIT_TYPE_SINGULAR[t]+'</option>';
+    }).join('');
   }
 
   var allProperties = [];
   var allUnits = [];
+  var allProfilesForPicker = [];
 
   async function loadAll(){
     var propRes = await client.from('properties').select('*').order('label');
@@ -270,176 +334,307 @@
     var propSel = document.getElementById('u_property');
     propSel.innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
       allProperties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+    document.getElementById('u_type').innerHTML = unitTypeOptionsHtml('sonstiges');
 
     var unitsRes = await client.from('units').select('*').order('label');
     allUnits = unitsRes.data || [];
 
-    renderPropertiesList(allProperties);
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').neq('category', 'admin').order('last_name');
+    allProfilesForPicker = profilesRes.data || [];
   }
 
-  function renderPropertiesList(properties){
-    var listEl = document.getElementById('propertiesList');
-    if(!properties.length){
-      listEl.innerHTML = '<p class="dash-empty">'+(allProperties.length?'Keine Treffer.':'Noch keine Objekte vorhanden.')+'</p>';
-      return;
+  /* ============================================================
+     SPALTEN-ANSICHT: eine Spalte "Objekte" + eine Spalte je
+     unit_type. Volle Neuaufbau (renderAllColumns) nur nach
+     struktureller Änderung (Laden/Anlegen/Löschen/Speichern);
+     Sucheingaben lösen nur refreshColumnRows(key) aus, damit das
+     Such-Input-Feld selbst nicht bei jedem Tastendruck neu erzeugt
+     wird (sonst verliert es den Fokus).
+  ============================================================ */
+  function renderAllColumns(){
+    var columnsEl = document.getElementById('objColumns');
+    var html = columnSkeletonHtml('objekte', 'Objekte');
+    UNIT_TYPE_ORDER.forEach(function(type){
+      html += columnSkeletonHtml(type, UNIT_TYPE_LABELS[type]);
+    });
+    columnsEl.innerHTML = html;
+    UNIT_TYPE_ORDER.concat(['objekte']).forEach(refreshColumnRows);
+  }
+
+  function columnSkeletonHtml(key, title){
+    return '<div class="obj-column" data-column="'+key+'">' +
+      '<div class="obj-column-header"><span>'+title+'</span>' +
+        '<span class="obj-column-count" id="objColumnCount-'+key+'">0</span>' +
+        '<button type="button" class="obj-add-btn" data-add="'+key+'" title="Neu">+</button></div>' +
+      '<input type="text" class="dash-search-input obj-column-search" data-search-key="'+key+'" placeholder="Suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState[key]||'')+'">' +
+      '<div class="obj-column-list" id="objColumnList-'+key+'"></div>' +
+    '</div>';
+  }
+
+  function refreshColumnRows(key){
+    var listEl = document.getElementById('objColumnList-'+key);
+    var countEl = document.getElementById('objColumnCount-'+key);
+    if(!listEl) return;
+    var q = (columnSearchState[key] || '').trim();
+    var rowsHtml, count;
+
+    if(key === 'objekte'){
+      var filteredProps = allProperties.filter(function(p){
+        return VeraDashboard.matchesSearch([p.label, p.street, p.zip, p.city], q);
+      });
+      count = filteredProps.length;
+      rowsHtml = filteredProps.map(function(p){
+        return '<button type="button" class="obj-row" data-open-property="'+p.id+'">' +
+          '<strong>'+VeraDashboard.escapeHtml(p.label)+'</strong>' +
+          (p.street ? '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(p.street)+(p.city?', '+VeraDashboard.escapeHtml(p.city):'')+'</span>' : '') +
+        '</button>';
+      }).join('');
+    } else {
+      var unitsOfType = allUnits.filter(function(u){ return (u.unit_type || 'sonstiges') === key; });
+      var filteredUnits = unitsOfType.filter(function(u){
+        return VeraDashboard.matchesSearch([u.label, u.floor, u.offer_type], q);
+      });
+      count = filteredUnits.length;
+      rowsHtml = filteredUnits.map(function(u){
+        var prop = allProperties.filter(function(p){ return p.id === u.property_id; })[0];
+        var metaParts = [];
+        if(prop) metaParts.push(prop.label);
+        if(u.rent_chf) metaParts.push('CHF ' + u.rent_chf + '.–');
+        if(u.visibility === 'public') metaParts.push('online');
+        return '<button type="button" class="obj-row" data-open-unit="'+u.id+'">' +
+          '<strong>'+VeraDashboard.escapeHtml(u.label)+'</strong>' +
+          (metaParts.length ? '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(metaParts.join(' · '))+'</span>' : '') +
+        '</button>';
+      }).join('');
     }
-    listEl.innerHTML = properties.map(function(p){
-      var propUnits = allUnits.filter(function(u){ return u.property_id === p.id; });
-      var publicCount = propUnits.filter(function(u){ return u.visibility === 'public'; }).length;
-      var visBadge = publicCount
-        ? '<span class="status-badge active">'+publicCount+' Inserat(e) online</span>'
-        : '<span class="status-badge pending">Keine Veröffentlichung</span>';
-      return '<div class="prop-row" style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--color-blue-light);">' +
-        '<strong>'+VeraDashboard.escapeHtml(p.label)+'</strong> ' + visBadge +
-        (p.street ? ' <span class="doc-meta">'+VeraDashboard.escapeHtml(p.street)+', '+VeraDashboard.escapeHtml(p.zip||'')+' '+VeraDashboard.escapeHtml(p.city||'')+'</span>' : '') +
-        '<div class="dash-btn-row" style="margin-top:8px;">' +
-        (propUnits.length ? propUnits.map(function(u){
-          var unitBadge = u.visibility === 'public' ? ' · online' : ' · privat';
-          return '<span class="dash-btn-sm" style="pointer-events:none;">'+VeraDashboard.escapeHtml(u.label + unitBadge)+'</span>';
-        }).join('') : '<span class="doc-meta">Noch keine Einheiten</span>') +
-        '<button type="button" class="dash-btn-sm manage-btn" data-id="'+p.id+'">Verwalten</button>' +
-        '<button type="button" class="dash-btn-sm danger delete-property-btn" data-id="'+p.id+'" data-label="'+VeraDashboard.escapeHtml(p.label)+'">Objekt löschen</button>' +
+
+    countEl.textContent = String(count);
+    listEl.innerHTML = rowsHtml || '<p class="dash-empty">Keine Einträge.</p>';
+  }
+
+  /* ============================================================
+     SENDEN (Objekt oder Einheit) — per E-Mail (mailto:, analog zu den
+     öffentlichen Bewerbungsformularen auf index.html) oder im Chat an
+     einen bestehenden Nutzer (nutzt den bereits vorhandenen
+     'location_property'-Anhang-Typ aus dem Nachrichten-Tool wieder,
+     kein neuer Anhang-Typ nötig).
+  ============================================================ */
+  function sendPanelHtml(){
+    return '<div class="obj-send-section">' +
+      '<button type="button" class="dash-btn-sm obj-send-toggle-btn">Versenden</button>' +
+      '<div class="obj-send-panel" hidden>' +
+        '<div class="obj-send-tabs">' +
+          '<button type="button" class="dash-btn-sm obj-send-tab-btn active" data-tab="email">Per E-Mail</button>' +
+          '<button type="button" class="dash-btn-sm obj-send-tab-btn" data-tab="chat">Im Chat senden</button>' +
         '</div>' +
-        '<div class="prop-manage-panel" id="panel-'+p.id+'" style="display:none;"></div>' +
-      '</div>';
-    }).join('');
+        '<div class="obj-send-tab-panel" data-tab-panel="email">' +
+          '<input type="email" class="obj-send-email-input" placeholder="E-Mail-Adresse des Interessenten *">' +
+          '<textarea class="obj-send-email-note" placeholder="Zusätzliche Notiz (optional)"></textarea>' +
+          '<button type="button" class="dash-btn-sm obj-send-email-btn">E-Mail öffnen</button>' +
+        '</div>' +
+        '<div class="obj-send-tab-panel" data-tab-panel="chat" hidden>' +
+          '<select class="obj-send-chat-select"><option value="">Nutzer wählen …</option>' +
+            allProfilesForPicker.map(function(u){
+              return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml(u.last_name+' '+u.first_name)+'</option>';
+            }).join('') +
+          '</select>' +
+          '<button type="button" class="dash-btn-sm obj-send-chat-btn">Im Chat senden</button>' +
+        '</div>' +
+        '<p class="form-status obj-send-status"></p>' +
+      '</div>' +
+    '</div>';
+  }
 
-    listEl.querySelectorAll('.manage-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){ toggleManagePanel(btn.getAttribute('data-id')); });
+  function wireSendPanel(container, getLabel){
+    var section = container.querySelector('.obj-send-section');
+    if(!section) return;
+    var toggleBtn = section.querySelector('.obj-send-toggle-btn');
+    var panel = section.querySelector('.obj-send-panel');
+    var statusEl = section.querySelector('.obj-send-status');
+
+    toggleBtn.addEventListener('click', function(){ panel.hidden = !panel.hidden; });
+
+    section.querySelectorAll('.obj-send-tab-btn').forEach(function(tabBtn){
+      tabBtn.addEventListener('click', function(){
+        section.querySelectorAll('.obj-send-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        tabBtn.classList.add('active');
+        var tab = tabBtn.getAttribute('data-tab');
+        section.querySelectorAll('.obj-send-tab-panel').forEach(function(p){
+          p.hidden = p.getAttribute('data-tab-panel') !== tab;
+        });
+      });
     });
-    listEl.querySelectorAll('.delete-property-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){ deleteProperty(btn.getAttribute('data-id'), btn.getAttribute('data-label')); });
+
+    section.querySelector('.obj-send-email-btn').addEventListener('click', function(){
+      var email = section.querySelector('.obj-send-email-input').value.trim();
+      if(!email){ statusEl.textContent = 'Bitte E-Mail-Adresse angeben.'; statusEl.classList.add('show'); return; }
+      var note = section.querySelector('.obj-send-email-note').value.trim();
+      var label = getLabel();
+      var subject = encodeURIComponent('Vera Home Immobilien – ' + label);
+      var body = encodeURIComponent([label, '', note].filter(Boolean).join('\n'));
+      window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + body;
+    });
+
+    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(){
+      var recipientId = section.querySelector('.obj-send-chat-select').value;
+      if(!recipientId){ statusEl.textContent = 'Bitte Nutzer auswählen.'; statusEl.classList.add('show'); return; }
+      var res = await client.from('messages').insert({
+        sender_profile_id: profile.id, recipient_profile_id: recipientId,
+        attachment_type: 'location_property', attachment_label: getLabel()
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
+      statusEl.classList.add('show');
     });
   }
 
-  async function deleteProperty(propertyId, label){
-    if(!window.confirm('Objekt "' + label + '" wirklich löschen? Einheiten, Mietverhältnisse, Eigentümerschaften, Bilder und Objekt-Dokumente werden mitgelöscht.')) return;
-    var res = await client.from('properties').delete().eq('id', propertyId);
-    if(res.error){
-      window.alert('Fehler beim Löschen: ' + res.error.message + '\n\nMöglicher Grund: Es gibt noch Auftragszuweisungen oder persönliche Dokumente, die direkt auf dieses Objekt verweisen — diese zuerst in "Mietverhältnisse" bzw. "Dokumente" entfernen oder umhängen.');
+  function propertyLabelForSend(p){
+    return p.label + (p.street ? (' – ' + p.street + ', ' + [p.zip, p.city].filter(Boolean).join(' ')) : '');
+  }
+
+  function unitLabelForSend(u){
+    var prop = allProperties.filter(function(p){ return p.id === u.property_id; })[0];
+    var parts = [u.label];
+    if(prop) parts.push(prop.label + (prop.street ? (' (' + prop.street + ')') : ''));
+    if(u.rent_chf) parts.push('CHF ' + u.rent_chf + '.–');
+    return parts.join(' – ');
+  }
+
+  function openCreateModal(key){
+    if(key === 'objekte'){
+      document.getElementById('newPropertyModalBackdrop').hidden = false;
       return;
     }
-    loadAll();
+    document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(key);
+    document.getElementById('newUnitModalBackdrop').hidden = false;
   }
 
-  function toggleManagePanel(propertyId){
-    var panel = document.getElementById('panel-' + propertyId);
-    var isOpen = panel.style.display !== 'none';
-    if(isOpen){ panel.style.display = 'none'; return; }
-    panel.style.display = 'block';
-    if(!openPanels[propertyId]){
-      openPanels[propertyId] = true;
-      renderManagePanel(propertyId, panel);
-    }
+  /* ============================================================
+     OBJEKT-MODAL — enthält alles, was auf Gebäude-Ebene lebt:
+     Adresse, Bilder, Waschplan, Waschplan-Berechtigung,
+     Hauswart-Zuweisung, Rundschreiben, Dokumente. Einheiten sind
+     jetzt eigenständig über ihre Typ-Spalte erreichbar, deshalb kein
+     Einheiten-Unterbereich mehr hier.
+  ============================================================ */
+  function closePropertyModal(){
+    document.getElementById('propertyModalBackdrop').hidden = true;
   }
 
-  function renderManagePanel(propertyId, panel){
-    var propertyUnits = allUnits.filter(function(u){ return u.property_id === propertyId; });
-    panel.innerHTML =
-      '<h3 style="font-size:.95rem;margin-bottom:10px;">Einheiten &amp; Inserate</h3>' +
-      '<p class="doc-meta" style="margin-bottom:12px;">Hier veröffentlichst du einzelne Wohnungen/Garagen/Studios. Das Objekt liefert Adresse, Bilder, Dokumente und Lageplan.</p>' +
-      (propertyUnits.length ? propertyUnits.map(function(unit){
-        var unitId = unit.id;
-        return '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'" style="padding:14px;margin-bottom:14px;border:1px solid var(--color-blue-light);border-radius:12px;">' +
-          '<strong>'+VeraDashboard.escapeHtml(unit.label)+'</strong>' +
-          '<select id="unitVisibility-'+unitId+'">' +
-            '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
-            '<option value="public"'+(unit.visibility === 'public' ? ' selected' : '')+'>Als Inserat veröffentlichen</option>' +
-          '</select>' +
-          '<div class="auth-form-row">' +
-            '<div><select id="unitOfferType-'+unitId+'">' +
-              '<option value="">Art des Angebots</option>' +
-              '<option value="Miete"'+(unit.offer_type === 'Miete' ? ' selected' : '')+'>Miete</option>' +
-              '<option value="Kauf"'+(unit.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
-              '<option value="Auf Anfrage"'+(unit.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
-            '</select></div>' +
-            '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
-          '</div>' +
-          '<div class="auth-form-row">' +
-            '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
-            '<div><input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'"></div>' +
-          '</div>' +
-          '<div class="auth-form-row">' +
-            '<div><input type="number" step="0.01" min="0" id="unitRent-'+unitId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(unit.rent_chf || '')+'"></div>' +
-            '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
-          '</div>' +
-          '<input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'">' +
-          '<input id="unitTeaser-'+unitId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(unit.teaser || '')+'">' +
-          '<textarea id="unitDescription-'+unitId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(unit.description || '')+'</textarea>' +
-          '<textarea id="unitFeatures-'+unitId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(unit.features || '')+'</textarea>' +
-          '<h4 style="font-size:.9rem;margin:10px 0 8px;">Bilder dieser Einheit</h4>' +
-          '<div class="prop-thumb-grid" id="unitThumbs-'+unitId+'"></div>' +
-          '<input type="file" id="unitImgInput-'+unitId+'" accept="image/*" multiple>' +
-          '<button type="button" class="dash-btn-sm unit-img-upload-btn" data-unit-id="'+unitId+'" style="margin-top:8px;">Einheitsbilder hochladen</button>' +
-          '<p class="form-status" id="unitImgStatus-'+unitId+'"></p>' +
-          '<button type="submit" class="dash-btn-sm">Einheit speichern</button>' +
-          '<p class="form-status" id="unitListingStatus-'+unitId+'"></p>' +
-        '</form>';
-      }).join('') : '<p class="dash-empty">Noch keine Einheiten vorhanden. Lege zuerst oben eine Einheit an.</p>') +
+  function openPropertyModal(propertyId){
+    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
+    if(!property) return;
+    document.getElementById('propertyModalBody').innerHTML = propertyModalHtml(property);
+    document.getElementById('propertyModalBackdrop').hidden = false;
+    wirePropertyModal(property);
+  }
 
-      '<h3 style="font-size:.95rem;margin-bottom:10px;">Bilder</h3>' +
-      '<div class="prop-thumb-grid" id="thumbs-'+propertyId+'"></div>' +
-      '<input type="file" id="imgInput-'+propertyId+'" accept="image/*" multiple>' +
-      '<button type="button" class="dash-btn-sm" id="imgUploadBtn-'+propertyId+'" style="margin-top:8px;">Bilder hochladen</button>' +
-      '<p class="form-status" id="imgStatus-'+propertyId+'"></p>' +
+  function propertyModalHtml(p){
+    var id = p.id;
+    return '<h3>'+VeraDashboard.escapeHtml(p.label)+'</h3>' +
+      '<form class="auth-form" id="propertyEditForm-'+id+'">' +
+        '<input id="propLabel-'+id+'" placeholder="Bezeichnung *" required value="'+VeraDashboard.escapeHtml(p.label)+'">' +
+        '<div class="auth-form-row">' +
+          '<div><input id="propStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(p.street||'')+'"></div>' +
+          '<div><input id="propZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(p.zip||'')+'"></div>' +
+        '</div>' +
+        '<input id="propCity-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(p.city||'')+'">' +
+        '<div class="dash-btn-row">' +
+          '<button type="submit" class="dash-btn-sm">Objekt speichern</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-property-btn" data-id="'+id+'" data-label="'+VeraDashboard.escapeHtml(p.label)+'">Objekt löschen</button>' +
+        '</div>' +
+        '<p class="form-status" id="propertyEditStatus-'+id+'"></p>' +
+      '</form>' +
+      sendPanelHtml() +
+
+      '<h3 style="font-size:.95rem;margin:24px 0 10px;">Bilder</h3>' +
+      '<div class="prop-thumb-grid" id="thumbs-'+id+'"></div>' +
+      '<input type="file" id="imgInput-'+id+'" accept="image/*" multiple>' +
+      '<button type="button" class="dash-btn-sm" id="imgUploadBtn-'+id+'" style="margin-top:8px;">Bilder hochladen</button>' +
+      '<p class="form-status" id="imgStatus-'+id+'"></p>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Dokumente</h3>' +
-      '<form class="auth-form" id="docForm-'+propertyId+'">' +
-        '<input id="docTitle-'+propertyId+'" placeholder="Titel *" required>' +
-        '<select id="docCategory-'+propertyId+'">' +
+      '<form class="auth-form" id="docForm-'+id+'">' +
+        '<input id="docTitle-'+id+'" placeholder="Titel *" required>' +
+        '<select id="docCategory-'+id+'">' +
           '<option value="plaene">Pläne</option>' +
           '<option value="grundbucheintrag">Grundbucheintrag</option>' +
           '<option value="sonstiges" selected>Sonstiges</option>' +
         '</select>' +
-        '<select id="docVisibility-'+propertyId+'">' +
+        '<select id="docVisibility-'+id+'">' +
           '<option value="restricted">Nur bestimmte Nutzer</option>' +
           '<option value="public">Öffentlich</option>' +
         '</select>' +
-        '<div class="prop-user-picker" id="docUsers-'+propertyId+'"></div>' +
-        '<input type="file" id="docFile-'+propertyId+'" accept="application/pdf" required>' +
+        '<div class="prop-user-picker" id="docUsers-'+id+'"></div>' +
+        '<input type="file" id="docFile-'+id+'" accept="application/pdf" required>' +
         '<button type="submit" class="btn btn-primary">Dokument hochladen</button>' +
-        '<p class="form-status" id="docStatus-'+propertyId+'"></p>' +
+        '<p class="form-status" id="docStatus-'+id+'"></p>' +
       '</form>' +
-      '<table class="dash-table" id="docsTable-'+propertyId+'" style="margin-top:16px;"></table>' +
+      '<table class="dash-table" id="docsTable-'+id+'" style="margin-top:16px;"></table>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Waschplan</h3>' +
-      '<div class="laundry-week-grid" id="laundryWeek-'+propertyId+'"></div>' +
-      '<form class="auth-form" id="laundryForm-'+propertyId+'" style="margin-top:16px;">' +
-        '<select id="laundryWeekday-'+propertyId+'">' +
+      '<div class="laundry-week-grid" id="laundryWeek-'+id+'"></div>' +
+      '<form class="auth-form" id="laundryForm-'+id+'" style="margin-top:16px;">' +
+        '<select id="laundryWeekday-'+id+'">' +
           '<option value="mo">Montag</option><option value="di">Dienstag</option><option value="mi">Mittwoch</option>' +
           '<option value="do">Donnerstag</option><option value="fr">Freitag</option><option value="sa">Samstag</option><option value="so">Sonntag</option>' +
         '</select>' +
         '<div class="auth-form-row">' +
-          '<div><input type="time" id="laundryStart-'+propertyId+'" required></div>' +
-          '<div><input type="time" id="laundryEnd-'+propertyId+'" required></div>' +
+          '<div><input type="time" id="laundryStart-'+id+'" required></div>' +
+          '<div><input type="time" id="laundryEnd-'+id+'" required></div>' +
         '</div>' +
-        '<select id="laundryUnit-'+propertyId+'"><option value="">– keine bestimmte Einheit –</option></select>' +
-        '<input type="text" id="laundryLabel-'+propertyId+'" placeholder="Bezeichnung (z.B. Whg. Müller)">' +
+        '<select id="laundryUnit-'+id+'"><option value="">– keine bestimmte Einheit –</option></select>' +
+        '<input type="text" id="laundryLabel-'+id+'" placeholder="Bezeichnung (z.B. Whg. Müller)">' +
         '<button type="submit" class="dash-btn-sm">Slot hinzufügen</button>' +
-        '<p class="form-status" id="laundryStatus-'+propertyId+'"></p>' +
+        '<p class="form-status" id="laundryStatus-'+id+'"></p>' +
       '</form>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Waschplan-Berechtigung</h3>' +
       '<p class="doc-meta" style="margin-bottom:8px;">Wer ausser Ihnen darf den Waschplan dieses Objekts bearbeiten?</p>' +
-      '<div class="prop-user-picker" id="laundryPermUsers-'+propertyId+'"></div>' +
-      '<button type="button" class="dash-btn-sm" id="laundryPermSaveBtn-'+propertyId+'">Berechtigung speichern</button>' +
-      '<p class="form-status" id="laundryPermStatus-'+propertyId+'"></p>' +
+      '<div class="prop-user-picker" id="laundryPermUsers-'+id+'"></div>' +
+      '<button type="button" class="dash-btn-sm" id="laundryPermSaveBtn-'+id+'">Berechtigung speichern</button>' +
+      '<p class="form-status" id="laundryPermStatus-'+id+'"></p>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Hauswart-Zuweisung</h3>' +
       '<p class="doc-meta" style="margin-bottom:8px;">Welche Hauswarte sind für dieses Objekt verantwortlich? Sie sehen automatisch Rundschreiben, Waschplan (nur lesend) und alle Objekt-Dokumente.</p>' +
-      '<div class="prop-user-picker" id="hauswartUsers-'+propertyId+'"></div>' +
-      '<button type="button" class="dash-btn-sm" id="hauswartSaveBtn-'+propertyId+'">Zuweisung speichern</button>' +
-      '<p class="form-status" id="hauswartStatus-'+propertyId+'"></p>' +
+      '<div class="prop-user-picker" id="hauswartUsers-'+id+'"></div>' +
+      '<button type="button" class="dash-btn-sm" id="hauswartSaveBtn-'+id+'">Zuweisung speichern</button>' +
+      '<p class="form-status" id="hauswartStatus-'+id+'"></p>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Rundschreiben</h3>' +
       '<p class="doc-meta" style="margin-bottom:8px;">Erreicht automatisch alle aktuellen Mieter und Eigentümer dieses Objekts.</p>' +
-      '<form class="auth-form" id="announceForm-'+propertyId+'">' +
-        '<input id="announceTitle-'+propertyId+'" placeholder="Titel *" required>' +
-        '<textarea id="announceBody-'+propertyId+'" placeholder="Text *" required></textarea>' +
+      '<form class="auth-form" id="announceForm-'+id+'">' +
+        '<input id="announceTitle-'+id+'" placeholder="Titel *" required>' +
+        '<textarea id="announceBody-'+id+'" placeholder="Text *" required></textarea>' +
         '<button type="submit" class="dash-btn-sm">Veröffentlichen</button>' +
-        '<p class="form-status" id="announceStatus-'+propertyId+'"></p>' +
+        '<p class="form-status" id="announceStatus-'+id+'"></p>' +
       '</form>' +
-      '<div id="announcementsList-'+propertyId+'" style="margin-top:12px;"></div>';
+      '<div id="announcementsList-'+id+'" style="margin-top:12px;"></div>';
+  }
+
+  function wirePropertyModal(property){
+    var propertyId = property.id;
+    var modalBody = document.getElementById('propertyModalBody');
+
+    document.getElementById('propertyEditForm-'+propertyId).addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('propertyEditStatus-'+propertyId);
+      var res = await client.from('properties').update({
+        label: document.getElementById('propLabel-'+propertyId).value.trim(),
+        street: document.getElementById('propStreet-'+propertyId).value.trim() || null,
+        zip: document.getElementById('propZip-'+propertyId).value.trim() || null,
+        city: document.getElementById('propCity-'+propertyId).value.trim() || null
+      }).eq('id', propertyId);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt gespeichert.';
+      statusEl.classList.add('show');
+      if(!res.error){
+        await loadAll();
+        renderAllColumns();
+      }
+    });
+    modalBody.querySelector('.delete-property-btn').addEventListener('click', function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      deleteProperty(btn.getAttribute('data-id'), btn.getAttribute('data-label'));
+    });
+    wireSendPanel(modalBody, function(){ return propertyLabelForSend(property); });
 
     loadThumbs(propertyId);
     loadUserPicker(propertyId);
@@ -450,17 +645,6 @@
     loadHauswartAssignments(propertyId);
     loadPropertyAnnouncements(propertyId);
 
-    propertyUnits.forEach(function(unit){
-      loadUnitThumbs(unit.id);
-      document.getElementById('unitListingForm-'+unit.id).addEventListener('submit', function(e){
-        saveUnitListingDetails(e, unit.id);
-      });
-    });
-    panel.querySelectorAll('.unit-img-upload-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        uploadUnitImages(btn.getAttribute('data-unit-id'));
-      });
-    });
     document.getElementById('announceForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('announceStatus-'+propertyId);
@@ -498,16 +682,102 @@
     });
   }
 
-  function numberOrNull(value){
-    if(value === '') return null;
-    var number = Number(value);
-    return Number.isFinite(number) ? number : null;
+  async function deleteProperty(propertyId, label){
+    if(!window.confirm('Objekt "' + label + '" wirklich löschen? Einheiten, Mietverhältnisse, Eigentümerschaften, Bilder und Objekt-Dokumente werden mitgelöscht.')) return;
+    var res = await client.from('properties').delete().eq('id', propertyId);
+    if(res.error){
+      window.alert('Fehler beim Löschen: ' + res.error.message + '\n\nMöglicher Grund: Es gibt noch Auftragszuweisungen oder persönliche Dokumente, die direkt auf dieses Objekt verweisen — diese zuerst in "Mietverhältnisse" bzw. "Dokumente" entfernen oder umhängen.');
+      return;
+    }
+    closePropertyModal();
+    await loadAll();
+    renderAllColumns();
+  }
+
+  /* ============================================================
+     EINHEIT-MODAL — Felder + eigener Bild-Manager, jetzt eigenständig
+     statt in den Objekt-Panel verschachtelt.
+  ============================================================ */
+  function closeUnitModal(){
+    document.getElementById('unitModalBackdrop').hidden = true;
+  }
+
+  function openUnitModal(unitId){
+    var unit = allUnits.filter(function(u){ return u.id === unitId; })[0];
+    if(!unit) return;
+    document.getElementById('unitModalBody').innerHTML = unitModalHtml(unit);
+    document.getElementById('unitModalBackdrop').hidden = false;
+    wireUnitModal(unit);
+  }
+
+  function unitModalHtml(unit){
+    var unitId = unit.id;
+    return '<h3>'+VeraDashboard.escapeHtml(unit.label)+'</h3>' +
+      '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'">' +
+        '<select id="unitType-'+unitId+'">'+unitTypeOptionsHtml(unit.unit_type || 'sonstiges')+'</select>' +
+        '<input id="unitLabel-'+unitId+'" placeholder="Bezeichnung *" required value="'+VeraDashboard.escapeHtml(unit.label)+'">' +
+        '<select id="unitVisibility-'+unitId+'">' +
+          '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
+          '<option value="public"'+(unit.visibility === 'public' ? ' selected' : '')+'>Als Inserat veröffentlichen</option>' +
+        '</select>' +
+        '<div class="auth-form-row">' +
+          '<div><select id="unitOfferType-'+unitId+'">' +
+            '<option value="">Art des Angebots</option>' +
+            '<option value="Miete"'+(unit.offer_type === 'Miete' ? ' selected' : '')+'>Miete</option>' +
+            '<option value="Kauf"'+(unit.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
+            '<option value="Auf Anfrage"'+(unit.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
+          '</select></div>' +
+          '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
+        '</div>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
+          '<div><input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'"></div>' +
+        '</div>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.01" min="0" id="unitRent-'+unitId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(unit.rent_chf || '')+'"></div>' +
+          '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
+        '</div>' +
+        '<input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'">' +
+        '<input id="unitTeaser-'+unitId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(unit.teaser || '')+'">' +
+        '<textarea id="unitDescription-'+unitId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(unit.description || '')+'</textarea>' +
+        '<textarea id="unitFeatures-'+unitId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(unit.features || '')+'</textarea>' +
+        '<h4 style="font-size:.9rem;margin:10px 0 8px;">Bilder dieser Einheit</h4>' +
+        '<div class="prop-thumb-grid" id="unitThumbs-'+unitId+'"></div>' +
+        '<input type="file" id="unitImgInput-'+unitId+'" accept="image/*" multiple>' +
+        '<button type="button" class="dash-btn-sm unit-img-upload-btn" data-unit-id="'+unitId+'" style="margin-top:8px;">Einheitsbilder hochladen</button>' +
+        '<p class="form-status" id="unitImgStatus-'+unitId+'"></p>' +
+        '<div class="dash-btn-row">' +
+          '<button type="submit" class="dash-btn-sm">Einheit speichern</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-unit-btn" data-id="'+unitId+'" data-label="'+VeraDashboard.escapeHtml(unit.label)+'">Einheit löschen</button>' +
+        '</div>' +
+        '<p class="form-status" id="unitListingStatus-'+unitId+'"></p>' +
+      '</form>' +
+      sendPanelHtml();
+  }
+
+  function wireUnitModal(unit){
+    var unitId = unit.id;
+    var modalBody = document.getElementById('unitModalBody');
+    loadUnitThumbs(unitId);
+    document.getElementById('unitListingForm-'+unitId).addEventListener('submit', function(e){
+      saveUnitListingDetails(e, unitId);
+    });
+    modalBody.querySelector('.unit-img-upload-btn').addEventListener('click', function(){
+      uploadUnitImages(unitId);
+    });
+    modalBody.querySelector('.delete-unit-btn').addEventListener('click', function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      deleteUnit(btn.getAttribute('data-id'), btn.getAttribute('data-label'));
+    });
+    wireSendPanel(modalBody, function(){ return unitLabelForSend(unit); });
   }
 
   async function saveUnitListingDetails(e, unitId){
     e.preventDefault();
     var statusEl = document.getElementById('unitListingStatus-'+unitId);
     var res = await client.from('units').update({
+      unit_type: document.getElementById('unitType-'+unitId).value,
+      label: document.getElementById('unitLabel-'+unitId).value.trim(),
       visibility: document.getElementById('unitVisibility-'+unitId).value,
       offer_type: document.getElementById('unitOfferType-'+unitId).value || null,
       living_area_m2: numberOrNull(document.getElementById('unitArea-'+unitId).value),
@@ -524,8 +794,20 @@
     statusEl.classList.add('show');
     if(!res.error){
       await loadAll();
-      openPanels = {};
+      renderAllColumns();
     }
+  }
+
+  async function deleteUnit(unitId, label){
+    if(!window.confirm('Einheit "' + label + '" wirklich löschen? Bilder, Mietverhältnisse/Eigentümerschaften und Auftragszuweisungen dazu werden mitgelöscht.')) return;
+    var res = await client.from('units').delete().eq('id', unitId);
+    if(res.error){
+      window.alert('Fehler beim Löschen: ' + res.error.message);
+      return;
+    }
+    closeUnitModal();
+    await loadAll();
+    renderAllColumns();
   }
 
   async function loadHauswartAssignments(propertyId){
@@ -722,7 +1004,7 @@
 
   // Used right after creating a new property/unit: uploads an optional
   // cover image plus up to 10 detail images in one go, so the admin
-  // doesn't have to save first and then reopen "Verwalten" separately.
+  // doesn't have to save first and then reopen the modal separately.
   async function uploadNewRecordImages(kind, recordId, coverFile, detailFiles){
     var table = kind === 'unit' ? 'unit_images' : 'property_images';
     var idField = kind === 'unit' ? 'unit_id' : 'property_id';
