@@ -201,6 +201,34 @@
 
   var columnSearchState = {};
 
+  /* Titel wird beim Anlegen automatisch aus den übrigen Feldern
+     zusammengesetzt, damit er immer einheitlich aufgebaut ist (z.B.
+     "Hauptstrasse 39, Frick" bzw. "4.5-Zimmer-Wohnung 2. OG links") --
+     tippt der Admin danach selbst ins Titel-Feld, wird das respektiert
+     und die Automatik für diese Eingabe pausiert (Standard-Muster wie
+     bei einem auto-generierten Slug). Jedes Öffnen des "Neu"-Modals
+     setzt das wieder zurück (siehe closeNewPropertyModal/
+     closeNewUnitModal, die schon bei jedem Öffnen zuvor durchlaufen).
+  */
+  var propertyLabelManualOverride = false;
+  var unitLabelManualOverride = false;
+
+  function updatePropertyLabelAuto(){
+    if(propertyLabelManualOverride) return;
+    var street = document.getElementById('p_street').value.trim();
+    var city = document.getElementById('p_city').value.trim();
+    document.getElementById('p_label').value = [street, city].filter(Boolean).join(', ');
+  }
+
+  function updateUnitLabelAuto(){
+    if(unitLabelManualOverride) return;
+    var rooms = document.getElementById('u_rooms').value.trim();
+    var typeName = UNIT_TYPE_SINGULAR[document.getElementById('u_type').value] || 'Einheit';
+    var floor = document.getElementById('u_floor').value.trim();
+    var main = rooms ? (rooms + '-Zimmer-' + typeName) : typeName;
+    document.getElementById('u_label').value = [main, floor].filter(Boolean).join(' ');
+  }
+
   function init(){
     document.getElementById('newPropertyForm').addEventListener('submit', async function(e){
       e.preventDefault();
@@ -312,6 +340,17 @@
     document.getElementById('newUnitModalClose').addEventListener('click', closeNewUnitModal);
     document.getElementById('newUnitCancelBtn').addEventListener('click', closeNewUnitModal);
 
+    ['p_street','p_city'].forEach(function(id){
+      document.getElementById(id).addEventListener('input', updatePropertyLabelAuto);
+    });
+    document.getElementById('p_label').addEventListener('input', function(){ propertyLabelManualOverride = true; });
+
+    ['u_rooms','u_floor'].forEach(function(id){
+      document.getElementById(id).addEventListener('input', updateUnitLabelAuto);
+    });
+    document.getElementById('u_type').addEventListener('change', updateUnitLabelAuto);
+    document.getElementById('u_label').addEventListener('input', function(){ unitLabelManualOverride = true; });
+
     loadAll().then(function(){
       applyGlobalSearchParam();
       renderAllColumns();
@@ -331,6 +370,7 @@
   function closeNewPropertyModal(){
     document.getElementById('newPropertyModalBackdrop').hidden = true;
     document.getElementById('newPropertyForm').reset();
+    propertyLabelManualOverride = false;
     var statusEl = document.getElementById('newPropertyStatus');
     statusEl.textContent = '';
     statusEl.classList.remove('show');
@@ -339,6 +379,7 @@
   function closeNewUnitModal(){
     document.getElementById('newUnitModalBackdrop').hidden = true;
     document.getElementById('newUnitForm').reset();
+    unitLabelManualOverride = false;
     var statusEl = document.getElementById('newUnitStatus');
     statusEl.textContent = '';
     statusEl.classList.remove('show');
@@ -538,6 +579,7 @@
       return;
     }
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(key);
+    updateUnitLabelAuto();
     document.getElementById('newUnitModalBackdrop').hidden = false;
   }
 
