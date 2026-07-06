@@ -96,7 +96,10 @@
       <input type="file" id="p_cover_image" accept="image/*">
       <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
       <input type="file" id="p_detail_images" accept="image/*" multiple>
-      <button type="submit" class="btn btn-primary">Objekt anlegen</button>
+      <div class="dash-btn-row">
+        <button type="submit" class="btn btn-primary">Objekt anlegen</button>
+        <button type="button" class="dash-btn-sm" id="newPropertyCancelBtn">Abbrechen</button>
+      </div>
       <p class="form-status" id="newPropertyStatus"></p>
     </form>
   </div>
@@ -142,7 +145,10 @@
       <input type="file" id="u_cover_image" accept="image/*">
       <label class="doc-meta" for="u_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
       <input type="file" id="u_detail_images" accept="image/*" multiple>
-      <button type="submit" class="btn btn-primary">Einheit anlegen</button>
+      <div class="dash-btn-row">
+        <button type="submit" class="btn btn-primary">Einheit anlegen</button>
+        <button type="button" class="dash-btn-sm" id="newUnitCancelBtn">Abbrechen</button>
+      </div>
       <p class="form-status" id="newUnitStatus"></p>
     </form>
   </div>
@@ -301,14 +307,28 @@
 
     document.getElementById('propertyModalClose').addEventListener('click', closePropertyModal);
     document.getElementById('unitModalClose').addEventListener('click', closeUnitModal);
-    document.getElementById('newPropertyModalClose').addEventListener('click', function(){
-      document.getElementById('newPropertyModalBackdrop').hidden = true;
-    });
-    document.getElementById('newUnitModalClose').addEventListener('click', function(){
-      document.getElementById('newUnitModalBackdrop').hidden = true;
-    });
+    document.getElementById('newPropertyModalClose').addEventListener('click', closeNewPropertyModal);
+    document.getElementById('newPropertyCancelBtn').addEventListener('click', closeNewPropertyModal);
+    document.getElementById('newUnitModalClose').addEventListener('click', closeNewUnitModal);
+    document.getElementById('newUnitCancelBtn').addEventListener('click', closeNewUnitModal);
 
     loadAll().then(renderAllColumns);
+  }
+
+  function closeNewPropertyModal(){
+    document.getElementById('newPropertyModalBackdrop').hidden = true;
+    document.getElementById('newPropertyForm').reset();
+    var statusEl = document.getElementById('newPropertyStatus');
+    statusEl.textContent = '';
+    statusEl.classList.remove('show');
+  }
+
+  function closeNewUnitModal(){
+    document.getElementById('newUnitModalBackdrop').hidden = true;
+    document.getElementById('newUnitForm').reset();
+    var statusEl = document.getElementById('newUnitStatus');
+    statusEl.textContent = '';
+    statusEl.classList.remove('show');
   }
 
   function numberOrNull(value){
