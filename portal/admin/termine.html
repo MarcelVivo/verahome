@@ -719,7 +719,7 @@
 
   function calPositionPopover(targetEl){
     var rect = targetEl.getBoundingClientRect();
-    var popW = 230;
+    var popW = 250; // muss mit .cal-event-detail{width:250px} in portal-dashboard.css übereinstimmen
     var left = Math.min(rect.right + 8, window.innerWidth - popW - 12);
     if(left < 8) left = 8;
     calPopover.style.left = left + 'px';

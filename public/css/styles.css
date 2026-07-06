@@ -203,6 +203,13 @@ section{position:relative;padding:110px 0;}
   body:has(#dashSidebar) .nav-toggle{display:none;}
 }
 
+/* Kein Marketing-Footer im Vera Portal (auf jeder Breite) -- das
+   Portal ist kein Marketing-Kontext, der Footer war nur ungenutztes
+   Scroll-Gewicht am Seitenende. Gleiche :has()-Erkennung wie oben,
+   betrifft nur eingeloggte Dashboard-Seiten, nicht Login/Registrieren/
+   Passwort-Seiten (die haben kein #dashSidebar). */
+body:has(#dashSidebar) footer{display:none;}
+
 /* =============================================================
    3D INTRO SCROLL SEQUENCE
 ============================================================= */
