@@ -273,6 +273,7 @@
     if(publishBtn){
       publishBtn.addEventListener('click', async function(){
         if(!window.confirm('Abrechnung veröffentlichen? Dies erzeugt automatisch Rechnungen und kann nicht rückgängig gemacht werden.')) return;
+        if(!window.confirm('Letzte Bestätigung: Abrechnung jetzt endgültig veröffentlichen?')) return;
         var res = await client.rpc('publish_utility_statement', { p_statement_id: stmt.id });
         if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
         window.alert('Abrechnung veröffentlicht, Rechnungen wurden erstellt.');

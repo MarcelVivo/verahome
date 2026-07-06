@@ -771,6 +771,7 @@
     } else if(deleteBtn){
       var did = deleteBtn.getAttribute('data-delete-id');
       if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Anders als bei "Verschieben" wird niemand per E-Mail benachrichtigt.')) return;
+      if(!window.confirm('Letzte Bestätigung: Termin jetzt endgültig löschen?')) return;
       deleteBtn.disabled = true;
       deleteBtn.textContent = 'Wird gelöscht …';
       await client.from('bookings').delete().eq('id', did);
@@ -780,6 +781,7 @@
     } else if(deleteApptBtn){
       var daid = deleteApptBtn.getAttribute('data-delete-appt-id');
       if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Teilnehmer werden NICHT per E-Mail benachrichtigt.')) return;
+      if(!window.confirm('Letzte Bestätigung: Termin jetzt endgültig löschen?')) return;
       deleteApptBtn.disabled = true;
       deleteApptBtn.textContent = 'Wird gelöscht …';
       await client.from('appointments').delete().eq('id', daid);

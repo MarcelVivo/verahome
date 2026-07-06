@@ -484,6 +484,7 @@
 
   async function fmDeleteFolder(id, name){
     if(!window.confirm('Ordner "'+name+'" wirklich löschen? Alle Unterordner und Dateien darin werden unwiderruflich gelöscht.')) return;
+    if(!window.confirm('Letzte Bestätigung: "'+name+'" jetzt endgültig löschen?')) return;
     var files = await fmCollectFilesRecursive(id);
     if(files.length){
       await client.storage.from('document-vault').remove(files.map(function(f){ return f.file_path; }));
