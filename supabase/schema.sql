@@ -4155,7 +4155,15 @@ alter table public.units add constraint units_unit_type_check
 alter table public.properties add column if not exists laundry_mode text not null default 'fixed'
   check (laundry_mode in ('fixed', 'self_service'));
 alter table public.properties add column if not exists laundry_machine_count int not null default 2
-  check (laundry_machine_count in (1, 2));
+  check (laundry_machine_count in (1, 2, 3, 4));
+
+-- Falls die Spalte bereits mit dem engeren Wertebereich (1,2) angelegt
+-- wurde: Check-Constraints lassen sich nicht per ALTER TABLE aendern,
+-- deshalb droppen + mit erweitertem Wertebereich neu anlegen (gleiches
+-- Muster wie units_unit_type_check/Gastronomie oben).
+alter table public.properties drop constraint if exists properties_laundry_machine_count_check;
+alter table public.properties add constraint properties_laundry_machine_count_check
+  check (laundry_machine_count in (1, 2, 3, 4));
 
 -- Bestehende freie Zeiten (falls vorhanden) bleiben unangetastet -- die
 -- Constraint gilt "not valid", damit ein historischer Slot ausserhalb

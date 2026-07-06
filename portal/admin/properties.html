@@ -608,8 +608,7 @@
         '<div>' +
           '<div class="doc-meta" style="margin-bottom:4px;">Anzahl Waschmaschinen/Tumbler</div>' +
           '<select id="laundryMachineCount-'+id+'">' +
-            '<option value="1"'+(p.laundry_machine_count===1?' selected':'')+'>1</option>' +
-            '<option value="2"'+(p.laundry_machine_count!==1?' selected':'')+'>2</option>' +
+            [1,2,3,4].map(function(n){ return '<option value="'+n+'"'+((p.laundry_machine_count||2)===n?' selected':'')+'>'+n+'</option>'; }).join('') +
           '</select>' +
         '</div>' +
         '<div>' +
