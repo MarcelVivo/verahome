@@ -18,27 +18,6 @@ window.VeraPortal = (function () {
     return client;
   }
 
-  /* category must be one of: mieter | eigentuemer | partner | handwerker
-     ('admin' is never self-assignable — the server-side trigger clamps
-     any other value to 'mieter' regardless of what's sent here). */
-  function signUp(fields) {
-    return getClient().auth.signUp({
-      email: fields.email,
-      password: fields.password,
-      options: {
-        data: {
-          first_name: fields.firstName,
-          last_name: fields.lastName,
-          phone: fields.phone || null,
-          category: fields.category,
-          address_street: fields.addressStreet || null,
-          address_zip: fields.addressZip || null,
-          address_city: fields.addressCity || null
-        }
-      }
-    });
-  }
-
   function signIn(fields) {
     return getClient().auth.signInWithPassword({
       email: fields.email,
@@ -196,7 +175,6 @@ window.VeraPortal = (function () {
 
   return {
     getClient: getClient,
-    signUp: signUp,
     signIn: signIn,
     signOut: signOut,
     getSession: getSession,
