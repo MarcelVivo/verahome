@@ -519,6 +519,11 @@
 .prop-thumb-cover-badge{position:absolute;top:6px;left:6px;background:var(--color-gold);color:var(--color-white);font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:50px;}
 .prop-user-picker{max-height:180px;overflow-y:auto;border:1px solid var(--color-blue-light);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;margin:8px 0;}
 .prop-user-picker label{display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:400;}
+/* .cal-participant-cat ist für den dunklen Kalender-Popover gedacht
+   (heller Text auf Navy) -- hier im hellen Teilen-Modal (weisser
+   Hintergrund) wäre das praktisch unsichtbarer weisser Text auf
+   Weiss. Gleiche Klasse, aber im hellen Kontext dunkel eingefärbt. */
+.prop-user-picker .cal-participant-cat{color:var(--color-gray-text);}
 .prop-icon-btn{background:none;padding:2px 6px;font-size:.75rem;color:var(--color-navy);}
 .prop-icon-btn:hover{color:var(--color-gold);}
 
