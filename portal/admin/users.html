@@ -79,6 +79,7 @@
     <h3>Neuer Kontakt</h3>
     <form class="auth-form modal-scroll-body" id="newContactForm">
       <select id="nc_category"></select>
+      <input id="nc_company_name" placeholder="Firmenname *" hidden>
       <div class="auth-form-row">
         <div><input id="nc_first_name" placeholder="Vorname *" required></div>
         <div><input id="nc_last_name" placeholder="Nachname *" required></div>
@@ -164,10 +165,30 @@
     init();
   });
 
+  /* Firmenname + "(Kontaktperson)"-Hinweis auf Vorname/Nachname nur
+     bei Kategorie "firma" -- gemeinsam fuer Neu-Anlegen- und
+     Bearbeiten-Formular, damit beide gleich funktionieren. */
+  function applyContactCategoryUI(companyEl, firstNameEl, lastNameEl, isFirma){
+    companyEl.hidden = !isFirma;
+    companyEl.required = isFirma;
+    if(!isFirma) companyEl.value = '';
+    firstNameEl.placeholder = isFirma ? 'Vorname (Kontaktperson) *' : 'Vorname *';
+    lastNameEl.placeholder = isFirma ? 'Nachname (Kontaktperson) *' : 'Nachname *';
+  }
+
   function init(){
     document.getElementById('nc_category').innerHTML = CATEGORY_ORDER.map(function(c){
       return '<option value="'+c+'">'+VeraDashboard.categoryLabel(c)+'</option>';
     }).join('');
+
+    document.getElementById('nc_category').addEventListener('change', function(){
+      applyContactCategoryUI(
+        document.getElementById('nc_company_name'),
+        document.getElementById('nc_first_name'),
+        document.getElementById('nc_last_name'),
+        this.value === 'firma'
+      );
+    });
 
     document.getElementById('newContactForm').addEventListener('submit', async function(e){
       e.preventDefault();
@@ -178,12 +199,18 @@
         last_name: document.getElementById('nc_last_name').value.trim(),
         category: document.getElementById('nc_category').value,
         phone: document.getElementById('nc_phone').value.trim() || null,
+        company_name: document.getElementById('nc_company_name').value.trim() || null,
         address_street: document.getElementById('nc_street').value.trim() || null,
         address_zip: document.getElementById('nc_zip').value.trim() || null,
         address_city: document.getElementById('nc_city').value.trim() || null
       };
       if(!payload.email || !payload.first_name || !payload.last_name){
         statusEl.textContent = 'Bitte Vorname, Nachname und E-Mail angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+      if(payload.category === 'firma' && !payload.company_name){
+        statusEl.textContent = 'Bitte den Firmennamen angeben.';
         statusEl.classList.add('show');
         return;
       }
@@ -197,6 +224,12 @@
         }
         statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
         document.getElementById('newContactForm').reset();
+        applyContactCategoryUI(
+          document.getElementById('nc_company_name'),
+          document.getElementById('nc_first_name'),
+          document.getElementById('nc_last_name'),
+          document.getElementById('nc_category').value === 'firma'
+        );
         await loadAll();
         renderAllColumns();
       } catch(err) {
@@ -239,6 +272,12 @@
   function closeNewContactModal(){
     document.getElementById('newContactModalBackdrop').hidden = true;
     document.getElementById('newContactForm').reset();
+    applyContactCategoryUI(
+      document.getElementById('nc_company_name'),
+      document.getElementById('nc_first_name'),
+      document.getElementById('nc_last_name'),
+      document.getElementById('nc_category').value === 'firma'
+    );
     var statusEl = document.getElementById('newContactStatus');
     statusEl.textContent = '';
     statusEl.classList.remove('show');
@@ -246,6 +285,12 @@
 
   function openCreateModal(category){
     document.getElementById('nc_category').value = category;
+    applyContactCategoryUI(
+      document.getElementById('nc_company_name'),
+      document.getElementById('nc_first_name'),
+      document.getElementById('nc_last_name'),
+      category === 'firma'
+    );
     document.getElementById('newContactModalBackdrop').hidden = false;
   }
 
@@ -277,6 +322,16 @@
     '</div>';
   }
 
+  /* Firma-Kontakte zeigen den Firmennamen als Haupttitel, mit der
+     Kontaktperson als Zusatzangabe -- alle anderen Kategorien bleiben
+     bei "Nachname Vorname" wie bisher. */
+  function contactDisplayName(c){
+    return (c.category === 'firma' && c.company_name) ? c.company_name : (c.last_name + ' ' + c.first_name);
+  }
+  function contactPersonName(c){
+    return c.last_name + ' ' + c.first_name;
+  }
+
   function refreshColumnRows(key){
     var listEl = document.getElementById('objColumnList-'+key);
     var countEl = document.getElementById('objColumnCount-'+key);
@@ -284,14 +339,15 @@
     var q = (columnSearchState[key] || '').trim();
     var contactsOfType = allContacts.filter(function(c){ return c.category === key; });
     var filtered = contactsOfType.filter(function(c){
-      return VeraDashboard.matchesSearch([c.member_number, c.last_name, c.first_name, c.email, c.status], q);
+      return VeraDashboard.matchesSearch([c.member_number, c.last_name, c.first_name, c.company_name, c.email, c.status], q);
     });
 
     countEl.textContent = String(filtered.length);
     listEl.innerHTML = filtered.map(function(c){
+      var isFirma = c.category === 'firma' && c.company_name;
       return '<button type="button" class="obj-row" data-open-contact="'+c.id+'">' +
-        '<strong>'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'</strong>' +
-        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(c.email)+'</span>' +
+        '<strong>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</strong>' +
+        '<span class="obj-row-meta">'+(isFirma ? VeraDashboard.escapeHtml(contactPersonName(c))+' · ' : '')+VeraDashboard.escapeHtml(c.email)+'</span>' +
         '<span class="status-badge '+c.status+'" style="margin-top:4px;">'+(STATUS_LABEL[c.status]||c.status)+'</span>' +
       '</button>';
     }).join('') || '<p class="dash-empty">Keine Einträge.</p>';
@@ -321,12 +377,14 @@
     if(c.status !== 'suspended'){
       statusActions += '<button type="button" class="dash-btn-sm danger status-btn" data-id="'+id+'" data-status="suspended">Sperren</button>';
     }
-    return '<h3>'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'</h3>' +
+    var isFirma = c.category === 'firma';
+    return '<h3>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</h3>' +
       '<p class="doc-meta" style="margin-bottom:12px;">Mitgliedsnr. '+VeraDashboard.escapeHtml(c.member_number)+' · <span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></p>' +
       '<form class="auth-form" id="contactEditForm-'+id+'">' +
+        '<input id="contactCompanyName-'+id+'" placeholder="Firmenname *" value="'+VeraDashboard.escapeHtml(c.company_name||'')+'"'+(isFirma?'':' hidden')+'>' +
         '<div class="auth-form-row">' +
-          '<div><input id="contactFirstName-'+id+'" placeholder="Vorname *" required value="'+VeraDashboard.escapeHtml(c.first_name)+'"></div>' +
-          '<div><input id="contactLastName-'+id+'" placeholder="Nachname *" required value="'+VeraDashboard.escapeHtml(c.last_name)+'"></div>' +
+          '<div><input id="contactFirstName-'+id+'" placeholder="'+(isFirma?'Vorname (Kontaktperson) *':'Vorname *')+'" required value="'+VeraDashboard.escapeHtml(c.first_name)+'"></div>' +
+          '<div><input id="contactLastName-'+id+'" placeholder="'+(isFirma?'Nachname (Kontaktperson) *':'Nachname *')+'" required value="'+VeraDashboard.escapeHtml(c.last_name)+'"></div>' +
         '</div>' +
         '<input type="email" value="'+VeraDashboard.escapeHtml(c.email)+'" disabled title="Login-Adresse, nur manuell in Supabase änderbar">' +
         '<select id="contactCategory-'+id+'">'+CATEGORY_ORDER.map(function(cat){
@@ -341,7 +399,7 @@
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Kontakt speichern</button>' +
           statusActions +
-          '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'">Kontakt löschen</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Kontakt löschen</button>' +
         '</div>' +
         '<p class="form-status" id="contactEditStatus-'+id+'"></p>' +
       '</form>' +
@@ -374,13 +432,32 @@
     var id = contact.id;
     var modalBody = document.getElementById('contactModalBody');
 
+    document.getElementById('contactCompanyName-'+id).required = contact.category === 'firma';
+
+    document.getElementById('contactCategory-'+id).addEventListener('change', function(){
+      applyContactCategoryUI(
+        document.getElementById('contactCompanyName-'+id),
+        document.getElementById('contactFirstName-'+id),
+        document.getElementById('contactLastName-'+id),
+        this.value === 'firma'
+      );
+    });
+
     document.getElementById('contactEditForm-'+id).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('contactEditStatus-'+id);
+      var category = document.getElementById('contactCategory-'+id).value;
+      var companyName = document.getElementById('contactCompanyName-'+id).value.trim();
+      if(category === 'firma' && !companyName){
+        statusEl.textContent = 'Bitte den Firmennamen angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
       var res = await client.from('profiles').update({
         first_name: document.getElementById('contactFirstName-'+id).value.trim(),
         last_name: document.getElementById('contactLastName-'+id).value.trim(),
-        category: document.getElementById('contactCategory-'+id).value,
+        category: category,
+        company_name: category === 'firma' ? companyName : null,
         phone: document.getElementById('contactPhone-'+id).value.trim() || null,
         address_street: document.getElementById('contactStreet-'+id).value.trim() || null,
         address_zip: document.getElementById('contactZip-'+id).value.trim() || null,

@@ -4338,3 +4338,50 @@ $$;
 alter table public.units drop constraint if exists units_unit_type_check;
 alter table public.units add constraint units_unit_type_check
   check (unit_type in ('wohnung','garage','parkplatz','studio','lager','gewerbe','gastronomie','sonstiges'));
+
+-- Firmenname zusaetzlich zu Vorname/Nachname (= Kontaktperson bei der
+-- Firma) fuer Kontakte der Kategorie "firma". Nullable, da nur bei
+-- dieser einen Kategorie relevant. handle_new_user() neu angelegt
+-- (create or replace ist gefahrlos wiederholbar), damit auch per
+-- admin-create-user eingeladene Firmen-Kontakte den Firmennamen aus
+-- den Metadaten uebernehmen.
+alter table public.profiles add column if not exists company_name text;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_category text;
+  safe_category public.profile_category;
+begin
+  requested_category := new.raw_user_meta_data->>'category';
+
+  if requested_category in ('mieter','eigentuemer','partner','handwerker','hauswart','firma','aemter') then
+    safe_category := requested_category::public.profile_category;
+  else
+    safe_category := 'mieter';
+  end if;
+
+  insert into public.profiles (
+    id, member_number, category, status, email, phone,
+    first_name, last_name, company_name, address_street, address_zip, address_city
+  ) values (
+    new.id,
+    public.generate_member_number(safe_category),
+    safe_category,
+    'active',
+    new.email,
+    new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'first_name', ''),
+    coalesce(new.raw_user_meta_data->>'last_name', ''),
+    new.raw_user_meta_data->>'company_name',
+    new.raw_user_meta_data->>'address_street',
+    new.raw_user_meta_data->>'address_zip',
+    new.raw_user_meta_data->>'address_city'
+  );
+  return new;
+end;
+$$;
