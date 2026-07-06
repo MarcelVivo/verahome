@@ -155,6 +155,9 @@
         }
       }
 
+      try { await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } }); }
+      catch(err) { /* Ticket steht, Mail-Fehler blockiert nichts */ }
+
       statusEl.textContent = 'Ticket wurde übermittelt.';
       document.getElementById('newTicketForm').reset();
       loadTickets();
