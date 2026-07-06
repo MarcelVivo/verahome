@@ -412,6 +412,27 @@ window.VeraDashboard = (function () {
     refreshBadges(activeKey);
     renderAdminQuickbar(profile);
     renderBottomTabBar(activeKey, profile);
+    renderTopLogoutButton();
+  }
+
+  /* Ausloggen zusätzlich oben rechtsbündig auf der Seite (Desktop) --
+     die Sidebar behält ihren Button trotzdem (dort per CSS auf Mobile
+     beschränkt, wo diese obere Leiste ausgeblendet ist und die
+     Sidebar zum Bottom-Sheet wird). Für ALLE Rollen, nicht nur Admin
+     -- anders als renderAdminQuickbar, das nur Admin sieht. */
+  function renderTopLogoutButton() {
+    if (document.getElementById("dashLogoutTop")) return;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "dashLogoutTop";
+    btn.className = "dash-logout-top";
+    btn.textContent = "Ausloggen";
+    btn.addEventListener("click", function () {
+      VeraPortal.signOut().then(function () {
+        window.location.href = "/portal/login.html";
+      });
+    });
+    document.body.appendChild(btn);
   }
 
   /* Call once at the top of every SHARED dashboard page's inline script

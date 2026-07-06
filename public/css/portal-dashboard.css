@@ -43,6 +43,24 @@
 }
 .dash-logout-btn:hover{border-color:var(--color-gold);color:var(--color-gold);}
 
+/* Ausloggen zusätzlich oben rechtsbündig (Desktop) -- der Button in
+   der Sidebar bleibt für Mobile bestehen (dort wird die Sidebar zum
+   Bottom-Sheet, siehe @media max-width:900px weiter unten, das diesen
+   hier ausblendet und den Sidebar-Button stattdessen zeigt). */
+.dash-logout-top{
+  position:fixed;top:calc(var(--nav-height) + 14px);right:24px;z-index:900;
+  padding:10px 22px;border-radius:50px;border:1.5px solid var(--color-blue-light);
+  color:var(--color-navy);font-size:.85rem;font-weight:600;background:var(--color-white);
+  box-shadow:var(--shadow-card);transition:border-color .2s,color .2s;
+}
+.dash-logout-top:hover{border-color:var(--color-gold);color:var(--color-gold);}
+@media (min-width:901px){
+  .dash-sidebar .dash-logout-btn{display:none;}
+}
+@media (max-width:900px){
+  .dash-logout-top{display:none;}
+}
+
 .dash-content{flex:1;min-width:0;padding:48px 56px;}
 .dash-content h1{font-size:1.7rem;margin-bottom:8px;}
 .dash-content > .dash-lead{color:var(--color-gray-text);margin-bottom:32px;}
@@ -513,7 +531,7 @@
 .invoice-totals-row{display:flex;justify-content:flex-end;gap:32px;margin-top:12px;font-weight:700;color:var(--color-navy);font-size:1.1rem;}
 .invoice-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;}
 @media print{
-  #navbar, footer, .dash-sidebar, .dash-logout-btn, .invoice-actions{display:none !important;}
+  #navbar, footer, .dash-sidebar, .dash-logout-btn, .dash-logout-top, .invoice-actions{display:none !important;}
   .dash-layout{padding-top:0;}
   .invoice-sheet{box-shadow:none;border:none;}
 }
