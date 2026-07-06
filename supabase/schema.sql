@@ -4385,3 +4385,11 @@ begin
   return new;
 end;
 $$;
+
+-- "Haus" als weitere Einheitstyp-Kachel ergaenzt (gleiches Muster wie
+-- Parkplatz/Gastronomie oben) -- Check-Constraints lassen sich nicht
+-- per ALTER TABLE aendern, deshalb droppen + mit erweitertem
+-- Wertebereich neu anlegen.
+alter table public.units drop constraint if exists units_unit_type_check;
+alter table public.units add constraint units_unit_type_check
+  check (unit_type in ('wohnung','haus','garage','parkplatz','studio','lager','gewerbe','gastronomie','sonstiges'));
