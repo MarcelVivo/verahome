@@ -438,6 +438,7 @@
       'Kontakt "' + name + '" wirklich unwiderruflich löschen?\n\n' +
       'Der Login-Zugang UND alle zugehörigen Daten (Mietverhältnisse, Eigentümerschaften, Dokumente, Nachrichten, Rechnungen usw.) werden dabei gelöscht. Dies kann nicht rückgängig gemacht werden.'
     )) return;
+    if(!window.confirm('Letzte Bestätigung: "' + name + '" jetzt endgültig löschen?')) return;
     try {
       var res = await client.functions.invoke('admin-delete-user', { body: { profileId: contactId } });
       if(res.error || (res.data && res.data.error)){
