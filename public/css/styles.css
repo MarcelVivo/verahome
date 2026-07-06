@@ -72,6 +72,14 @@ h1,h2,h3,h4{font-family:var(--font-heading);color:var(--color-navy);font-weight:
 }
 .back-btn svg{width:16px;height:16px;flex-shrink:0;transition:transform .25s var(--ease);}
 .back-btn:hover,.back-btn:focus-visible{color:var(--color-gold);}
+/* Ohne diese Regel erbt .breadcrumb die dunkle Standard-Textfarbe des
+   body (var(--color-gray-text)) -- unlesbar auf dem dunklen
+   .property-detail-hero-Hintergrund, auf dem dieses Element bisher
+   das einzige unangetastet gebliebene Kind war. */
+.breadcrumb{font-size:.85rem;color:rgba(255,255,255,.9);margin-bottom:18px;}
+.breadcrumb a{color:rgba(255,255,255,.9);}
+.breadcrumb a:hover{color:var(--color-gold);}
+.breadcrumb span{margin:0 6px;opacity:.6;}
 .back-btn:hover svg,.back-btn:focus-visible svg{transform:translateX(-3px);}
 section{position:relative;padding:110px 0;}
 .btn{
