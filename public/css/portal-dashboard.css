@@ -334,9 +334,14 @@
 /* Auf schmalen Screens (wo .cal-grid ohnehin horizontal scrollen muss,
    da min-width:760px) fühlt sich das Scrollen per Snap wie ein
    Wischen zwischen Tagen an statt wie ein unhandliches breites
-   Raster. */
+   Raster. Bewusst "proximity" statt "mandatory": Mandatory hat sich
+   auf echten Touch-Geräten als instabil erwiesen (Scroll-Position
+   sprang unter der Hand zurück, was Taps auf die Stundenfelder
+   teilweise komplett verschluckte) -- proximity snapt nur sanft, wenn
+   der Scroll ohnehin natürlich in der Nähe eines Tages zur Ruhe kommt,
+   und blockiert nie ein Tap/Scroll-Gesture. */
 @media (max-width:900px){
-  .cal-grid-wrap{scroll-snap-type:x mandatory;}
+  .cal-grid-wrap{scroll-snap-type:x proximity;}
   .cal-day-col{scroll-snap-align:start;min-width:78vw;}
 }
 .cal-day-col:last-child{border-right:none;}
@@ -615,7 +620,18 @@
   #dashAdminQuickbar{position:static;left:auto;transform:none;justify-content:flex-end;padding:10px 20px 0;}
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
+  /* .dash-layout wechselt hier von row- auf column-flex (Sidebar
+     wird zum Bottom-Sheet). In einem column-flex-Container ist die
+     Breite die Cross-Achse, auf der "flex:1;min-width:0" (fuer die
+     Haupt-/Zeilen-Ausrichtung gedacht) NICHT vor Ueberlauf schuetzt --
+     ein breit-erzwungenes Kind (z.B. das Kalender-Grid) stretcht dann
+     .dash-content ueber die Viewport-Breite hinaus, obendrein von
+     body{overflow-x:hidden} unsichtbar abgeschnitten. Ergebnis: die
+     .cal-grid-wrap-Scrollbox ueberlief nie wirklich sich selbst,
+     sondern nur unsichtbar den Viewport -- Taps auf Stunden-Felder
+     jenseits des sichtbaren Randes gingen dadurch ins Leere. */
   .dash-layout{flex-direction:column;padding-top:var(--nav-height);}
+  .dash-content{max-width:100%;}
   .dash-tabbar{display:flex;}
   .dash-sidebar{
     width:100%;position:fixed;left:0;right:0;top:auto;bottom:0;height:auto;max-height:75vh;
