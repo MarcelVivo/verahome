@@ -213,6 +213,7 @@
     if(profile.category === 'admin'){
       document.getElementById('allInvoicesCard').style.display = 'block';
       await loadAllInvoices();
+      VeraDashboard.applyQueryParamSearch('allInvoicesSearch');
     }
 
     document.getElementById('receivedSearch').addEventListener('input', function(){

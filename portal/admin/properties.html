@@ -251,7 +251,7 @@
       loadAll();
     });
 
-    loadAll();
+    loadAll().then(function(){ VeraDashboard.applyQueryParamSearch('propertySearch'); });
     document.getElementById('propertySearch').addEventListener('input', function(){
       var q = this.value.trim();
       renderPropertiesList(allProperties.filter(function(p){

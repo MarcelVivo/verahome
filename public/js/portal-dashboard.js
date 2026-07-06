@@ -9,31 +9,33 @@
 window.VeraDashboard = (function () {
   "use strict";
 
-  /* Reihenfolge in der Sidebar bewusst: (1) taegliches Geschaeft ganz
-     oben, mit dem Terminkalender zuoberst, (2) Verwaltung/Stammdaten
-     (nur Admin), (3) wiederkehrende Services zuunterst. */
+  /* Reihenfolge in der Sidebar: (1) taegliches Geschaeft ganz oben,
+     (2) Verwaltung/Stammdaten (nur Admin), (3) wiederkehrende Services
+     zuunterst. Tickets ist bewusst kein Sidebar-Eintrag mehr, sondern
+     ein eigener Schnellzugriff-Button oben rechts (siehe
+     renderAdminQuickbar) — Julia braucht ihn haeufig genug, dass ein
+     Klick weniger Weg spart. */
   var NAV_GROUPS = [
     { label: null, items: [
+      { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht" },
       { key: "termine", href: "/portal/admin/termine.html", label: "Termine", roles: ["admin"] },
       { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] },
-      { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht" },
       { key: "calendar", href: "/portal/calendar.html", label: "Kalender", roles: ["mieter", "eigentuemer", "partner", "firma", "aemter"] },
       { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
       { key: "messages", href: "/portal/messages.html", label: "Nachrichten" }
     ]}
   ];
   var ADMIN_NAV_GROUP = { label: "Verwaltung", items: [
-    { key: "admin-users", href: "/portal/admin/users.html", label: "Nutzer" },
     { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte" },
+    { key: "admin-users", href: "/portal/admin/users.html", label: "Nutzer" },
     { key: "admin-tenancies", href: "/portal/admin/tenancies.html", label: "Mietverhältnisse" },
-    { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" },
-    { key: "tickets", href: "/portal/admin/tickets.html", label: "Tickets" }
+    { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" }
   ]};
   var SERVICES_NAV_GROUP = { label: "Services", items: [
     { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },
-    { key: "invoices", href: "/portal/invoices.html", label: "Rechnungen" },
-    { key: "waschplan", href: "/portal/waschplan.html", label: "Waschplan" },
-    { key: "rapporte", href: "/portal/rapporte.html", label: "Rapporte", roles: ["hauswart", "admin"] }
+    { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
+    { key: "rapporte", href: "/portal/rapporte.html", label: "Rapporte", roles: ["hauswart", "admin"] },
+    { key: "waschplan", href: "/portal/waschplan.html", label: "Waschpläne" }
   ]};
   /* Nav item keys that get an unread-count badge, and the subset of
      those for which visiting the page should mark the section "seen"
@@ -156,6 +158,157 @@ window.VeraDashboard = (function () {
     badgePollTimerId = setInterval(tick, 60000);
   }
 
+  /* ============================================================
+     ADMIN-SCHNELLZUGRIFF (oben rechts): Tickets-Button + Suchfeld
+     über Nutzer/Objekte/Mietverhältnisse/Rechnungen/Termine hinweg.
+     Nur für Admin gerendert — alle anderen Rollen sehen ohnehin nur
+     ihre eigenen Daten (RLS), eine übergreifende Suche wäre für sie
+     nutzlos. Als fixes Element in document.body statt in einer
+     Page-spezifischen HTML-Datei, damit es automatisch auf jeder
+     Admin-Seite erscheint, ohne jede Datei einzeln anzupassen.
+  ============================================================ */
+  var GLOBAL_SEARCH_GROUP_LABEL = { users: "Nutzer", properties: "Objekte", tenancies: "Mietverhältnisse", invoices: "Rechnungen" };
+  var GLOBAL_SEARCH_GROUP_ORDER = ["users", "properties", "tenancies", "invoices"];
+
+  function globalSearchPattern(q) {
+    return "%" + q.replace(/[%,]/g, "") + "%";
+  }
+
+  async function runGlobalSearch(q) {
+    var client = VeraPortal.getClient();
+    var pattern = globalSearchPattern(q);
+    var results = { users: [], properties: [], tenancies: [], invoices: [] };
+
+    var usersRes = await client.from("profiles")
+      .select("id, first_name, last_name, email, category")
+      .neq("category", "admin")
+      .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern + ",email.ilike." + pattern)
+      .limit(5);
+    results.users = (usersRes.data || []).map(function (p) {
+      var name = p.first_name + " " + p.last_name;
+      return { label: name, meta: categoryLabel(p.category) + " · " + p.email, href: "/portal/admin/users.html?q=" + encodeURIComponent(name) };
+    });
+
+    var propsRes = await client.from("properties")
+      .select("id, label, street, city")
+      .or("label.ilike." + pattern + ",street.ilike." + pattern + ",city.ilike." + pattern)
+      .limit(5);
+    results.properties = (propsRes.data || []).map(function (p) {
+      return { label: p.label, meta: [p.street, p.city].filter(Boolean).join(", "), href: "/portal/admin/properties.html?q=" + encodeURIComponent(p.label) };
+    });
+
+    var tenanciesRes = await client.from("tenancies")
+      .select("id, status, tenant:profiles!tenant_profile_id!inner(first_name, last_name)")
+      .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern, { foreignTable: "tenant" })
+      .limit(5);
+    results.tenancies = (tenanciesRes.data || []).map(function (t) {
+      var name = t.tenant ? (t.tenant.first_name + " " + t.tenant.last_name) : "Unbekannt";
+      return { label: name, meta: t.status, href: "/portal/admin/tenancies.html?q=" + encodeURIComponent(name) };
+    });
+
+    var invByNumberRes = await client.from("invoices")
+      .select("id, invoice_number, status")
+      .ilike("invoice_number", pattern)
+      .limit(5);
+    var invByRecipientRes = await client.from("invoices")
+      .select("id, invoice_number, status, recipient:profiles!recipient_profile_id!inner(first_name, last_name)")
+      .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern, { foreignTable: "recipient" })
+      .limit(5);
+    var seenInvIds = {};
+    (invByNumberRes.data || []).forEach(function (inv) {
+      seenInvIds[inv.id] = true;
+      results.invoices.push({ label: inv.invoice_number || "Rechnung", meta: inv.status, href: "/portal/invoices.html?q=" + encodeURIComponent(inv.invoice_number || "") });
+    });
+    (invByRecipientRes.data || []).forEach(function (inv) {
+      if (seenInvIds[inv.id]) return;
+      seenInvIds[inv.id] = true;
+      var name = inv.recipient ? (inv.recipient.first_name + " " + inv.recipient.last_name) : "";
+      results.invoices.push({ label: inv.invoice_number || "Rechnung", meta: name, href: "/portal/invoices.html?q=" + encodeURIComponent(name) });
+    });
+    results.invoices = results.invoices.slice(0, 5);
+
+    return results;
+  }
+
+  function renderGlobalSearchResults(container, results, query) {
+    var html = "";
+    GLOBAL_SEARCH_GROUP_ORDER.forEach(function (key) {
+      if (!results[key].length) return;
+      html += '<span class="admin-quickbar-group-label">' + GLOBAL_SEARCH_GROUP_LABEL[key] + "</span>";
+      html += results[key].map(function (r) {
+        return '<a class="admin-quickbar-result-item" href="' + r.href + '">' +
+          escapeHtml(r.label) +
+          (r.meta ? '<span class="admin-quickbar-result-meta">' + escapeHtml(r.meta) + "</span>" : "") +
+          "</a>";
+      }).join("");
+    });
+    html += '<span class="admin-quickbar-group-label">Termine</span>' +
+      '<a class="admin-quickbar-result-item" href="/portal/admin/termine.html?q=' + encodeURIComponent(query) + '">' +
+        'In Terminen suchen: "' + escapeHtml(query) + '"' +
+      "</a>";
+    container.innerHTML = html;
+  }
+
+  function initAdminGlobalSearch() {
+    var input = document.getElementById("adminGlobalSearch");
+    var resultsEl = document.getElementById("adminGlobalSearchResults");
+    var debounceId = null;
+
+    input.addEventListener("input", function () {
+      var q = input.value.trim();
+      if (debounceId) clearTimeout(debounceId);
+      if (q.length < 2) { resultsEl.hidden = true; return; }
+      debounceId = setTimeout(async function () {
+        var results = await runGlobalSearch(q);
+        renderGlobalSearchResults(resultsEl, results, q);
+        resultsEl.hidden = false;
+      }, 300);
+    });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".admin-quickbar-search")) resultsEl.hidden = true;
+    });
+  }
+
+  var TICKETS_ICON_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/>' +
+    '<path d="M13 6v12" stroke-dasharray="2 2"/>' +
+    "</svg>";
+
+  function renderAdminQuickbar(profile) {
+    if (profile.category !== "admin") return;
+    if (document.getElementById("dashAdminQuickbar")) return;
+
+    var bar = document.createElement("div");
+    bar.id = "dashAdminQuickbar";
+    bar.innerHTML =
+      '<div class="admin-quickbar-search">' +
+        '<input type="text" id="adminGlobalSearch" placeholder="Alles durchsuchen (Nutzer, Objekte, Mietverhältnisse, Rechnungen, Termine) …" autocomplete="off">' +
+        '<div class="admin-quickbar-results" id="adminGlobalSearchResults" hidden></div>' +
+      "</div>" +
+      '<a class="admin-quickbar-tickets" href="/portal/admin/tickets.html" aria-label="Tickets">' +
+        TICKETS_ICON_SVG +
+        '<span class="dash-nav-badge admin-quickbar-badge" data-badge-for="tickets" hidden></span>' +
+      "</a>";
+    document.body.appendChild(bar);
+    initAdminGlobalSearch();
+  }
+
+  /* Liest ?q= aus der URL (gesetzt vom Admin-Schnellzugriff-Suchfeld
+     oben), trägt den Wert in das genannte, bereits vorhandene
+     Such-Input der Seite ein und löst dessen normales 'input'-Event
+     aus — die Seite filtert dann mit ihrer eigenen, längst bestehenden
+     Logik, ganz ohne Sonderfall-Code pro Seite. */
+  function applyQueryParamSearch(inputId) {
+    var q = new URLSearchParams(window.location.search).get("q");
+    if (!q) return;
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.value = q;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
   function renderSidebar(activeKey, profile) {
     var el = document.getElementById("dashSidebar");
     if (!el) return;
@@ -185,6 +338,7 @@ window.VeraDashboard = (function () {
     });
 
     refreshBadges(activeKey);
+    renderAdminQuickbar(profile);
   }
 
   /* Call once at the top of every SHARED dashboard page's inline script
@@ -211,6 +365,7 @@ window.VeraDashboard = (function () {
     formatDate: formatDate,
     formatDateTime: formatDateTime,
     categoryLabel: categoryLabel,
-    canIssueInvoices: canIssueInvoices
+    canIssueInvoices: canIssueInvoices,
+    applyQueryParamSearch: applyQueryParamSearch
   };
 })();

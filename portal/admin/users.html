@@ -101,7 +101,7 @@
     if(!ctx) return;
     VeraDashboard.renderSidebar('admin-users', ctx.profile);
     client = VeraPortal.getClient();
-    loadUsers();
+    loadUsers().then(function(){ VeraDashboard.applyQueryParamSearch('userSearch'); });
     document.getElementById('userSearch').addEventListener('input', function(){
       var q = this.value.trim();
       renderUsersTable(allUsers.filter(function(u){

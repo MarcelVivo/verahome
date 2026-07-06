@@ -490,6 +490,14 @@
     document.addEventListener('click', function(e){
       if(!e.target.closest('.cal-jump-search')) resultsEl.hidden = true;
     });
+
+    // Kommt der Admin über die globale Schnellsuche oben rechts hierher
+    // (mit ?q=... in der URL), läuft dieselbe Suche gleich automatisch.
+    var qParam = new URLSearchParams(window.location.search).get('q');
+    if(qParam){
+      input.value = qParam;
+      calJumpSearchQuery(qParam).then(renderResults);
+    }
   }
 
   async function loadCalWeek(){
