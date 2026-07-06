@@ -115,26 +115,72 @@
     }
 
     document.getElementById('waschplanLead').textContent = 'Waschplan Ihrer Objekte.';
+    var isAdmin = profile.category === 'admin';
     var container = document.getElementById('waschplanContainer');
     properties.forEach(function(p){
       var card = document.createElement('div');
       card.className = 'dash-card';
-      if(p.laundry_mode === 'self_service'){
-        card.innerHTML = '<h2>'+VeraDashboard.escapeHtml(p.label)+'</h2>' +
-          '<p class="doc-meta" style="margin-bottom:8px;">Tragen Sie sich selbst in einen freien Halbtag ein (First-come-first-served).</p>' +
-          '<div id="calendar-'+p.id+'"></div>';
-        container.appendChild(card);
-        loadSelfServiceCalendar(p);
-      } else {
-        card.innerHTML = '<h2>'+VeraDashboard.escapeHtml(p.label)+(p.canEdit?' <span class="status-badge active" style="margin:0;">bearbeitbar</span>':'')+'</h2>' +
-          '<div class="laundry-week-grid" id="week-'+p.id+'"></div>' +
-          (p.canEdit ? renderAddForm(p.id) : '');
-        container.appendChild(card);
-        loadWeek(p);
-        if(p.canEdit) wireAddForm(p);
-      }
+      card.innerHTML = '<h2>'+VeraDashboard.escapeHtml(p.label)+(p.canEdit?' <span class="status-badge active" style="margin:0;">bearbeitbar</span>':'')+'</h2>' +
+        (isAdmin ? laundrySettingsHtml(p) : '') +
+        '<div id="body-'+p.id+'" style="margin-top:12px;"></div>';
+      container.appendChild(card);
+      if(isAdmin) wireLaundrySettings(p);
+      renderPropertyBody(p);
     });
   });
+
+  function laundrySettingsHtml(p){
+    return '<div class="auth-form-row" style="margin-bottom:8px;">' +
+      '<div>' +
+        '<div class="doc-meta" style="margin-bottom:4px;">Anzahl Waschmaschinen/Tumbler</div>' +
+        '<select id="ws_count-'+p.id+'">' +
+          [1,2,3,4].map(function(n){ return '<option value="'+n+'"'+((p.laundry_machine_count||2)===n?' selected':'')+'>'+n+'</option>'; }).join('') +
+        '</select>' +
+      '</div>' +
+      '<div>' +
+        '<div class="doc-meta" style="margin-bottom:4px;">Modus</div>' +
+        '<select id="ws_mode-'+p.id+'">' +
+          '<option value="fixed"'+(p.laundry_mode!=='self_service'?' selected':'')+'>Admin weist Wohnungen zu</option>' +
+          '<option value="self_service"'+(p.laundry_mode==='self_service'?' selected':'')+'>Mieter tragen sich selbst ein (Kalender)</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+    '<button type="button" class="dash-btn-sm" id="ws_save-'+p.id+'">Einstellungen speichern</button>' +
+    '<p class="form-status" id="ws_status-'+p.id+'"></p>';
+  }
+
+  function wireLaundrySettings(p){
+    document.getElementById('ws_save-'+p.id).addEventListener('click', async function(){
+      var statusEl = document.getElementById('ws_status-'+p.id);
+      var newCount = parseInt(document.getElementById('ws_count-'+p.id).value, 10);
+      var newMode = document.getElementById('ws_mode-'+p.id).value;
+      var res = await client.from('properties').update({
+        laundry_machine_count: newCount,
+        laundry_mode: newMode
+      }).eq('id', p.id);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einstellungen gespeichert.';
+      statusEl.classList.add('show');
+      if(!res.error){
+        p.laundry_machine_count = newCount;
+        p.laundry_mode = newMode;
+        renderPropertyBody(p);
+      }
+    });
+  }
+
+  function renderPropertyBody(p){
+    var body = document.getElementById('body-'+p.id);
+    if(p.laundry_mode === 'self_service'){
+      body.innerHTML = '<p class="doc-meta" style="margin-bottom:8px;">Tragen Sie sich selbst in einen freien Halbtag ein (First-come-first-served).</p>' +
+        '<div id="calendar-'+p.id+'"></div>';
+      loadSelfServiceCalendar(p);
+    } else {
+      body.innerHTML = '<div class="laundry-week-grid" id="week-'+p.id+'"></div>' +
+        (p.canEdit ? renderAddForm(p.id) : '');
+      loadWeek(p);
+      if(p.canEdit) wireAddForm(p);
+    }
+  }
 
   async function resolveRelevantProperties(){
     if(profile.category === 'admin'){
