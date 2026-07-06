@@ -525,9 +525,14 @@
 .laundry-slot .laundry-slot-time{font-weight:600;color:var(--color-navy);}
 .laundry-slot .laundry-slot-actions{margin-top:6px;}
 
-/* Admin-Schnellzugriff oben rechts (Suche + Tickets) */
+/* Admin-Schnellzugriff oben mittig (Suche + Tickets nebeneinander) --
+   "mittig" bezieht sich auf den Inhaltsbereich rechts der Sidebar
+   (240px), nicht auf den gesamten Viewport, sonst wirkt es auf breiten
+   Screens optisch nach rechts verschoben. */
 #dashAdminQuickbar{
-  position:fixed;top:calc(var(--nav-height) + 14px);right:24px;z-index:900;
+  position:fixed;top:calc(var(--nav-height) + 14px);
+  left:calc(240px + (100vw - 240px) / 2);transform:translateX(-50%);
+  z-index:900;
   display:flex;align-items:center;gap:10px;
 }
 .admin-quickbar-search{position:relative;}
@@ -589,7 +594,7 @@
 #dashSidebarBackdrop.show{display:block;}
 
 @media (max-width:900px){
-  #dashAdminQuickbar{position:static;justify-content:flex-end;padding:10px 20px 0;}
+  #dashAdminQuickbar{position:static;left:auto;transform:none;justify-content:flex-end;padding:10px 20px 0;}
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
   .dash-layout{flex-direction:column;padding-top:var(--nav-height);}
