@@ -225,7 +225,7 @@
 }
 .obj-modal-close:hover{border-color:var(--color-gold);color:var(--color-gold);}
 .obj-columns-wrap{overflow-x:auto;padding-bottom:8px;}
-.obj-columns{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.obj-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
 .obj-column{
   min-width:0;background:var(--color-white);border:1px solid var(--color-blue-light);
   border-radius:var(--radius);box-shadow:var(--shadow-card);padding:14px;display:flex;flex-direction:column;

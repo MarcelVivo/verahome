@@ -187,9 +187,9 @@
   var client, profile;
 
   var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
-  var UNIT_TYPE_LABELS = { wohnung: 'Wohnungen', garage: 'Garagen', studio: 'Studios', lager: 'Lager', gewerbe: 'Gewerbe', gastronomie: 'Gastronomie', sonstiges: 'Sonstiges' };
-  var UNIT_TYPE_ORDER = ['wohnung', 'garage', 'studio', 'lager', 'gewerbe', 'gastronomie', 'sonstiges'];
-  var UNIT_TYPE_SINGULAR = { wohnung: 'Wohnung', garage: 'Garage', studio: 'Studio', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', gastronomie: 'Gastronomiefläche', sonstiges: 'Einheit' };
+  var UNIT_TYPE_LABELS = { wohnung: 'Wohnungen', garage: 'Garagen', parkplatz: 'Parkplätze', studio: 'Studios', lager: 'Lager', gewerbe: 'Gewerbe', gastronomie: 'Gastronomie', sonstiges: 'Sonstiges' };
+  var UNIT_TYPE_ORDER = ['wohnung', 'garage', 'parkplatz', 'studio', 'lager', 'gewerbe', 'gastronomie', 'sonstiges'];
+  var UNIT_TYPE_SINGULAR = { wohnung: 'Wohnung', garage: 'Garage', parkplatz: 'Parkplatz', studio: 'Studio', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', gastronomie: 'Gastronomiefläche', sonstiges: 'Einheit' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
