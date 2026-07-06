@@ -210,6 +210,7 @@
    bereits bei 1rem/16px, siehe .auth-form input,select,textarea). */
 @media (max-width:640px){
   .dash-btn-sm{min-height:40px;display:inline-flex;align-items:center;}
+  .dash-btn-sm[hidden]{display:none;}
   .cal-jump-search input,
   .admin-quickbar-search input,
   .obj-send-tab-panel input,.obj-send-tab-panel select,

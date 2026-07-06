@@ -83,6 +83,9 @@
         <div><input type="date" id="o_start" placeholder="Beginn"></div>
         <div><input type="date" id="o_end" placeholder="Ende (optional)"></div>
       </div>
+      <label class="filemgr-confirm-label">
+        <input type="checkbox" id="o_unbefristet"> Unbefristet (kein Enddatum)
+      </label>
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary" id="ownershipSaveBtn">Anlegen</button>
         <button type="button" class="dash-btn-sm" id="ownershipCancelBtn">Abbrechen</button>
@@ -157,6 +160,10 @@
     document.getElementById('ownershipCancelBtn').addEventListener('click', closeOwnershipModal);
     document.getElementById('ownershipForm').addEventListener('submit', saveOwnership);
     document.getElementById('ownershipDeleteBtn').addEventListener('click', deleteOwnership);
+    document.getElementById('o_unbefristet').addEventListener('change', function(){
+      document.getElementById('o_end').disabled = this.checked;
+      if(this.checked) document.getElementById('o_end').value = '';
+    });
 
     document.getElementById('ownershipsTable').addEventListener('click', function(e){
       var row = e.target.closest('[data-ownership-id]');
@@ -186,6 +193,9 @@
     document.getElementById('o_share').value = ownership && ownership.share_percent != null ? ownership.share_percent : '';
     document.getElementById('o_start').value = ownership ? (ownership.start_date || '') : '';
     document.getElementById('o_end').value = ownership && ownership.end_date ? ownership.end_date : '';
+    var unbefristet = !ownership || !ownership.end_date;
+    document.getElementById('o_unbefristet').checked = unbefristet;
+    document.getElementById('o_end').disabled = unbefristet;
     var statusEl = document.getElementById('ownershipFormStatus');
     statusEl.textContent = ''; statusEl.classList.remove('show');
     document.getElementById('ownershipModalBackdrop').hidden = false;
@@ -208,7 +218,7 @@
       owner_profile_id: owner, property_id: propertyId || null, unit_id: unitId || null,
       share_percent: shareVal ? parseFloat(shareVal) : null,
       start_date: document.getElementById('o_start').value || new Date().toISOString().slice(0,10),
-      end_date: document.getElementById('o_end').value || null
+      end_date: document.getElementById('o_unbefristet').checked ? null : (document.getElementById('o_end').value || null)
     };
     var res = editingOwnershipId
       ? await client.from('ownerships').update(payload).eq('id', editingOwnershipId)

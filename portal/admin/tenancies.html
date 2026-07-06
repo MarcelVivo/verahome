@@ -81,6 +81,9 @@
         <div><input type="date" id="t_start" required></div>
         <div><input type="date" id="t_end" placeholder="Ende (optional)"></div>
       </div>
+      <label class="filemgr-confirm-label">
+        <input type="checkbox" id="t_unbefristet"> Unbefristet (kein Enddatum)
+      </label>
       <select id="t_status">
         <option value="upcoming">Bevorstehend</option>
         <option value="active">Aktiv</option>
@@ -158,6 +161,10 @@
     document.getElementById('tenancyCancelBtn').addEventListener('click', closeTenancyModal);
     document.getElementById('tenancyForm').addEventListener('submit', saveTenancy);
     document.getElementById('tenancyDeleteBtn').addEventListener('click', deleteTenancy);
+    document.getElementById('t_unbefristet').addEventListener('change', function(){
+      document.getElementById('t_end').disabled = this.checked;
+      if(this.checked) document.getElementById('t_end').value = '';
+    });
 
     document.getElementById('tenanciesTable').addEventListener('click', function(e){
       var row = e.target.closest('[data-tenancy-id]');
@@ -185,6 +192,9 @@
     document.getElementById('t_unit').value = tenancy ? tenancy.unit_id : '';
     document.getElementById('t_start').value = tenancy ? tenancy.start_date : '';
     document.getElementById('t_end').value = tenancy && tenancy.end_date ? tenancy.end_date : '';
+    var unbefristet = !tenancy || !tenancy.end_date;
+    document.getElementById('t_unbefristet').checked = unbefristet;
+    document.getElementById('t_end').disabled = unbefristet;
     document.getElementById('t_status').value = tenancy ? tenancy.status : 'active';
     var statusEl = document.getElementById('tenancyFormStatus');
     statusEl.textContent = ''; statusEl.classList.remove('show');
@@ -205,7 +215,7 @@
     if(!tenant || !unit || !start){ statusEl.textContent = 'Bitte alle Pflichtfelder ausfüllen.'; statusEl.classList.add('show'); return; }
     var payload = {
       tenant_profile_id: tenant, unit_id: unit, start_date: start,
-      end_date: document.getElementById('t_end').value || null,
+      end_date: document.getElementById('t_unbefristet').checked ? null : (document.getElementById('t_end').value || null),
       status: document.getElementById('t_status').value
     };
     var res = editingTenancyId
