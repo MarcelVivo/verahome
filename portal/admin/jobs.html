@@ -85,6 +85,22 @@
         <option value="in_progress">In Bearbeitung</option>
         <option value="done">Erledigt</option>
       </select>
+      <label class="filemgr-confirm-label">
+        <input type="checkbox" id="j_add_appointment"> Termin dafür im Kalender eintragen
+      </label>
+      <div id="j_appointment_fields" hidden>
+        <div class="auth-form-row">
+          <div><input type="date" id="j_appt_date"></div>
+          <div></div>
+        </div>
+        <div class="auth-form-row">
+          <div><input type="time" id="j_appt_start" placeholder="Start"></div>
+          <div><input type="time" id="j_appt_end" placeholder="Ende"></div>
+        </div>
+        <label class="filemgr-confirm-label">
+          <input type="checkbox" id="j_appt_admin_participates"> Ich nehme selbst auch teil
+        </label>
+      </div>
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary" id="jobSaveBtn">Anlegen</button>
         <button type="button" class="dash-btn-sm" id="jobCancelBtn">Abbrechen</button>
@@ -126,12 +142,14 @@
 (function(){
   "use strict";
   var client;
+  var adminProfileId;
   var JOB_STATUS_LABEL = { open: 'Offen', in_progress: 'In Bearbeitung', done: 'Erledigt' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     VeraDashboard.renderSidebar('admin-jobs', ctx.profile);
     client = VeraPortal.getClient();
+    adminProfileId = ctx.profile.id;
     init();
   });
 
@@ -160,6 +178,9 @@
     document.getElementById('jobCancelBtn').addEventListener('click', closeJobModal);
     document.getElementById('jobForm').addEventListener('submit', saveJob);
     document.getElementById('jobDeleteBtn').addEventListener('click', deleteJob);
+    document.getElementById('j_add_appointment').addEventListener('change', function(){
+      document.getElementById('j_appointment_fields').hidden = !this.checked;
+    });
 
     document.getElementById('jobsTable').addEventListener('click', function(e){
       var row = e.target.closest('[data-job-id]');
@@ -191,6 +212,12 @@
     document.getElementById('j_title').value = job ? job.title : '';
     document.getElementById('j_description').value = job && job.description ? job.description : '';
     document.getElementById('j_status').value = job ? job.status : 'open';
+    document.getElementById('j_add_appointment').checked = false;
+    document.getElementById('j_appointment_fields').hidden = true;
+    document.getElementById('j_appt_date').value = '';
+    document.getElementById('j_appt_start').value = '';
+    document.getElementById('j_appt_end').value = '';
+    document.getElementById('j_appt_admin_participates').checked = false;
     var statusEl = document.getElementById('jobFormStatus');
     statusEl.textContent = ''; statusEl.classList.remove('show');
     document.getElementById('jobModalBackdrop').hidden = false;
@@ -221,9 +248,35 @@
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
     statusEl.classList.add('show');
     if(!res.error){
+      if(document.getElementById('j_add_appointment').checked){
+        await createAppointmentForJob(payload);
+      }
       await loadJobs();
       closeJobModal();
     }
+  }
+
+  async function createAppointmentForJob(jobPayload){
+    var date = document.getElementById('j_appt_date').value;
+    var start = document.getElementById('j_appt_start').value;
+    var end = document.getElementById('j_appt_end').value;
+    if(!date || !start || !end) return;
+    var apptPayload = {
+      title: jobPayload.title,
+      category: 'handwerker',
+      note: jobPayload.description || null,
+      property_id: jobPayload.property_id || null,
+      starts_at: new Date(date + 'T' + start).toISOString(),
+      ends_at: new Date(date + 'T' + end).toISOString(),
+      admin_participates: document.getElementById('j_appt_admin_participates').checked,
+      created_by: adminProfileId
+    };
+    var apptRes = await client.from('appointments').insert(apptPayload).select().single();
+    if(apptRes.error || !apptRes.data) return;
+    await client.from('appointment_participants').insert({ appointment_id: apptRes.data.id, profile_id: jobPayload.profile_id });
+    try{
+      await client.functions.invoke('send-appointment-invite', { body: { appointmentId: apptRes.data.id } });
+    }catch(e){}
   }
 
   async function deleteJob(){
