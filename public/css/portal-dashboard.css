@@ -446,6 +446,8 @@
 .msg-partner-btn:hover{background:var(--color-bg);}
 .msg-partner-btn.active{background:var(--color-blue-light);font-weight:600;}
 .msg-partner-meta{display:block;font-size:.72rem;color:var(--color-gray-text);opacity:.7;margin-top:2px;}
+.msg-partner-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.msg-partner-badge{flex-shrink:0;}
 .msg-thread-pane{flex:1;display:flex;flex-direction:column;min-width:0;}
 .msg-thread{flex:1;padding:24px;max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
 .msg-empty{color:var(--color-gray-text);opacity:.7;font-size:.9rem;text-align:center;padding:20px 0;}
