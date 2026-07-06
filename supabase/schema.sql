@@ -4133,3 +4133,12 @@ create policy storage_message_attachments_select on storage.objects
 -- verschwindet -- koennen danach einzeln umkategorisiert werden.
 alter table public.units add column if not exists unit_type text not null default 'sonstiges'
   check (unit_type in ('wohnung','garage','studio','lager','gewerbe','sonstiges'));
+
+-- Gastronomie ergaenzt -- check-Constraints lassen sich nicht per
+-- ALTER TABLE aendern, deshalb droppen + mit erweitertem Wertebereich
+-- neu anlegen (der Default-Name entspricht dem Postgres-Muster
+-- "<tabelle>_<spalte>_check" fuer inline in ADD COLUMN definierte
+-- Constraints).
+alter table public.units drop constraint if exists units_unit_type_check;
+alter table public.units add constraint units_unit_type_check
+  check (unit_type in ('wohnung','garage','studio','lager','gewerbe','gastronomie','sonstiges'));

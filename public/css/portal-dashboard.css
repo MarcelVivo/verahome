@@ -162,9 +162,9 @@
 }
 .obj-modal-close:hover{border-color:var(--color-gold);color:var(--color-gold);}
 .obj-columns-wrap{overflow-x:auto;padding-bottom:8px;}
-.obj-columns{display:flex;gap:16px;min-width:max-content;}
+.obj-columns{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
 .obj-column{
-  width:240px;flex-shrink:0;background:var(--color-white);border:1px solid var(--color-blue-light);
+  min-width:0;background:var(--color-white);border:1px solid var(--color-blue-light);
   border-radius:var(--radius);box-shadow:var(--shadow-card);padding:14px;display:flex;flex-direction:column;
   max-height:70vh;
 }
@@ -203,8 +203,11 @@
   font-family:inherit;font-size:.85rem;background:var(--color-white);
 }
 
-@media (max-width:900px){
-  .obj-column{width:200px;}
+@media (max-width:1100px){
+  .obj-columns{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:520px){
+  .obj-columns{grid-template-columns:1fr;}
 }
 
 /* Für Sie freigegebene Dokumente (Nutzer) */
