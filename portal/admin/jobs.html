@@ -55,7 +55,7 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Aufträge</h1>
-      <p class="dash-lead">Partner/Handwerker Aufträge an Objekten oder Einheiten zuweisen. Klicken Sie einen Eintrag an, um ihn zu bearbeiten oder zu löschen.</p>
+      <p class="dash-lead">Partner/Handwerker/Hauswart Aufträge an Objekten oder Einheiten zuweisen. Klicken Sie einen Eintrag an, um ihn zu bearbeiten oder zu löschen.</p>
 
       <div class="dash-card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
@@ -75,7 +75,7 @@
     <button type="button" class="obj-modal-close" id="jobModalClose" aria-label="Schliessen">✕</button>
     <h3 id="jobModalTitle">Neuer Auftrag</h3>
     <form class="auth-form modal-scroll-body" id="jobForm">
-      <select id="j_profile" required><option value="" disabled selected>Partner/Handwerker wählen *</option></select>
+      <select id="j_profile" required><option value="" disabled selected>Partner/Handwerker/Hauswart wählen *</option></select>
       <select id="j_property"><option value="">– kein Objekt –</option></select>
       <select id="j_unit"><option value="">– keine Einheit –</option></select>
       <input id="j_title" placeholder="Titel *" required>
@@ -159,14 +159,14 @@
 
   async function init(){
     var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').order('last_name');
-    var jobProfiles = (profilesRes.data || []).filter(function(p){ return p.category === 'partner' || p.category === 'handwerker'; });
+    var jobProfiles = (profilesRes.data || []).filter(function(p){ return p.category === 'partner' || p.category === 'handwerker' || p.category === 'hauswart'; });
 
     var propertiesRes = await client.from('properties').select('*').order('label');
     var properties = propertiesRes.data || [];
     var unitsRes = await client.from('units').select('*, properties(label)').order('label');
     var units = unitsRes.data || [];
 
-    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker wählen *</option>' +
+    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker/Hauswart wählen *</option>' +
       jobProfiles.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+VeraDashboard.categoryLabel(p.category))+'</option>'; }).join('');
     document.getElementById('j_property').innerHTML = '<option value="">– kein Objekt –</option>' +
       properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
@@ -233,7 +233,7 @@
     var statusEl = document.getElementById('jobFormStatus');
     var profileId = document.getElementById('j_profile').value;
     var title = document.getElementById('j_title').value.trim();
-    if(!profileId || !title){ statusEl.textContent = 'Bitte Partner/Handwerker und Titel angeben.'; statusEl.classList.add('show'); return; }
+    if(!profileId || !title){ statusEl.textContent = 'Bitte Partner/Handwerker/Hauswart und Titel angeben.'; statusEl.classList.add('show'); return; }
     var payload = {
       profile_id: profileId,
       property_id: document.getElementById('j_property').value || null,
