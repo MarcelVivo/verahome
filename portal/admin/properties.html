@@ -312,7 +312,20 @@
     document.getElementById('newUnitModalClose').addEventListener('click', closeNewUnitModal);
     document.getElementById('newUnitCancelBtn').addEventListener('click', closeNewUnitModal);
 
-    loadAll().then(renderAllColumns);
+    loadAll().then(function(){
+      applyGlobalSearchParam();
+      renderAllColumns();
+    });
+  }
+
+  // Der Admin-Schnellzugriff (Suchfeld oben rechts) verlinkt hierher
+  // mit ?q=... -- da es jetzt kein einzelnes Suchfeld mehr gibt,
+  // sondern ein Suchfeld pro Spalte, wird der Suchbegriff auf ALLE
+  // Spalten vorbelegt statt auf ein bestimmtes Input-Feld.
+  function applyGlobalSearchParam(){
+    var q = new URLSearchParams(window.location.search).get('q');
+    if(!q) return;
+    ['objekte'].concat(UNIT_TYPE_ORDER).forEach(function(key){ columnSearchState[key] = q; });
   }
 
   function closeNewPropertyModal(){

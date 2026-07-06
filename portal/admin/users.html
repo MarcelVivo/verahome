@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutzer | Vera Portal Admin – Vera Home Immobilien</title>
-<meta name="description" content="Nutzerverwaltung im Vera Portal.">
+<title>Kontakte | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Kontakte verwalten im Vera Portal.">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
 <link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
@@ -54,16 +54,51 @@
   <div class="dash-layout">
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
-      <h1>Nutzer</h1>
-      <p class="dash-lead">Alle registrierten Nutzer. Kategorie-Änderungen (insbesondere Admin-Rechte) erfolgen bewusst nicht hier, sondern manuell in Supabase.</p>
+      <h1>Kontakte</h1>
+      <p class="dash-lead">Mieter, Eigentümer, Handwerker, Hauswarte, Firmen und Ämter — je eine Spalte pro Kategorie. Klicken Sie einen Eintrag an, um ihn zu bearbeiten, zu löschen oder zu kontaktieren.</p>
 
-      <div class="dash-card">
-        <input type="text" class="dash-search-input" id="userSearch" placeholder="Suchen nach Name, E-Mail, Kategorie …">
-        <table class="dash-table" id="usersTable"></table>
+      <div class="obj-columns-wrap">
+        <div class="obj-columns" id="contactColumns"></div>
       </div>
     </section>
   </div>
 </main>
+
+<!-- Kontakt-Detail-Modal -->
+<div class="share-modal-backdrop" id="contactModalBackdrop" hidden>
+  <div class="share-modal obj-modal">
+    <button type="button" class="obj-modal-close" id="contactModalClose" aria-label="Schliessen">✕</button>
+    <div id="contactModalBody" class="modal-scroll-body"></div>
+  </div>
+</div>
+
+<!-- Neuer Kontakt Modal -->
+<div class="share-modal-backdrop" id="newContactModalBackdrop" hidden>
+  <div class="share-modal">
+    <button type="button" class="obj-modal-close" id="newContactModalClose" aria-label="Schliessen">✕</button>
+    <h3>Neuer Kontakt</h3>
+    <form class="auth-form modal-scroll-body" id="newContactForm">
+      <select id="nc_category"></select>
+      <div class="auth-form-row">
+        <div><input id="nc_first_name" placeholder="Vorname *" required></div>
+        <div><input id="nc_last_name" placeholder="Nachname *" required></div>
+      </div>
+      <input type="email" id="nc_email" placeholder="E-Mail *" required>
+      <input id="nc_phone" placeholder="Telefon">
+      <div class="auth-form-row">
+        <div><input id="nc_street" placeholder="Strasse, Nr."></div>
+        <div><input id="nc_zip" placeholder="PLZ"></div>
+      </div>
+      <input id="nc_city" placeholder="Ort">
+      <p class="doc-meta">Der Kontakt erhält eine E-Mail von Supabase mit einem Link, um sein Passwort zu setzen.</p>
+      <div class="dash-btn-row">
+        <button type="submit" class="btn btn-primary">Kontakt anlegen</button>
+        <button type="button" class="dash-btn-sm" id="newContactCancelBtn">Abbrechen</button>
+      </div>
+      <p class="form-status" id="newContactStatus"></p>
+    </form>
+  </div>
+</div>
 
 <!-- =================== FOOTER =================== -->
 <footer>
@@ -95,64 +130,326 @@
 <script>
 (function(){
   "use strict";
-  var client;
+  var client, profile;
+
+  var STATUS_LABEL = { pending: 'Ausstehend', active: 'Aktiv', suspended: 'Gesperrt' };
+  var CATEGORY_ORDER = ['mieter', 'eigentuemer', 'partner', 'handwerker', 'hauswart', 'firma', 'aemter'];
+
+  var allContacts = [];
+  var columnSearchState = {};
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
+    profile = ctx.profile;
     VeraDashboard.renderSidebar('admin-users', ctx.profile);
     client = VeraPortal.getClient();
-    loadUsers().then(function(){ VeraDashboard.applyQueryParamSearch('userSearch'); });
-    document.getElementById('userSearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderUsersTable(allUsers.filter(function(u){
-        return VeraDashboard.matchesSearch(
-          [u.member_number, u.last_name, u.first_name, u.email, VeraDashboard.categoryLabel(u.category), u.status], q
-        );
-      }));
-    });
+    init();
   });
 
-  var STATUS_LABEL = { pending: 'Ausstehend', active: 'Aktiv', suspended: 'Gesperrt' };
-  var allUsers = [];
+  function init(){
+    document.getElementById('nc_category').innerHTML = CATEGORY_ORDER.map(function(c){
+      return '<option value="'+c+'">'+VeraDashboard.categoryLabel(c)+'</option>';
+    }).join('');
 
-  async function loadUsers(){
-    var res = await client.from('profiles').select('*').order('created_at', { ascending:false });
-    allUsers = res.data || [];
-    renderUsersTable(allUsers);
+    document.getElementById('newContactForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('newContactStatus');
+      var payload = {
+        email: document.getElementById('nc_email').value.trim(),
+        first_name: document.getElementById('nc_first_name').value.trim(),
+        last_name: document.getElementById('nc_last_name').value.trim(),
+        category: document.getElementById('nc_category').value,
+        phone: document.getElementById('nc_phone').value.trim() || null,
+        address_street: document.getElementById('nc_street').value.trim() || null,
+        address_zip: document.getElementById('nc_zip').value.trim() || null,
+        address_city: document.getElementById('nc_city').value.trim() || null
+      };
+      if(!payload.email || !payload.first_name || !payload.last_name){
+        statusEl.textContent = 'Bitte Vorname, Nachname und E-Mail angeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+      statusEl.textContent = 'Wird angelegt …';
+      statusEl.classList.add('show');
+      try {
+        var res = await client.functions.invoke('admin-create-user', { body: payload });
+        if(res.error || (res.data && res.data.error)){
+          statusEl.textContent = 'Fehler: ' + (res.data && res.data.error ? res.data.error : res.error.message);
+          return;
+        }
+        statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
+        document.getElementById('newContactForm').reset();
+        await loadAll();
+        renderAllColumns();
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + err.message;
+      }
+    });
+
+    document.getElementById('contactColumns').addEventListener('click', function(e){
+      var openContact = e.target.closest('[data-open-contact]');
+      var addBtn = e.target.closest('[data-add]');
+      if(openContact) openContactModal(openContact.getAttribute('data-open-contact'));
+      else if(addBtn) openCreateModal(addBtn.getAttribute('data-add'));
+    });
+    document.getElementById('contactColumns').addEventListener('input', function(e){
+      if(!e.target.classList.contains('obj-column-search')) return;
+      var key = e.target.getAttribute('data-search-key');
+      columnSearchState[key] = e.target.value;
+      refreshColumnRows(key);
+    });
+
+    document.getElementById('contactModalClose').addEventListener('click', closeContactModal);
+    document.getElementById('newContactModalClose').addEventListener('click', closeNewContactModal);
+    document.getElementById('newContactCancelBtn').addEventListener('click', closeNewContactModal);
+
+    loadAll().then(function(){
+      applyGlobalSearchParam();
+      renderAllColumns();
+    });
   }
 
-  function renderUsersTable(users){
-    var table = document.getElementById('usersTable');
-    if(!users.length){
-      table.innerHTML = '<tr><td class="dash-empty">'+(allUsers.length?'Keine Treffer.':'Keine Nutzer vorhanden.')+'</td></tr>';
-      return;
-    }
-    table.innerHTML = '<tr><th>Mitgliedsnr.</th><th>Name</th><th>E-Mail</th><th>Kategorie</th><th>Status</th><th>Aktion</th></tr>' +
-      users.map(function(u){
-        var actions = '';
-        if(u.status !== 'active'){
-          actions += '<button type="button" class="dash-btn-sm status-btn" data-id="'+u.id+'" data-status="active">Aktivieren</button> ';
-        }
-        if(u.status !== 'suspended'){
-          actions += '<button type="button" class="dash-btn-sm danger status-btn" data-id="'+u.id+'" data-status="suspended">Sperren</button>';
-        }
-        return '<tr>' +
-          '<td class="member-number">'+VeraDashboard.escapeHtml(u.member_number)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(u.last_name+' '+u.first_name)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(u.email)+'</td>' +
-          '<td>'+VeraDashboard.categoryLabel(u.category)+'</td>' +
-          '<td><span class="status-badge '+u.status+'">'+(STATUS_LABEL[u.status]||u.status)+'</span></td>' +
-          '<td><div class="dash-btn-row">'+actions+'</div></td>' +
-        '</tr>';
-      }).join('');
+  // Der Admin-Schnellzugriff (Suchfeld oben rechts) verlinkt hierher
+  // mit ?q=... -- kein einzelnes Suchfeld mehr, sondern eines pro
+  // Spalte, daher wird der Suchbegriff auf alle Spalten vorbelegt.
+  function applyGlobalSearchParam(){
+    var q = new URLSearchParams(window.location.search).get('q');
+    if(!q) return;
+    CATEGORY_ORDER.forEach(function(key){ columnSearchState[key] = q; });
+  }
 
-    table.querySelectorAll('.status-btn').forEach(function(btn){
+  function closeNewContactModal(){
+    document.getElementById('newContactModalBackdrop').hidden = true;
+    document.getElementById('newContactForm').reset();
+    var statusEl = document.getElementById('newContactStatus');
+    statusEl.textContent = '';
+    statusEl.classList.remove('show');
+  }
+
+  function openCreateModal(category){
+    document.getElementById('nc_category').value = category;
+    document.getElementById('newContactModalBackdrop').hidden = false;
+  }
+
+  async function loadAll(){
+    var res = await client.from('profiles').select('*').neq('category', 'admin').order('last_name');
+    allContacts = res.data || [];
+  }
+
+  /* ============================================================
+     SPALTEN-ANSICHT — identisches Muster wie auf der Objekte-Seite:
+     voller Neuaufbau nur nach struktureller Änderung, Sucheingaben
+     patchen nur die eine betroffene Spalte (Fokus bleibt erhalten).
+  ============================================================ */
+  function renderAllColumns(){
+    var columnsEl = document.getElementById('contactColumns');
+    columnsEl.innerHTML = CATEGORY_ORDER.map(function(cat){
+      return columnSkeletonHtml(cat, VeraDashboard.categoryLabel(cat));
+    }).join('');
+    CATEGORY_ORDER.forEach(refreshColumnRows);
+  }
+
+  function columnSkeletonHtml(key, title){
+    return '<div class="obj-column" data-column="'+key+'">' +
+      '<div class="obj-column-header"><span>'+title+'</span>' +
+        '<span class="obj-column-count" id="objColumnCount-'+key+'">0</span>' +
+        '<button type="button" class="obj-add-btn" data-add="'+key+'" title="Neu">+</button></div>' +
+      '<input type="text" class="dash-search-input obj-column-search" data-search-key="'+key+'" placeholder="Suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState[key]||'')+'">' +
+      '<div class="obj-column-list" id="objColumnList-'+key+'"></div>' +
+    '</div>';
+  }
+
+  function refreshColumnRows(key){
+    var listEl = document.getElementById('objColumnList-'+key);
+    var countEl = document.getElementById('objColumnCount-'+key);
+    if(!listEl) return;
+    var q = (columnSearchState[key] || '').trim();
+    var contactsOfType = allContacts.filter(function(c){ return c.category === key; });
+    var filtered = contactsOfType.filter(function(c){
+      return VeraDashboard.matchesSearch([c.member_number, c.last_name, c.first_name, c.email, c.status], q);
+    });
+
+    countEl.textContent = String(filtered.length);
+    listEl.innerHTML = filtered.map(function(c){
+      return '<button type="button" class="obj-row" data-open-contact="'+c.id+'">' +
+        '<strong>'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'</strong>' +
+        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(c.email)+'</span>' +
+        '<span class="status-badge '+c.status+'" style="margin-top:4px;">'+(STATUS_LABEL[c.status]||c.status)+'</span>' +
+      '</button>';
+    }).join('') || '<p class="dash-empty">Keine Einträge.</p>';
+  }
+
+  /* ============================================================
+     KONTAKT-MODAL
+  ============================================================ */
+  function closeContactModal(){
+    document.getElementById('contactModalBackdrop').hidden = true;
+  }
+
+  function openContactModal(contactId){
+    var contact = allContacts.filter(function(c){ return c.id === contactId; })[0];
+    if(!contact) return;
+    document.getElementById('contactModalBody').innerHTML = contactModalHtml(contact);
+    document.getElementById('contactModalBackdrop').hidden = false;
+    wireContactModal(contact);
+  }
+
+  function contactModalHtml(c){
+    var id = c.id;
+    var statusActions = '';
+    if(c.status !== 'active'){
+      statusActions += '<button type="button" class="dash-btn-sm status-btn" data-id="'+id+'" data-status="active">Aktivieren</button>';
+    }
+    if(c.status !== 'suspended'){
+      statusActions += '<button type="button" class="dash-btn-sm danger status-btn" data-id="'+id+'" data-status="suspended">Sperren</button>';
+    }
+    return '<h3>'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'</h3>' +
+      '<p class="doc-meta" style="margin-bottom:12px;">Mitgliedsnr. '+VeraDashboard.escapeHtml(c.member_number)+' · <span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></p>' +
+      '<form class="auth-form" id="contactEditForm-'+id+'">' +
+        '<div class="auth-form-row">' +
+          '<div><input id="contactFirstName-'+id+'" placeholder="Vorname *" required value="'+VeraDashboard.escapeHtml(c.first_name)+'"></div>' +
+          '<div><input id="contactLastName-'+id+'" placeholder="Nachname *" required value="'+VeraDashboard.escapeHtml(c.last_name)+'"></div>' +
+        '</div>' +
+        '<input type="email" value="'+VeraDashboard.escapeHtml(c.email)+'" disabled title="Login-Adresse, nur manuell in Supabase änderbar">' +
+        '<select id="contactCategory-'+id+'">'+CATEGORY_ORDER.map(function(cat){
+          return '<option value="'+cat+'"'+(cat===c.category?' selected':'')+'>'+VeraDashboard.categoryLabel(cat)+'</option>';
+        }).join('')+'</select>' +
+        '<input id="contactPhone-'+id+'" placeholder="Telefon" value="'+VeraDashboard.escapeHtml(c.phone||'')+'">' +
+        '<div class="auth-form-row">' +
+          '<div><input id="contactStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address_street||'')+'"></div>' +
+          '<div><input id="contactZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address_zip||'')+'"></div>' +
+        '</div>' +
+        '<input id="contactCity-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(c.address_city||'')+'">' +
+        '<div class="dash-btn-row">' +
+          '<button type="submit" class="dash-btn-sm">Kontakt speichern</button>' +
+          statusActions +
+          '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(c.last_name+' '+c.first_name)+'">Kontakt löschen</button>' +
+        '</div>' +
+        '<p class="form-status" id="contactEditStatus-'+id+'"></p>' +
+      '</form>' +
+      sendPanelHtml(c);
+  }
+
+  function sendPanelHtml(c){
+    return '<div class="obj-send-section">' +
+      '<button type="button" class="dash-btn-sm obj-send-toggle-btn">Kontaktieren</button>' +
+      '<div class="obj-send-panel" hidden>' +
+        '<div class="obj-send-tabs">' +
+          '<button type="button" class="dash-btn-sm obj-send-tab-btn active" data-tab="email">Per E-Mail</button>' +
+          '<button type="button" class="dash-btn-sm obj-send-tab-btn" data-tab="chat">Im Chat senden</button>' +
+        '</div>' +
+        '<div class="obj-send-tab-panel" data-tab-panel="email">' +
+          '<p class="doc-meta">An: '+VeraDashboard.escapeHtml(c.email)+'</p>' +
+          '<textarea class="obj-send-email-note" placeholder="Nachricht (optional)"></textarea>' +
+          '<button type="button" class="dash-btn-sm obj-send-email-btn">E-Mail öffnen</button>' +
+        '</div>' +
+        '<div class="obj-send-tab-panel" data-tab-panel="chat" hidden>' +
+          '<textarea class="obj-send-chat-text" placeholder="Nachricht *"></textarea>' +
+          '<button type="button" class="dash-btn-sm obj-send-chat-btn">Im Chat senden</button>' +
+        '</div>' +
+        '<p class="form-status obj-send-status"></p>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function wireContactModal(contact){
+    var id = contact.id;
+    var modalBody = document.getElementById('contactModalBody');
+
+    document.getElementById('contactEditForm-'+id).addEventListener('submit', async function(e){
+      e.preventDefault();
+      var statusEl = document.getElementById('contactEditStatus-'+id);
+      var res = await client.from('profiles').update({
+        first_name: document.getElementById('contactFirstName-'+id).value.trim(),
+        last_name: document.getElementById('contactLastName-'+id).value.trim(),
+        category: document.getElementById('contactCategory-'+id).value,
+        phone: document.getElementById('contactPhone-'+id).value.trim() || null,
+        address_street: document.getElementById('contactStreet-'+id).value.trim() || null,
+        address_zip: document.getElementById('contactZip-'+id).value.trim() || null,
+        address_city: document.getElementById('contactCity-'+id).value.trim() || null
+      }).eq('id', id);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Kontakt gespeichert.';
+      statusEl.classList.add('show');
+      if(!res.error){
+        await loadAll();
+        renderAllColumns();
+      }
+    });
+
+    modalBody.querySelectorAll('.status-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         btn.disabled = true;
-        await client.from('profiles').update({ status: btn.getAttribute('data-status') }).eq('id', btn.getAttribute('data-id'));
-        loadUsers();
+        await client.from('profiles').update({ status: btn.getAttribute('data-status') }).eq('id', id);
+        await loadAll();
+        renderAllColumns();
+        openContactModal(id);
       });
     });
+
+    modalBody.querySelector('.delete-contact-btn').addEventListener('click', function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      deleteContact(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+    });
+
+    wireSendPanel(modalBody, contact);
+  }
+
+  function wireSendPanel(container, contact){
+    var section = container.querySelector('.obj-send-section');
+    if(!section) return;
+    var toggleBtn = section.querySelector('.obj-send-toggle-btn');
+    var panel = section.querySelector('.obj-send-panel');
+    var statusEl = section.querySelector('.obj-send-status');
+
+    toggleBtn.addEventListener('click', function(){ panel.hidden = !panel.hidden; });
+
+    section.querySelectorAll('.obj-send-tab-btn').forEach(function(tabBtn){
+      tabBtn.addEventListener('click', function(){
+        section.querySelectorAll('.obj-send-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        tabBtn.classList.add('active');
+        var tab = tabBtn.getAttribute('data-tab');
+        section.querySelectorAll('.obj-send-tab-panel').forEach(function(p){
+          p.hidden = p.getAttribute('data-tab-panel') !== tab;
+        });
+      });
+    });
+
+    section.querySelector('.obj-send-email-btn').addEventListener('click', function(){
+      var note = section.querySelector('.obj-send-email-note').value.trim();
+      var subject = encodeURIComponent('Vera Home Immobilien');
+      var body = encodeURIComponent(note);
+      window.location.href = 'mailto:' + encodeURIComponent(contact.email) + '?subject=' + subject + '&body=' + body;
+    });
+
+    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(){
+      var text = section.querySelector('.obj-send-chat-text').value.trim();
+      if(!text){ statusEl.textContent = 'Bitte eine Nachricht eingeben.'; statusEl.classList.add('show'); return; }
+      var res = await client.from('messages').insert({
+        sender_profile_id: profile.id, recipient_profile_id: contact.id, body: text
+      });
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
+      statusEl.classList.add('show');
+      if(!res.error) section.querySelector('.obj-send-chat-text').value = '';
+    });
+  }
+
+  async function deleteContact(contactId, name){
+    if(!window.confirm(
+      'Kontakt "' + name + '" wirklich unwiderruflich löschen?\n\n' +
+      'Der Login-Zugang UND alle zugehörigen Daten (Mietverhältnisse, Eigentümerschaften, Dokumente, Nachrichten, Rechnungen usw.) werden dabei gelöscht. Dies kann nicht rückgängig gemacht werden.'
+    )) return;
+    try {
+      var res = await client.functions.invoke('admin-delete-user', { body: { profileId: contactId } });
+      if(res.error || (res.data && res.data.error)){
+        window.alert('Fehler beim Löschen: ' + (res.data && res.data.error ? res.data.error : res.error.message));
+        return;
+      }
+      closeContactModal();
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      window.alert('Fehler beim Löschen: ' + err.message);
+    }
   }
 })();
 </script>

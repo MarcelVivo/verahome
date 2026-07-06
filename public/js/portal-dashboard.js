@@ -27,7 +27,7 @@ window.VeraDashboard = (function () {
   ];
   var ADMIN_NAV_GROUP = { label: "Verwaltung", items: [
     { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte" },
-    { key: "admin-users", href: "/portal/admin/users.html", label: "Nutzer" },
+    { key: "admin-users", href: "/portal/admin/users.html", label: "Kontakte" },
     { key: "admin-tenancies", href: "/portal/admin/tenancies.html", label: "Mietverhältnisse" },
     { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" }
   ]};
@@ -167,7 +167,7 @@ window.VeraDashboard = (function () {
      Page-spezifischen HTML-Datei, damit es automatisch auf jeder
      Admin-Seite erscheint, ohne jede Datei einzeln anzupassen.
   ============================================================ */
-  var GLOBAL_SEARCH_GROUP_LABEL = { users: "Nutzer", properties: "Objekte", tenancies: "Mietverhältnisse", invoices: "Rechnungen" };
+  var GLOBAL_SEARCH_GROUP_LABEL = { users: "Kontakte", properties: "Objekte", tenancies: "Mietverhältnisse", invoices: "Rechnungen" };
   var GLOBAL_SEARCH_GROUP_ORDER = ["users", "properties", "tenancies", "invoices"];
 
   function globalSearchPattern(q) {
@@ -283,7 +283,7 @@ window.VeraDashboard = (function () {
     bar.id = "dashAdminQuickbar";
     bar.innerHTML =
       '<div class="admin-quickbar-search">' +
-        '<input type="text" id="adminGlobalSearch" placeholder="Alles durchsuchen (Nutzer, Objekte, Mietverhältnisse, Rechnungen, Termine) …" autocomplete="off">' +
+        '<input type="text" id="adminGlobalSearch" placeholder="Alles durchsuchen (Kontakte, Objekte, Mietverhältnisse, Rechnungen, Termine) …" autocomplete="off">' +
         '<div class="admin-quickbar-results" id="adminGlobalSearchResults" hidden></div>' +
       "</div>" +
       '<a class="admin-quickbar-tickets" href="/portal/admin/tickets.html" aria-label="Tickets">' +
