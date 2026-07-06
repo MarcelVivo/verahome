@@ -263,6 +263,11 @@
   var calPopover = document.getElementById('calDetailPopover');
   var calPinnedKey = null;
 
+  function calBottomReserve(){
+    var tabbar = document.getElementById('dashTabbar');
+    if(tabbar && getComputedStyle(tabbar).display !== 'none') return tabbar.offsetHeight + 8;
+    return 8;
+  }
   function calPositionPopover(targetEl){
     var rect = targetEl.getBoundingClientRect();
     var popW = 250;
@@ -272,8 +277,9 @@
     calPopover.style.top = rect.top + 'px';
     requestAnimationFrame(function(){
       var pr = calPopover.getBoundingClientRect();
-      if(pr.bottom > window.innerHeight - 8){
-        calPopover.style.top = Math.max(8, window.innerHeight - pr.height - 8) + 'px';
+      var bottomLimit = window.innerHeight - calBottomReserve();
+      if(pr.bottom > bottomLimit){
+        calPopover.style.top = Math.max(8, bottomLimit - pr.height) + 'px';
       }
     });
   }

@@ -590,63 +590,52 @@
 .admin-quickbar-tickets svg{width:20px;height:20px;}
 .admin-quickbar-badge{position:absolute;top:-4px;right:-4px;margin:0;}
 
-/* Untere Tab-Leiste + "Mehr"-Bottom-Sheet (App-Gefühl auf Mobile) —
-   #dashSidebar wird bei ≤900px nicht mehr als horizontaler
-   Scroll-Streifen oben angezeigt, sondern per CSS zu einem
-   ausblendbaren Bottom-Sheet umgestylt, das über den "Mehr"-Tab
-   ein-/ausgeblendet wird (siehe renderBottomTabBar in
-   portal-dashboard.js). Die eigentliche Nav-Logik (renderSidebar/
-   renderNavGroup/Badges) bleibt unverändert. */
+/* Untere Navigationsleiste auf Mobile -- eine einzige seitwärts
+   scrollbare Reihe mit ALLEN Nav-Punkten + Ausloggen ganz am Ende
+   (siehe renderBottomTabBar in portal-dashboard.js). Kein "Mehr"-Sheet
+   mehr: #dashSidebar wird bei ≤900px komplett ausgeblendet (Desktop-
+   only), diese Leiste hier ist auf Mobile die alleinige Navigation. */
 .dash-tabbar{
   display:none;position:fixed;left:0;right:0;bottom:0;z-index:2100;
-  background:var(--color-white);border-top:1px solid var(--color-blue-light);
-  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
-  box-shadow:0 -2px 12px rgba(20,30,45,.08);
-  align-items:stretch;justify-content:space-between;
+  background:var(--color-navy-deep);border-top:1px solid rgba(255,255,255,.12);
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 12px rgba(20,30,45,.2);
+  align-items:stretch;overflow-x:auto;gap:4px;
 }
 .dash-tab{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:6px 2px;color:var(--color-gray-text);font-size:.68rem;font-weight:600;
-  background:none;border:none;min-height:44px;justify-content:center;
+  position:relative;flex:0 0 auto;display:flex;align-items:center;
+  padding:0 16px;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:600;
+  background:none;border:none;min-height:44px;white-space:nowrap;border-radius:8px;
 }
-.dash-tab svg{width:22px;height:22px;}
-.dash-tab.active{color:var(--color-gold);}
-
-#dashSidebarBackdrop{
-  display:none;position:fixed;inset:0;background:rgba(20,30,45,.5);z-index:2000;
-}
-#dashSidebarBackdrop.show{display:block;}
+.dash-tab.active{color:var(--color-gold);background:rgba(255,255,255,.06);}
+.dash-tab-logout{color:var(--color-gold);border-left:1px solid rgba(255,255,255,.18);margin-left:4px;padding-left:20px;}
+.dash-tab .dash-nav-badge{position:relative;margin-left:6px;}
 
 @media (max-width:900px){
   #dashAdminQuickbar{position:static;left:auto;transform:none;justify-content:flex-end;padding:10px 20px 0;}
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
   /* .dash-layout wechselt hier von row- auf column-flex (Sidebar
-     wird zum Bottom-Sheet). In einem column-flex-Container ist die
-     Breite die Cross-Achse, auf der "flex:1;min-width:0" (fuer die
-     Haupt-/Zeilen-Ausrichtung gedacht) NICHT vor Ueberlauf schuetzt --
-     ein breit-erzwungenes Kind (z.B. das Kalender-Grid) stretcht dann
-     .dash-content ueber die Viewport-Breite hinaus, obendrein von
-     body{overflow-x:hidden} unsichtbar abgeschnitten. Ergebnis: die
-     .cal-grid-wrap-Scrollbox ueberlief nie wirklich sich selbst,
-     sondern nur unsichtbar den Viewport -- Taps auf Stunden-Felder
-     jenseits des sichtbaren Randes gingen dadurch ins Leere. */
+     wird ausgeblendet, Navigation läuft über .dash-tabbar). In einem
+     column-flex-Container ist die Breite die Cross-Achse, auf der
+     "flex:1;min-width:0" (fuer die Haupt-/Zeilen-Ausrichtung gedacht)
+     NICHT vor Ueberlauf schuetzt -- ein breit-erzwungenes Kind (z.B.
+     das Kalender-Grid) stretcht dann .dash-content ueber die
+     Viewport-Breite hinaus, obendrein von body{overflow-x:hidden}
+     unsichtbar abgeschnitten. Ergebnis: die .cal-grid-wrap-Scrollbox
+     ueberlief nie wirklich sich selbst, sondern nur unsichtbar den
+     Viewport -- Taps auf Stunden-Felder jenseits des sichtbaren
+     Randes gingen dadurch ins Leere. */
   .dash-layout{flex-direction:column;padding-top:var(--nav-height);}
   .dash-content{max-width:100%;}
   .dash-tabbar{display:flex;}
-  .dash-sidebar{
-    width:100%;position:fixed;left:0;right:0;top:auto;bottom:0;height:auto;max-height:75vh;
-    padding:8px 0 12px;border-radius:16px 16px 0 0;z-index:2100;
-    transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -8px 24px rgba(20,30,45,.25);
-  }
-  .dash-sidebar.mobile-open{transform:translateY(0);}
-  .dash-sidebar-header{display:block;}
-  .dash-sidebar-close{display:block;}
-  .dash-nav{flex-direction:column;}
-  .dash-nav-link{border-left:none;border-bottom:none;}
-  .dash-nav-link.active{border-left-color:transparent;background:rgba(255,255,255,.08);}
-  .dash-logout-btn{width:calc(100% - 56px);}
+  .dash-sidebar{display:none;}
   .dash-content{padding:32px 20px calc(76px + env(safe-area-inset-bottom));}
+  /* Popover darf nie hinter der fixen unteren Nav-Leiste enden --
+     sonst sind der untere Teil des Formulars (z.B. "Termin speichern")
+     unsichtbar/nicht antippbar, obwohl das Popover selbst noch
+     scrollbar wirkt. */
+  .cal-event-detail{max-height:calc(100vh - 32px - 76px - env(safe-area-inset-bottom));}
   .msg-admin-layout{flex-direction:column;}
   .msg-partner-list{width:100%;max-height:180px;border-right:none;border-bottom:1px solid var(--color-blue-light);}
   .laundry-week-grid{grid-template-columns:repeat(2,1fr);}
