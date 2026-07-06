@@ -60,7 +60,7 @@
       <div class="dash-card">
         <h2>Rechnungen an mich</h2>
         <input type="text" class="dash-search-input" id="receivedSearch" placeholder="Suchen nach Nr., Von, Kategorie, Status …">
-        <table class="dash-table" id="receivedTable"></table>
+        <div class="dash-table-wrap"><table class="dash-table" id="receivedTable"></table></div>
       </div>
 
       <div class="dash-card" id="issueCard" style="display:none;">
@@ -112,24 +112,24 @@
 
       <div class="dash-card" id="recurringDueCard" style="display:none;">
         <h2>Fällige Daueraufträge</h2>
-        <table class="dash-table" id="recurringDueTable"></table>
+        <div class="dash-table-wrap"><table class="dash-table" id="recurringDueTable"></table></div>
       </div>
 
       <div class="dash-card" id="recurringListCard" style="display:none;">
         <h2>Meine Daueraufträge</h2>
-        <table class="dash-table" id="recurringListTable"></table>
+        <div class="dash-table-wrap"><table class="dash-table" id="recurringListTable"></table></div>
       </div>
 
       <div class="dash-card" id="issuedCard" style="display:none;">
         <h2>Rechnungen von mir</h2>
         <input type="text" class="dash-search-input" id="issuedSearch" placeholder="Suchen nach Nr., An, Kategorie, Status …">
-        <table class="dash-table" id="issuedTable"></table>
+        <div class="dash-table-wrap"><table class="dash-table" id="issuedTable"></table></div>
       </div>
 
       <div class="dash-card" id="allInvoicesCard" style="display:none;">
         <h2>Alle Rechnungen</h2>
         <input type="text" class="dash-search-input" id="allInvoicesSearch" placeholder="Suchen nach Nr., Von, An, Kategorie, Status …">
-        <table class="dash-table" id="allInvoicesTable"></table>
+        <div class="dash-table-wrap"><table class="dash-table" id="allInvoicesTable"></table></div>
       </div>
     </section>
   </div>
@@ -243,13 +243,13 @@
     });
   });
 
-  function renderInvoiceRow(inv, otherPartyLabel){
+  function renderInvoiceRow(inv, otherPartyLabel, partyColLabel){
     return '<tr>' +
-      '<td class="member-number">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
-      '<td>'+VeraDashboard.escapeHtml(otherPartyLabel)+'</td>' +
-      '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[inv.category]||inv.category)+'</td>' +
-      '<td>'+fmtCHF(inv.total)+'</td>' +
-      '<td><span class="status-badge '+STATUS_BADGE_CLASS[inv.status]+'">'+STATUS_TEXT[inv.status]+'</span></td>' +
+      '<td class="member-number" data-label="Nr.">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
+      '<td data-label="'+(partyColLabel||'Von')+'">'+VeraDashboard.escapeHtml(otherPartyLabel)+'</td>' +
+      '<td data-label="Kategorie">'+VeraDashboard.escapeHtml(CATEGORY_TEXT[inv.category]||inv.category)+'</td>' +
+      '<td data-label="Total">'+fmtCHF(inv.total)+'</td>' +
+      '<td data-label="Status"><span class="status-badge '+STATUS_BADGE_CLASS[inv.status]+'">'+STATUS_TEXT[inv.status]+'</span></td>' +
       '<td><a href="/portal/invoice-detail.html?id='+inv.id+'">Ansehen</a></td>' +
     '</tr>';
   }

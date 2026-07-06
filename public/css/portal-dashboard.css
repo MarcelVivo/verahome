@@ -12,9 +12,13 @@
   width:240px;flex-shrink:0;background:var(--color-navy-deep);height:calc(100vh - var(--nav-height));
   padding:32px 0;position:sticky;top:var(--nav-height);overflow-y:auto;
 }
-.dash-sidebar-header{padding:0 28px 24px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:18px;}
+.dash-sidebar-header{padding:0 28px 24px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:18px;position:relative;}
 .dash-sidebar-name{color:var(--color-white);font-family:var(--font-heading);font-size:1.15rem;margin-bottom:10px;}
 .dash-sidebar .status-badge{margin:0;font-size:.72rem;padding:4px 12px;}
+.dash-sidebar-close{
+  display:none;position:absolute;top:0;right:24px;width:32px;height:32px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.8);font-size:.9rem;
+}
 .dash-nav{display:flex;flex-direction:column;}
 .dash-nav-link{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -59,7 +63,33 @@
 .dash-stat.danger{border-color:#F0C6C0;}
 .dash-stat.danger .num{color:#A32E22;}
 
+.dash-table-wrap{overflow-x:auto;}
 .dash-table{width:100%;border-collapse:collapse;}
+
+/* Karten-Ansicht für #receivedTable ("meine offenen Rechnungen") auf
+   Mobile — die einzige Tabelle im Portal, die praktisch jeder Mieter/
+   Eigentümer regelmässig auf dem Handy ansieht. Alle anderen Tabellen
+   (Admin-Back-Office) bleiben bei der scrollbaren Standard-Tabelle
+   (.dash-table-wrap), da deren Nutzung eher Desktop/Tablet-quer ist.
+   Nutzt data-label-Attribute (siehe renderInvoiceRow) statt <th>, die
+   auf dieser Breite ausgeblendet werden. */
+@media (max-width:640px){
+  #receivedTable tr:has(th){display:none;}
+  #receivedTable, #receivedTable tbody, #receivedTable tr{display:block;width:100%;}
+  #receivedTable tr{
+    border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
+    margin-bottom:10px;padding:10px 12px;
+  }
+  #receivedTable tr:has(.dash-empty){border:none;background:none;padding:0;}
+  #receivedTable td{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:6px 0;border-bottom:none;font-size:.85rem;
+  }
+  #receivedTable td[data-label]::before{
+    content:attr(data-label);font-weight:600;color:var(--color-gray-text);font-size:.74rem;
+    text-transform:uppercase;letter-spacing:.03em;
+  }
+}
 .dash-table th{
   text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-gray-text);
   opacity:.6;padding:10px 14px;border-bottom:2px solid var(--color-blue-light);
@@ -162,6 +192,30 @@
 .modal-scroll-body{overflow-y:auto;flex:1;min-height:0;}
 .share-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
 
+/* Modals als Vollbild-Screens auf Mobile — fühlt sich wie ein
+   eigener App-Screen an statt wie ein beengtes Popup. Das
+   .modal-scroll-body-Scrollprinzip (nur der Inhalt scrollt, der
+   Schliessen-Button bleibt fix sichtbar) bleibt unverändert, nur die
+   äusseren Masse ändern sich. */
+@media (max-width:640px){
+  .share-modal-backdrop{padding:0;}
+  .share-modal,.obj-modal{
+    max-width:100%;width:100%;height:100%;max-height:100%;border-radius:0;padding:20px;padding-top:24px;
+  }
+}
+
+/* Fingerfreundlichere Tap-Ziele + iOS-Zoom-Fix: Safari zoomt beim
+   Fokussieren eines Inputs mit Schriftgrösse <16px automatisch hinein
+   — das betrifft nur diese vier Stellen (alle übrigen Formulare sind
+   bereits bei 1rem/16px, siehe .auth-form input,select,textarea). */
+@media (max-width:640px){
+  .dash-btn-sm{min-height:40px;display:inline-flex;align-items:center;}
+  .cal-jump-search input,
+  .admin-quickbar-search input,
+  .obj-send-tab-panel input,.obj-send-tab-panel select,
+  .msg-location-picker select{font-size:16px;}
+}
+
 /* Objekte — Spalten-Ansicht */
 .obj-modal{max-width:720px;}
 .obj-modal-close{
@@ -258,6 +312,14 @@
   padding:2px 8px 0 0;font-size:.7rem;color:var(--color-gray-text);border-bottom:1px solid var(--color-blue-light);
 }
 .cal-day-col{flex:1;min-width:100px;border-right:1px solid var(--color-blue-light);}
+/* Auf schmalen Screens (wo .cal-grid ohnehin horizontal scrollen muss,
+   da min-width:760px) fühlt sich das Scrollen per Snap wie ein
+   Wischen zwischen Tagen an statt wie ein unhandliches breites
+   Raster. */
+@media (max-width:900px){
+  .cal-grid-wrap{scroll-snap-type:x mandatory;}
+  .cal-day-col{scroll-snap-align:start;min-width:78vw;}
+}
 .cal-day-col:last-child{border-right:none;}
 .cal-day-head{
   height:52px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -498,22 +560,52 @@
 .admin-quickbar-tickets svg{width:20px;height:20px;}
 .admin-quickbar-badge{position:absolute;top:-4px;right:-4px;margin:0;}
 
+/* Untere Tab-Leiste + "Mehr"-Bottom-Sheet (App-Gefühl auf Mobile) —
+   #dashSidebar wird bei ≤900px nicht mehr als horizontaler
+   Scroll-Streifen oben angezeigt, sondern per CSS zu einem
+   ausblendbaren Bottom-Sheet umgestylt, das über den "Mehr"-Tab
+   ein-/ausgeblendet wird (siehe renderBottomTabBar in
+   portal-dashboard.js). Die eigentliche Nav-Logik (renderSidebar/
+   renderNavGroup/Badges) bleibt unverändert. */
+.dash-tabbar{
+  display:none;position:fixed;left:0;right:0;bottom:0;z-index:2100;
+  background:var(--color-white);border-top:1px solid var(--color-blue-light);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 12px rgba(20,30,45,.08);
+  align-items:stretch;justify-content:space-between;
+}
+.dash-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 2px;color:var(--color-gray-text);font-size:.68rem;font-weight:600;
+  background:none;border:none;min-height:44px;justify-content:center;
+}
+.dash-tab svg{width:22px;height:22px;}
+.dash-tab.active{color:var(--color-gold);}
+
+#dashSidebarBackdrop{
+  display:none;position:fixed;inset:0;background:rgba(20,30,45,.5);z-index:2000;
+}
+#dashSidebarBackdrop.show{display:block;}
+
 @media (max-width:900px){
   #dashAdminQuickbar{position:static;justify-content:flex-end;padding:10px 20px 0;}
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
-  .dash-layout{flex-direction:column;padding-top:calc(var(--nav-height) + 12px);}
+  .dash-layout{flex-direction:column;padding-top:var(--nav-height);}
+  .dash-tabbar{display:flex;}
   .dash-sidebar{
-    width:100%;position:static;height:auto;padding:14px 0;
-    display:flex;align-items:center;overflow-x:auto;overflow-y:visible;
+    width:100%;position:fixed;left:0;right:0;top:auto;bottom:0;height:auto;max-height:75vh;
+    padding:8px 0 12px;border-radius:16px 16px 0 0;z-index:2100;
+    transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -8px 24px rgba(20,30,45,.25);
   }
-  .dash-sidebar-header{display:none;}
-  .dash-nav{flex-direction:row;}
-  .dash-nav-link{padding:10px 16px;white-space:nowrap;border-left:none;border-bottom:3px solid transparent;}
-  .dash-nav-link.active{border-left-color:transparent;border-bottom-color:var(--color-gold);}
-  .dash-nav-section-label{display:none;}
-  .dash-logout-btn{width:auto;margin:0 16px;padding:8px 18px;flex-shrink:0;}
-  .dash-content{padding:32px 20px;}
+  .dash-sidebar.mobile-open{transform:translateY(0);}
+  .dash-sidebar-header{display:block;}
+  .dash-sidebar-close{display:block;}
+  .dash-nav{flex-direction:column;}
+  .dash-nav-link{border-left:none;border-bottom:none;}
+  .dash-nav-link.active{border-left-color:transparent;background:rgba(255,255,255,.08);}
+  .dash-logout-btn{width:calc(100% - 56px);}
+  .dash-content{padding:32px 20px calc(76px + env(safe-area-inset-bottom));}
   .msg-admin-layout{flex-direction:column;}
   .msg-partner-list{width:100%;max-height:180px;border-right:none;border-bottom:1px solid var(--color-blue-light);}
   .laundry-week-grid{grid-template-columns:repeat(2,1fr);}

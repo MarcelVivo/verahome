@@ -185,6 +185,16 @@ section{position:relative;padding:110px 0;}
   .nav-portal-btn svg{width:16px;height:16px;}
 }
 
+/* Auf Vera-Portal-Seiten (erkennbar an #dashSidebar) übernimmt ab
+   900px die untere Tab-Leiste + das "Mehr"-Sheet die Navigation
+   (siehe portal-dashboard.css/.js) — das Marketing-Menü samt
+   Hamburger wäre dort nur doppelte, verwirrende Navigation und wird
+   ausgeblendet. Übrig bleibt nur das Logo, wie bei einer echten App. */
+@media (max-width:900px){
+  body:has(#dashSidebar) .nav-links,
+  body:has(#dashSidebar) .nav-toggle{display:none;}
+}
+
 /* =============================================================
    3D INTRO SCROLL SEQUENCE
 ============================================================= */

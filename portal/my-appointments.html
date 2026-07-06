@@ -249,13 +249,15 @@
       var dayAppointments = calAppointments.filter(function(a){ return calDateStr(new Date(a.starts_at)) === dateStr; });
       var eventsHtml = dayAppointments.map(renderAppointmentEvent).join('');
 
-      return '<div class="cal-day-col">' + head +
+      return '<div class="cal-day-col' + (isToday ? ' today' : '') + '">' + head +
         '<div class="cal-day-body" style="height:' + (hourCount * CAL_HOUR_HEIGHT) + 'px;">' + slotsHtml + eventsHtml + '</div>' +
       '</div>';
     }).join('');
 
     grid.innerHTML = '<div class="cal-time-col">' + timeColHtml + '</div>' + dayColsHtml;
     attachCalHandlers(grid);
+    var todayCol = grid.querySelector('.cal-day-col.today');
+    if(todayCol) todayCol.scrollIntoView({ inline: 'start', block: 'nearest' });
   }
 
   var calPopover = document.getElementById('calDetailPopover');

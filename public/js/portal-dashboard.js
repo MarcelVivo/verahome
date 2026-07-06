@@ -277,6 +277,70 @@ window.VeraDashboard = (function () {
     '<path d="M13 6v12" stroke-dasharray="2 2"/>' +
     "</svg>";
 
+  /* Icon-Set nur für die untere Tab-Leiste auf Mobile (siehe
+     renderBottomTabBar) — deckt exakt die Keys ab, die in
+     NAV_GROUPS[0] vorkommen können, plus "mehr" für den Sheet-Toggle.
+     Gleicher Stroke-Stil wie TICKETS_ICON_SVG, damit es zusammenpasst. */
+  var TABBAR_ICON_SVG = {
+    dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    termine: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    "my-appointments": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/></svg>',
+    messages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>',
+    mehr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>'
+  };
+
+  /* Untere Tab-Leiste (nur sichtbar ≤900px, siehe portal-dashboard.css)
+     — zeigt exakt die Items aus NAV_GROUPS[0] ("tägliches Geschäft"),
+     rollen-gefiltert wie renderNavGroup, plus einen "Mehr"-Tab. Da pro
+     Rolle max. eines von termine/my-appointments/calendar sichtbar ist,
+     sind es für jede Rolle höchstens 4 Items + Mehr — passt immer in
+     eine Tab-Leiste, ohne Kürzen. "Mehr" öffnet die bestehende
+     #dashSidebar (bei ≤900px per CSS zum Bottom-Sheet umgestylt) statt
+     eine zweite Nav-Darstellung zu pflegen. */
+  function renderBottomTabBar(activeKey, profile) {
+    var existing = document.getElementById("dashTabbar");
+    if (existing) existing.remove();
+
+    var items = NAV_GROUPS[0].items.filter(function (item) {
+      return !item.roles || item.roles.indexOf(profile.category) > -1;
+    });
+
+    var bar = document.createElement("nav");
+    bar.id = "dashTabbar";
+    bar.className = "dash-tabbar";
+    bar.setAttribute("aria-label", "Hauptnavigation");
+    bar.innerHTML = items.map(function (item) {
+      return '<a class="dash-tab' + (item.key === activeKey ? " active" : "") + '" href="' + item.href + '">' +
+        (TABBAR_ICON_SVG[item.key] || "") +
+        '<span>' + escapeHtml(item.label) + "</span>" +
+      "</a>";
+    }).join("") +
+      '<button type="button" class="dash-tab" id="dashTabMore">' + TABBAR_ICON_SVG.mehr + "<span>Mehr</span></button>";
+
+    document.body.appendChild(bar);
+
+    var backdrop = document.getElementById("dashSidebarBackdrop");
+    if (!backdrop) {
+      backdrop = document.createElement("div");
+      backdrop.id = "dashSidebarBackdrop";
+      document.body.appendChild(backdrop);
+    }
+
+    function closeSheet() {
+      document.getElementById("dashSidebar").classList.remove("mobile-open");
+      backdrop.classList.remove("show");
+    }
+    function toggleSheet() {
+      document.getElementById("dashSidebar").classList.toggle("mobile-open");
+      backdrop.classList.toggle("show");
+    }
+
+    document.getElementById("dashTabMore").addEventListener("click", toggleSheet);
+    backdrop.addEventListener("click", closeSheet);
+  }
+
   function renderAdminQuickbar(profile) {
     if (profile.category !== "admin") return;
     if (document.getElementById("dashAdminQuickbar")) return;
@@ -329,6 +393,7 @@ window.VeraDashboard = (function () {
       '<div class="dash-sidebar-header">' +
       '<p class="dash-sidebar-name">' + escapeHtml(profile.first_name) + "</p>" +
       '<span class="status-badge ' + profile.status + '">' + escapeHtml(categoryLabel(profile.category)) + "</span>" +
+      '<button type="button" class="dash-sidebar-close" id="dashSidebarClose" aria-label="Schliessen">✕</button>' +
       "</div>" +
       '<nav class="dash-nav">' + linksHtml + "</nav>" +
       '<button type="button" class="dash-logout-btn" id="dashLogoutBtn">Ausloggen</button>';
@@ -338,9 +403,15 @@ window.VeraDashboard = (function () {
         window.location.href = "/portal/login.html";
       });
     });
+    document.getElementById("dashSidebarClose").addEventListener("click", function () {
+      el.classList.remove("mobile-open");
+      var backdrop = document.getElementById("dashSidebarBackdrop");
+      if (backdrop) backdrop.classList.remove("show");
+    });
 
     refreshBadges(activeKey);
     renderAdminQuickbar(profile);
+    renderBottomTabBar(activeKey, profile);
   }
 
   /* Call once at the top of every SHARED dashboard page's inline script

@@ -213,7 +213,7 @@
       return;
     }
 
-    panel.innerHTML = '<table class="dash-table"><tr><th>Mieter</th><th>Einheit</th><th>Anteil %</th><th>oder Betrag CHF</th><th>Akonto CHF</th><th>Vorschau</th></tr>' +
+    panel.innerHTML = '<div class="dash-table-wrap"><table class="dash-table"><tr><th>Mieter</th><th>Einheit</th><th>Anteil %</th><th>oder Betrag CHF</th><th>Akonto CHF</th><th>Vorschau</th></tr>' +
       tenancies.map(function(t){
         var share = sharesByTenancy[t.id] || {};
         return '<tr data-tenancy="'+t.id+'">' +
@@ -224,7 +224,7 @@
           '<td><input type="number" step="0.01" class="advance-paid" value="'+(share.advance_paid||0)+'" style="max-width:100px;"></td>' +
           '<td class="share-preview">–</td>' +
         '</tr>';
-      }).join('') + '</table>' +
+      }).join('') + '</table></div>' +
       '<div class="dash-btn-row" style="margin-top:12px;">' +
         '<button type="button" class="dash-btn-sm" id="saveShares-'+stmt.id+'">Zeilen speichern</button>' +
         (stmt.status === 'entwurf' ? '<button type="button" class="dash-btn-sm" id="publish-'+stmt.id+'">Veröffentlichen</button>' : '<span class="doc-meta">Bereits veröffentlicht</span>') +
