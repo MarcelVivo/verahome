@@ -116,18 +116,19 @@
 
 .filemgr-folder-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
 .filemgr-folder-tile{
-  width:180px;padding:14px 12px;border:1px solid var(--color-blue-light);border-radius:var(--radius);
+  width:200px;padding:14px 10px;border:1px solid var(--color-blue-light);border-radius:var(--radius);
   background:var(--color-white);box-shadow:var(--shadow-card);cursor:pointer;text-align:center;
-  transition:border-color .2s,background .2s;
+  transition:border-color .2s,background .2s;overflow:hidden;
 }
 .filemgr-folder-tile:hover{border-color:var(--color-gold);}
 .filemgr-folder-tile.drag-over{background:rgba(201,168,76,.18);border-color:var(--color-gold);}
 .filemgr-folder-icon{font-size:1.8rem;display:block;margin-bottom:6px;}
 .filemgr-folder-name{font-size:.85rem;color:var(--color-navy);font-weight:600;display:block;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.filemgr-folder-actions{display:flex;justify-content:center;gap:4px;margin-top:8px;}
+.filemgr-folder-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:8px;}
 .filemgr-folder-actions button{font-size:.65rem;padding:3px 7px;border:1px solid var(--color-blue-light);
-  border-radius:20px;background:none;color:var(--color-gray-text);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  border-radius:20px;background:none;color:var(--color-gray-text);cursor:pointer;white-space:nowrap;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;}
 .filemgr-folder-actions button:hover{border-color:var(--color-gold);color:var(--color-gold);}
 
 .filemgr-file-list{display:flex;flex-direction:column;gap:8px;}
