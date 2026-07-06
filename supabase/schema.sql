@@ -4070,3 +4070,56 @@ begin
   end loop;
 end;
 $$;
+
+-- =====================================================================
+-- NACHRICHTEN-ANHÄNGE: Datei, Sprachnachricht, Standort (GPS oder
+-- Objekt-Adresse), Dokument/Ordner aus dem Ordner-Ablagesystem.
+-- Bewusst EINE Spaltenerweiterung auf "messages" statt einer neuen
+-- Tabelle -- jede Nachricht traegt hoechstens einen Anhang (Text ODER
+-- genau eine Anhang-Aktion pro Sendevorgang). Anhang-Metadaten werden
+-- beim Senden denormalisiert (Label/Pfad direkt auf die Zeile
+-- geschrieben), damit beim Rendern keine RLS-blockierten Joins nötig
+-- sind -- ein Empfänger hat z.B. kein direktes SELECT auf
+-- document_files/document_folders, sieht die Nachricht aber trotzdem
+-- korrekt beschriftet.
+-- =====================================================================
+alter table public.messages alter column body drop not null;
+alter table public.messages add column if not exists attachment_type text
+  check (attachment_type in ('file','voice','location_gps','location_property','document_file','document_folder'));
+alter table public.messages add column if not exists attachment_path text;
+alter table public.messages add column if not exists attachment_mime_type text;
+alter table public.messages add column if not exists attachment_size_bytes bigint;
+alter table public.messages add column if not exists attachment_duration_seconds int;
+alter table public.messages add column if not exists attachment_lat double precision;
+alter table public.messages add column if not exists attachment_lng double precision;
+alter table public.messages add column if not exists attachment_label text;
+alter table public.messages add column if not exists attachment_document_file_id uuid references public.document_files(id) on delete set null;
+alter table public.messages add column if not exists attachment_document_folder_id uuid references public.document_folders(id) on delete set null;
+
+-- Anders als bei allen bisherigen Buckets duerfen hier NICHT nur
+-- Admins schreiben -- ein Chat ohne beidseitige Anhänge waere sinnlos
+-- (z.B. Mieter schickt Foto eines Schadens). Insert-Policy nutzt das
+-- Praefix-Muster von storage_issue_report_photos_*/
+-- storage_hauswart_report_photos_* (eigenes {profile_id}/...-Praefix),
+-- Select-Policy das Join-back-Muster von storage_documents_select
+-- (ueber attachment_path zurueck auf messages, sichtbar fuer
+-- Sender/Empfaenger/Admin).
+insert into storage.buckets (id, name, public)
+values ('message-attachments', 'message-attachments', false)
+on conflict (id) do nothing;
+
+create policy storage_message_attachments_insert on storage.objects
+  for insert with check (
+    bucket_id = 'message-attachments'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and public.is_approved()
+  );
+create policy storage_message_attachments_select on storage.objects
+  for select using (
+    bucket_id = 'message-attachments'
+    and exists (
+      select 1 from public.messages m
+      where m.attachment_path = storage.objects.name
+        and (m.sender_profile_id = auth.uid() or m.recipient_profile_id = auth.uid() or public.is_admin())
+    )
+  );

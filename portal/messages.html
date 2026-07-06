@@ -60,8 +60,15 @@
       <!-- Nutzer-Ansicht: ein Thread mit Julia -->
       <div id="msgUserView" style="display:none;">
         <div class="msg-thread" id="msgThread"></div>
+        <div class="msg-attach-preview" id="msgAttachPreview"></div>
         <form class="msg-compose" id="msgSendForm">
-          <textarea id="msgBody" required placeholder="Nachricht schreiben …"></textarea>
+          <div class="msg-attach-toolbar">
+            <button type="button" class="msg-attach-btn" data-action="file" title="Datei senden">📎</button>
+            <button type="button" class="msg-attach-btn" data-action="voice" title="Sprachnachricht">🎤</button>
+            <button type="button" class="msg-attach-btn" data-action="location" title="Standort senden">📍</button>
+            <input type="file" class="msg-file-input" id="msgFileInput" hidden>
+          </div>
+          <textarea id="msgBody" placeholder="Nachricht schreiben …"></textarea>
           <button type="submit" class="btn btn-primary">Senden</button>
         </form>
       </div>
@@ -74,8 +81,16 @@
         </aside>
         <div class="msg-thread-pane">
           <div class="msg-thread" id="msgThreadAdmin"><p class="msg-empty">Wählen Sie links einen Nutzer aus.</p></div>
+          <div class="msg-attach-preview" id="msgAttachPreviewAdmin"></div>
           <form class="msg-compose" id="msgSendFormAdmin" style="display:none;">
-            <textarea id="msgBodyAdmin" required placeholder="Nachricht schreiben …"></textarea>
+            <div class="msg-attach-toolbar">
+              <button type="button" class="msg-attach-btn" data-action="file" title="Datei senden">📎</button>
+              <button type="button" class="msg-attach-btn" data-action="voice" title="Sprachnachricht">🎤</button>
+              <button type="button" class="msg-attach-btn" data-action="location" title="Standort senden">📍</button>
+              <button type="button" class="msg-attach-btn" data-action="document" title="Dokument teilen">📄</button>
+              <input type="file" class="msg-file-input" id="msgFileInputAdmin" hidden>
+            </div>
+            <textarea id="msgBodyAdmin" placeholder="Nachricht schreiben …"></textarea>
             <button type="submit" class="btn btn-primary">Senden</button>
           </form>
         </div>
@@ -132,6 +147,69 @@
     }
   });
 
+  function msgFmtSize(bytes){
+    if(!bytes) return '';
+    if(bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function attachmentHtml(m){
+    if(!m.attachment_type) return '';
+    if(m.attachment_type === 'file'){
+      return '<div class="msg-attachment msg-attachment-file">' +
+        '<span class="msg-attachment-icon">📎</span>' +
+        '<span class="msg-attachment-label">'+VeraDashboard.escapeHtml(m.attachment_label||'Datei')+'</span>' +
+        (m.attachment_size_bytes ? '<span class="msg-attachment-meta">'+msgFmtSize(m.attachment_size_bytes)+'</span>' : '') +
+        '<a href="#" class="dash-btn-sm msg-open-link" data-bucket="message-attachments" data-path="'+m.attachment_path+'">Öffnen</a>' +
+      '</div>';
+    }
+    if(m.attachment_type === 'voice'){
+      return '<div class="msg-attachment msg-attachment-voice">' +
+        '<span class="msg-attachment-icon">🎤</span>' +
+        '<audio controls class="msg-voice-audio" data-bucket="message-attachments" data-path="'+m.attachment_path+'"></audio>' +
+        (m.attachment_duration_seconds ? '<span class="msg-attachment-meta">'+m.attachment_duration_seconds+'s</span>' : '') +
+      '</div>';
+    }
+    if(m.attachment_type === 'location_gps' || m.attachment_type === 'location_property'){
+      var mapsHref = m.attachment_type === 'location_gps'
+        ? 'https://www.google.com/maps?q='+m.attachment_lat+','+m.attachment_lng
+        : 'https://www.google.com/maps?q='+encodeURIComponent(m.attachment_label||'');
+      return '<div class="msg-attachment msg-attachment-location">' +
+        '<span class="msg-attachment-icon">📍</span>' +
+        '<span class="msg-attachment-label">'+VeraDashboard.escapeHtml(m.attachment_label||'Standort')+'</span>' +
+        '<a href="'+mapsHref+'" target="_blank" rel="noopener" class="dash-btn-sm">Auf Karte öffnen</a>' +
+      '</div>';
+    }
+    if(m.attachment_type === 'document_file' || m.attachment_type === 'document_folder'){
+      var icon = m.attachment_type === 'document_file' ? '📄' : '📁';
+      var openBtn = (m.attachment_type === 'document_file' && m.attachment_path)
+        ? '<a href="#" class="dash-btn-sm msg-open-link" data-bucket="document-vault" data-path="'+m.attachment_path+'">Öffnen</a>'
+        : '';
+      return '<div class="msg-attachment msg-attachment-document">' +
+        '<span class="msg-attachment-icon">'+icon+'</span>' +
+        '<span class="msg-attachment-label">'+VeraDashboard.escapeHtml(m.attachment_label||'Dokument')+' (geteilt)</span>' +
+        openBtn +
+        '<a href="/portal/documents.html" class="dash-btn-sm">Im Dokumente-Tool ansehen</a>' +
+      '</div>';
+    }
+    return '';
+  }
+
+  function wireMsgOpenLinks(container){
+    container.querySelectorAll('.msg-open-link').forEach(function(a){
+      a.addEventListener('click', async function(e){
+        e.preventDefault();
+        var res = await client.storage.from(a.getAttribute('data-bucket')).createSignedUrl(a.getAttribute('data-path'), 60);
+        if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+      });
+    });
+    container.querySelectorAll('.msg-voice-audio').forEach(function(audio){
+      client.storage.from(audio.getAttribute('data-bucket')).createSignedUrl(audio.getAttribute('data-path'), 3600).then(function(res){
+        if(!res.error && res.data) audio.src = res.data.signedUrl;
+      });
+    });
+  }
+
   function renderThread(container, msgs, myId){
     if(!msgs.length){
       container.innerHTML = '<p class="msg-empty">Noch keine Nachrichten.</p>';
@@ -139,11 +217,251 @@
     }
     container.innerHTML = msgs.map(function(m){
       var mine = m.sender_profile_id === myId;
+      var bodyHtml = m.body ? '<p>'+VeraDashboard.escapeHtml(m.body)+'</p>' : '';
       return '<div class="msg-bubble '+(mine?'mine':'theirs')+'">' +
-        '<p>'+VeraDashboard.escapeHtml(m.body)+'</p>' +
+        bodyHtml + attachmentHtml(m) +
         '<span class="msg-time">'+VeraDashboard.formatDateTime(m.created_at)+'</span></div>';
     }).join('');
     container.scrollTop = container.scrollHeight;
+    wireMsgOpenLinks(container);
+  }
+
+  /* ============================================================
+     ANHANG-TOOLBAR (Datei/Sprachnachricht/Standort/Dokument) — eine
+     gemeinsame Implementierung für beide Compose-Formulare (Nutzer-
+     und Admin-Ansicht), parametrisiert über cfg.getRecipientId()/
+     cfg.reload(), da sich nur die Ziel-IDs/Reload-Funktion je Ansicht
+     unterscheiden.
+  ============================================================ */
+  function wireComposeAttachments(cfg){
+    var toolbar = document.querySelector(cfg.toolbarSel);
+    var fileInput = document.querySelector(cfg.fileInputSel);
+    var previewEl = document.querySelector(cfg.previewSel);
+    var textarea = document.querySelector(cfg.textareaSel);
+    var mediaRecorder = null, recordedChunks = [], recordStartTime = null, recordTimerId = null;
+
+    toolbar.querySelectorAll('.msg-attach-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var action = btn.getAttribute('data-action');
+        if(action === 'file') fileInput.click();
+        else if(action === 'voice') toggleVoiceRecording();
+        else if(action === 'location') showLocationPicker();
+        else if(action === 'document') showDocumentPicker();
+      });
+    });
+
+    fileInput.addEventListener('change', function(){
+      var file = fileInput.files[0];
+      fileInput.value = '';
+      if(file) sendFileAttachment(file);
+    });
+
+    async function sendFileAttachment(file){
+      var recipientId = cfg.getRecipientId();
+      if(!recipientId) return;
+      var caption = textarea.value.trim();
+      var attachId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var path = profile.id + '/' + attachId + '-' + safeName;
+      var upRes = await client.storage.from('message-attachments').upload(path, file);
+      if(upRes.error){ window.alert('Fehler beim Hochladen: ' + upRes.error.message); return; }
+      await client.from('messages').insert({
+        sender_profile_id: profile.id, recipient_profile_id: recipientId,
+        body: caption || null, attachment_type: 'file', attachment_path: path,
+        attachment_label: file.name, attachment_mime_type: file.type || null, attachment_size_bytes: file.size
+      });
+      textarea.value = '';
+      cfg.reload();
+    }
+
+    function toggleVoiceRecording(){
+      if(mediaRecorder && mediaRecorder.state === 'recording'){
+        mediaRecorder.stop();
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+        recordedChunks = [];
+        var mimeType = (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm'))
+          ? 'audio/webm'
+          : (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+        recordStartTime = Date.now();
+        renderRecordingState();
+        recordTimerId = setInterval(renderRecordingState, 1000);
+        mediaRecorder.addEventListener('dataavailable', function(e){ if(e.data.size) recordedChunks.push(e.data); });
+        mediaRecorder.addEventListener('stop', function(){
+          stream.getTracks().forEach(function(t){ t.stop(); });
+          clearInterval(recordTimerId);
+          var durationSec = Math.round((Date.now() - recordStartTime) / 1000);
+          var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+          renderVoicePreview(blob, durationSec);
+        });
+        mediaRecorder.start();
+      }).catch(function(err){
+        window.alert('Mikrofon-Zugriff nicht möglich: ' + err.message);
+      });
+    }
+
+    function renderRecordingState(){
+      var elapsed = Math.round((Date.now() - recordStartTime) / 1000);
+      previewEl.innerHTML = '<div class="msg-recording-indicator">🔴 Aufnahme läuft … ' + elapsed + 's ' +
+        '<button type="button" class="dash-btn-sm msg-stop-record-btn">Stopp</button></div>';
+      previewEl.querySelector('.msg-stop-record-btn').addEventListener('click', function(){ mediaRecorder.stop(); });
+    }
+
+    function renderVoicePreview(blob, durationSec){
+      var url = URL.createObjectURL(blob);
+      previewEl.innerHTML = '<div class="msg-voice-preview">' +
+        '<audio controls src="'+url+'"></audio>' +
+        '<span class="doc-meta">'+durationSec+'s</span>' +
+        '<button type="button" class="dash-btn-sm msg-send-voice-btn">Senden</button>' +
+        '<button type="button" class="dash-btn-sm danger msg-discard-voice-btn">Verwerfen</button>' +
+      '</div>';
+      previewEl.querySelector('.msg-send-voice-btn').addEventListener('click', function(){ sendVoiceAttachment(blob, durationSec); });
+      previewEl.querySelector('.msg-discard-voice-btn').addEventListener('click', function(){ previewEl.innerHTML = ''; });
+    }
+
+    async function sendVoiceAttachment(blob, durationSec){
+      var recipientId = cfg.getRecipientId();
+      if(!recipientId) return;
+      var attachId = crypto.randomUUID();
+      var ext = blob.type.indexOf('mp4') > -1 ? 'm4a' : 'webm';
+      var path = profile.id + '/' + attachId + '-voice.' + ext;
+      var upRes = await client.storage.from('message-attachments').upload(path, blob, { contentType: blob.type });
+      if(upRes.error){ window.alert('Fehler beim Hochladen: ' + upRes.error.message); return; }
+      await client.from('messages').insert({
+        sender_profile_id: profile.id, recipient_profile_id: recipientId,
+        attachment_type: 'voice', attachment_path: path, attachment_label: 'Sprachnachricht',
+        attachment_mime_type: blob.type, attachment_size_bytes: blob.size, attachment_duration_seconds: durationSec
+      });
+      previewEl.innerHTML = '';
+      cfg.reload();
+    }
+
+    function showLocationPicker(){
+      previewEl.innerHTML = '<div class="msg-location-picker">' +
+        '<button type="button" class="dash-btn-sm msg-loc-gps-btn">📍 Mein Standort</button>' +
+        '<select class="msg-loc-property-select"><option value="">Objekt wählen …</option></select>' +
+        '<button type="button" class="dash-btn-sm msg-loc-cancel-btn">Abbrechen</button>' +
+      '</div>';
+      var select = previewEl.querySelector('.msg-loc-property-select');
+      client.from('properties').select('id, label, street, zip, city').order('label').then(function(res){
+        (res.data || []).forEach(function(p){
+          var opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.label;
+          opt.setAttribute('data-address', [p.street, [p.zip,p.city].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+          select.appendChild(opt);
+        });
+      });
+      select.addEventListener('change', function(){
+        if(!select.value) return;
+        var opt = select.selectedOptions[0];
+        var address = opt.getAttribute('data-address');
+        var label = opt.textContent + (address ? (' – ' + address) : '');
+        sendLocationAttachment('location_property', null, null, label);
+      });
+      previewEl.querySelector('.msg-loc-gps-btn').addEventListener('click', function(){
+        if(!navigator.geolocation){ window.alert('Standortfreigabe wird von diesem Browser nicht unterstützt.'); return; }
+        navigator.geolocation.getCurrentPosition(function(pos){
+          sendLocationAttachment('location_gps', pos.coords.latitude, pos.coords.longitude, 'Mein Standort');
+        }, function(err){
+          window.alert('Standort konnte nicht ermittelt werden: ' + err.message);
+        });
+      });
+      previewEl.querySelector('.msg-loc-cancel-btn').addEventListener('click', function(){ previewEl.innerHTML = ''; });
+    }
+
+    async function sendLocationAttachment(type, lat, lng, label){
+      var recipientId = cfg.getRecipientId();
+      if(!recipientId) return;
+      await client.from('messages').insert({
+        sender_profile_id: profile.id, recipient_profile_id: recipientId,
+        attachment_type: type, attachment_lat: lat, attachment_lng: lng, attachment_label: label
+      });
+      previewEl.innerHTML = '';
+      cfg.reload();
+    }
+
+    function showDocumentPicker(){
+      previewEl.innerHTML = '<div class="msg-doc-picker">' +
+        '<input type="text" class="msg-doc-search" placeholder="Dokument oder Ordner suchen …">' +
+        '<div class="msg-doc-results"></div>' +
+        '<button type="button" class="dash-btn-sm msg-doc-cancel-btn">Abbrechen</button>' +
+      '</div>';
+      var searchInput = previewEl.querySelector('.msg-doc-search');
+      var resultsEl = previewEl.querySelector('.msg-doc-results');
+      var debounceId = null;
+      searchInput.addEventListener('input', function(){
+        var q = searchInput.value.trim();
+        if(debounceId) clearTimeout(debounceId);
+        if(q.length < 2){ resultsEl.innerHTML = ''; return; }
+        debounceId = setTimeout(async function(){
+          var pattern = '%' + q.replace(/[%,]/g,'') + '%';
+          var filesRes = await client.from('document_files').select('id, title, file_path, mime_type, size_bytes').ilike('title', pattern).limit(6);
+          var foldersRes = await client.from('document_folders').select('id, name').ilike('name', pattern).limit(6);
+          var html = '';
+          (filesRes.data || []).forEach(function(f){
+            html += '<button type="button" class="msg-doc-result-item" data-type="file" data-id="'+f.id+'" data-label="'+VeraDashboard.escapeHtml(f.title)+'" data-path="'+f.file_path+'">📄 '+VeraDashboard.escapeHtml(f.title)+'</button>';
+          });
+          (foldersRes.data || []).forEach(function(fo){
+            html += '<button type="button" class="msg-doc-result-item" data-type="folder" data-id="'+fo.id+'" data-label="'+VeraDashboard.escapeHtml(fo.name)+'">📁 '+VeraDashboard.escapeHtml(fo.name)+'</button>';
+          });
+          resultsEl.innerHTML = html || '<p class="cal-jump-no-results">Keine Treffer.</p>';
+          resultsEl.querySelectorAll('.msg-doc-result-item').forEach(function(btn){
+            btn.addEventListener('click', function(){ shareDocumentViaChat(btn); });
+          });
+        }, 300);
+      });
+      previewEl.querySelector('.msg-doc-cancel-btn').addEventListener('click', function(){ previewEl.innerHTML = ''; });
+    }
+
+    async function collectDocumentFilesRecursive(folderId){
+      var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId);
+      var files = filesRes.data || [];
+      var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+      var subFolders = subRes.data || [];
+      for(var i = 0; i < subFolders.length; i++){
+        var nested = await collectDocumentFilesRecursive(subFolders[i].id);
+        files = files.concat(nested);
+      }
+      return files;
+    }
+
+    async function shareDocumentViaChat(btn){
+      var recipientId = cfg.getRecipientId();
+      if(!recipientId) return;
+      var type = btn.getAttribute('data-type');
+      var id = btn.getAttribute('data-id');
+      var label = btn.getAttribute('data-label');
+      previewEl.innerHTML = '<p class="cal-jump-no-results">Wird geteilt …</p>';
+
+      var fileIds;
+      var payload = { sender_profile_id: profile.id, recipient_profile_id: recipientId, attachment_label: label };
+      if(type === 'file'){
+        fileIds = [id];
+        payload.attachment_type = 'document_file';
+        payload.attachment_document_file_id = id;
+        payload.attachment_path = btn.getAttribute('data-path');
+      } else {
+        var files = await collectDocumentFilesRecursive(id);
+        fileIds = files.map(function(f){ return f.id; });
+        payload.attachment_type = 'document_folder';
+        payload.attachment_document_folder_id = id;
+      }
+      if(!fileIds.length){
+        previewEl.innerHTML = '<p class="cal-jump-no-results">Keine Dateien zum Teilen vorhanden.</p>';
+        return;
+      }
+      var rows = fileIds.map(function(fid){ return { file_id: fid, profile_id: recipientId, created_by: profile.id }; });
+      await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      try { await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: [recipientId] } }); }
+      catch(err) { /* Freigabe steht, Mail-Fehler blockiert nichts */ }
+
+      await client.from('messages').insert(payload);
+      previewEl.innerHTML = '';
+      cfg.reload();
+    }
   }
 
   async function initUserMessages(){
@@ -181,6 +499,15 @@
       await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: adminId, body: body });
       bodyEl.value = '';
       loadThread();
+    });
+
+    wireComposeAttachments({
+      toolbarSel: '#msgSendForm .msg-attach-toolbar',
+      fileInputSel: '#msgFileInput',
+      previewSel: '#msgAttachPreview',
+      textareaSel: '#msgBody',
+      getRecipientId: function(){ return adminId; },
+      reload: loadThread
     });
 
     loadThread();
@@ -252,6 +579,15 @@
       await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: currentPartnerId, body: body });
       bodyEl.value = '';
       loadAdminThread();
+    });
+
+    wireComposeAttachments({
+      toolbarSel: '#msgSendFormAdmin .msg-attach-toolbar',
+      fileInputSel: '#msgFileInputAdmin',
+      previewSel: '#msgAttachPreviewAdmin',
+      textareaSel: '#msgBodyAdmin',
+      getRecipientId: function(){ return currentPartnerId; },
+      reload: loadAdminThread
     });
 
     loadPartners();
