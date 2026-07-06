@@ -4170,6 +4170,7 @@ alter table public.properties add constraint properties_laundry_machine_count_ch
 -- des 07-13/13-19 Rasters die Migration nicht blockiert. Neue/geaenderte
 -- Zeilen muessen sich daran halten; Admin-UI bietet ohnehin nur noch
 -- Vormittag/Nachmittag als Auswahl an.
+alter table public.laundry_schedule_slots drop constraint if exists laundry_schedule_slots_period_check;
 alter table public.laundry_schedule_slots add constraint laundry_schedule_slots_period_check
   check (
     (start_time = '07:00' and end_time = '13:00')
@@ -4219,7 +4220,7 @@ create trigger trg_laundry_schedule_slots_capacity
 -- dass der Admin fix zuweist. Eigene Tabelle statt Wiederverwendung von
 -- laundry_schedule_slots, weil die Semantik grundverschieden ist (ein
 -- konkretes Datum statt ein wiederkehrender Wochentag).
-create table public.laundry_bookings (
+create table if not exists public.laundry_bookings (
   id                uuid primary key default gen_random_uuid(),
   property_id       uuid not null references public.properties(id) on delete cascade,
   unit_id           uuid references public.units(id),
@@ -4236,6 +4237,9 @@ alter table public.laundry_bookings force row level security;
 -- SELECT mirrort laundry_schedule_slots_select 1:1 -- alle Mieter des
 -- Objekts sehen den vollen Kalender (wie bisher schon fremde Whg.-Labels
 -- im fixen Modus sichtbar sind), Waschplan-Koordinatoren/Admin ebenso.
+-- drop+create statt "if not exists" (das kennt CREATE POLICY nicht),
+-- damit dieser Block gefahrlos mehrfach ausgefuehrt werden kann.
+drop policy if exists laundry_bookings_select on public.laundry_bookings;
 create policy laundry_bookings_select on public.laundry_bookings
   for select using (
     public.is_admin()
@@ -4247,12 +4251,14 @@ create policy laundry_bookings_select on public.laundry_bookings
         and t.tenant_profile_id = auth.uid() and public.is_approved()
     )
   );
+drop policy if exists laundry_bookings_admin_all on public.laundry_bookings;
 create policy laundry_bookings_admin_all on public.laundry_bookings
   for all using (public.is_admin()) with check (public.is_admin());
 -- Absagen laeuft direkt (kein RPC noetig, keine Kapazitaetspruefung
 -- beim Loeschen); das Eintragen selbst NUR ueber create_laundry_booking()
 -- unten (security definer, bypasst RLS), damit die Kapazitaetspruefung
 -- atomar bleibt -- deshalb bewusst keine Insert-Policy fuer Mieter hier.
+drop policy if exists laundry_bookings_self_delete on public.laundry_bookings;
 create policy laundry_bookings_self_delete on public.laundry_bookings
   for delete using (tenant_profile_id = auth.uid());
 
