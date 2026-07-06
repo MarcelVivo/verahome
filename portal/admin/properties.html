@@ -68,7 +68,7 @@
 <div class="share-modal-backdrop" id="propertyModalBackdrop" hidden>
   <div class="share-modal obj-modal">
     <button type="button" class="obj-modal-close" id="propertyModalClose" aria-label="Schliessen">✕</button>
-    <div id="propertyModalBody"></div>
+    <div id="propertyModalBody" class="modal-scroll-body"></div>
   </div>
 </div>
 
@@ -76,7 +76,7 @@
 <div class="share-modal-backdrop" id="unitModalBackdrop" hidden>
   <div class="share-modal obj-modal">
     <button type="button" class="obj-modal-close" id="unitModalClose" aria-label="Schliessen">✕</button>
-    <div id="unitModalBody"></div>
+    <div id="unitModalBody" class="modal-scroll-body"></div>
   </div>
 </div>
 
@@ -85,7 +85,7 @@
   <div class="share-modal">
     <button type="button" class="obj-modal-close" id="newPropertyModalClose" aria-label="Schliessen">✕</button>
     <h3>Neues Objekt</h3>
-    <form class="auth-form" id="newPropertyForm">
+    <form class="auth-form modal-scroll-body" id="newPropertyForm">
       <input id="p_label" placeholder="Bezeichnung (z.B. Hauptstrasse 39, Frick) *" required>
       <div class="auth-form-row">
         <div><input id="p_street" placeholder="Strasse, Nr."></div>
@@ -110,7 +110,7 @@
   <div class="share-modal">
     <button type="button" class="obj-modal-close" id="newUnitModalClose" aria-label="Schliessen">✕</button>
     <h3>Neue Einheit</h3>
-    <form class="auth-form" id="newUnitForm">
+    <form class="auth-form modal-scroll-body" id="newUnitForm">
       <select id="u_property" required><option value="" disabled selected>Objekt wählen *</option></select>
       <select id="u_type"></select>
       <input id="u_label" placeholder="Einheit (z.B. 3.5-Zimmer-Wohnung EG links) *" required>
