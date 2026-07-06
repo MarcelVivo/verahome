@@ -4009,3 +4009,64 @@ begin
 end;
 $$;
 
+
+-- Bestaetigungspflicht gehoert an die FREIGABE (document_shares), nicht
+-- an die Datei (document_files) -- beim Hochladen weiss man ja noch
+-- nicht, wer die Datei bekommt oder ob bei diesem Empfaenger ueberhaupt
+-- eine Bestaetigung noetig ist. document_files.needs_confirmation
+-- bleibt unbenutzt stehen (kein Datenverlust, einfach nicht mehr
+-- gelesen/geschrieben) statt es destruktiv zu entfernen.
+alter table public.document_shares add column if not exists needs_confirmation boolean not null default false;
+
+create or replace function public.get_my_shared_documents()
+returns table(
+  share_id uuid, file_id uuid, title text, file_path text, mime_type text,
+  size_bytes bigint, needs_confirmation boolean, confirmed_at timestamptz,
+  folder_path text, shared_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  r record;
+  v_folder_id uuid;
+  v_path text;
+  v_name text;
+begin
+  if me is null then
+    return;
+  end if;
+
+  for r in
+    select ds.id as s_id, df.id as f_id, df.title as f_title, df.file_path as f_path,
+           df.mime_type as f_mime, df.size_bytes as f_size, ds.needs_confirmation as s_needs_confirmation,
+           ds.confirmed_at as s_confirmed_at, df.folder_id as f_folder_id, ds.created_at as s_created_at
+    from public.document_shares ds
+    join public.document_files df on df.id = ds.file_id
+    where ds.profile_id = me
+    order by ds.created_at desc
+  loop
+    v_path := null;
+    v_folder_id := r.f_folder_id;
+    while v_folder_id is not null loop
+      select name, parent_id into v_name, v_folder_id from public.document_folders where id = v_folder_id;
+      v_path := case when v_path is null then v_name else v_name || ' / ' || v_path end;
+    end loop;
+
+    share_id := r.s_id;
+    file_id := r.f_id;
+    title := r.f_title;
+    file_path := r.f_path;
+    mime_type := r.f_mime;
+    size_bytes := r.f_size;
+    needs_confirmation := r.s_needs_confirmation;
+    confirmed_at := r.s_confirmed_at;
+    folder_path := coalesce(v_path, '');
+    shared_at := r.s_created_at;
+    return next;
+  end loop;
+end;
+$$;

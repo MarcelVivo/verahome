@@ -79,9 +79,6 @@
           <div class="filemgr-toolbar">
             <div class="filemgr-breadcrumb" id="filemgrBreadcrumb"></div>
             <div class="filemgr-toolbar-actions">
-              <label class="filemgr-confirm-label">
-                <input type="checkbox" id="fm_needs_confirmation"> Bestätigung einfordern
-              </label>
               <input type="file" id="fm_upload_input" multiple hidden
                 accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx">
               <button type="button" class="dash-btn-sm" id="fm_upload_btn">Datei hochladen</button>
@@ -100,6 +97,9 @@
           <h3 id="shareModalTitle">Teilen</h3>
           <p class="doc-meta" id="shareModalHint"></p>
           <div class="prop-user-picker" id="shareModalPicker"></div>
+          <label class="filemgr-confirm-label">
+            <input type="checkbox" id="shareModalNeedsConfirmation"> Bestätigung einfordern
+          </label>
           <p class="form-status" id="shareModalStatus"></p>
           <div class="share-modal-actions">
             <button type="button" class="dash-btn-sm" id="shareModalCancel">Abbrechen</button>
@@ -423,7 +423,7 @@
         '<div class="filemgr-file-info">' +
           '<span class="filemgr-file-icon">'+fmFileIcon(f.mime_type)+'</span>' +
           '<span class="filemgr-file-title">'+VeraDashboard.escapeHtml(f.title)+'</span>' +
-          '<span class="filemgr-file-meta">'+fmFormatSize(f.size_bytes)+(f.needs_confirmation ? ' · Bestätigung erforderlich' : '')+'</span>' +
+          '<span class="filemgr-file-meta">'+fmFormatSize(f.size_bytes)+'</span>' +
         '</div>' +
         '<div class="dash-btn-row">' +
           '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+f.file_path+'">Öffnen</a>' +
@@ -503,7 +503,6 @@
     var input = document.getElementById('fm_upload_input');
     var files = Array.prototype.slice.call(input.files);
     if(!files.length) return;
-    var needsConfirmation = document.getElementById('fm_needs_confirmation').checked;
     var folderId = fmCurrentFolderId();
 
     fmSetStatus('Wird hochgeladen …');
@@ -520,8 +519,7 @@
       }
       await client.from('document_files').insert({
         id: fileId, folder_id: folderId, title: file.name, file_path: filePath,
-        mime_type: file.type || null, size_bytes: file.size,
-        needs_confirmation: needsConfirmation, created_by: profile.id
+        mime_type: file.type || null, size_bytes: file.size, created_by: profile.id
       });
     }
     fmSetStatus('Hochladen abgeschlossen.');
@@ -539,6 +537,7 @@
       return '<label><input type="checkbox" value="'+p.id+'"> '+VeraDashboard.escapeHtml(p.first_name+' '+p.last_name)+
         ' <span class="cal-participant-cat">('+VeraDashboard.categoryLabel(p.category)+')</span></label>';
     }).join('');
+    document.getElementById('shareModalNeedsConfirmation').checked = false;
     document.getElementById('shareModalStatus').textContent = '';
     document.getElementById('shareModalBackdrop').hidden = false;
   }
@@ -572,10 +571,11 @@
       return;
     }
 
+    var needsConfirmation = document.getElementById('shareModalNeedsConfirmation').checked;
     var rows = [];
     fileIds.forEach(function(fid){
       profileIds.forEach(function(pid){
-        rows.push({ file_id: fid, profile_id: pid, created_by: profile.id });
+        rows.push({ file_id: fid, profile_id: pid, needs_confirmation: needsConfirmation, created_by: profile.id });
       });
     });
     var upsertRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
