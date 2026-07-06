@@ -230,20 +230,26 @@
   }
 
   /* Wohnfläche/Zimmer/Nebenkosten ergeben bei Garage/Parkplatz keinen
-     Sinn -- diese Felder werden für diese beiden Typen ausgeblendet
-     und geleert, damit dort weder ein irreführender Wert stehen bleibt
-     noch versehentlich einer gespeichert wird. */
+     Sinn -- komplett ausgeblendet und geleert. Bei Gewerbe/Gastronomie
+     ist "Zimmer" ebenfalls unpassend (niemand beschreibt ein Lokal in
+     Zimmern), Fläche und Nebenkosten bleiben dort aber relevant --
+     nur die Fläche heisst dort "Fläche m²" statt "Wohnfläche m²", da
+     "Wohnfläche" ausdrücklich Wohnraum meint. */
   var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'parkplatz'];
+  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie'];
+  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager'];
   function applyUnitTypeFieldVisibility(type){
-    var hide = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
-    ['u_area_wrap', 'u_rooms_wrap', 'u_extra_costs_wrap'].forEach(function(wrapId){
-      document.getElementById(wrapId).hidden = hide;
-    });
-    if(hide){
-      document.getElementById('u_area').value = '';
-      document.getElementById('u_rooms').value = '';
-      document.getElementById('u_extra_costs').value = '';
-    }
+    var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
+    var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
+
+    document.getElementById('u_area_wrap').hidden = hideAll;
+    document.getElementById('u_rooms_wrap').hidden = hideRooms;
+    document.getElementById('u_extra_costs_wrap').hidden = hideAll;
+    document.getElementById('u_area').placeholder = UNIT_TYPES_NON_RESIDENTIAL_AREA.indexOf(type) > -1 ? 'Fläche m²' : 'Wohnfläche m²';
+
+    if(hideAll) document.getElementById('u_area').value = '';
+    if(hideRooms) document.getElementById('u_rooms').value = '';
+    if(hideAll) document.getElementById('u_extra_costs').value = '';
   }
 
   function init(){
