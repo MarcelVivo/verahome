@@ -127,15 +127,15 @@
             <option value="Auf Anfrage">Auf Anfrage</option>
           </select>
         </div>
-        <div><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
+        <div id="u_area_wrap"><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
       </div>
       <div class="auth-form-row">
-        <div><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
+        <div id="u_rooms_wrap"><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
         <div><input id="u_floor" placeholder="Etage / Lage im Haus"></div>
       </div>
       <div class="auth-form-row">
         <div><input type="number" step="0.01" min="0" id="u_rent" placeholder="Mietzins / Preis CHF"></div>
-        <div><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
+        <div id="u_extra_costs_wrap"><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
       </div>
       <input id="u_available" placeholder="Verfügbar ab">
       <input id="u_teaser" placeholder="Kurztext für Übersicht">
@@ -227,6 +227,23 @@
     var floor = document.getElementById('u_floor').value.trim();
     var main = rooms ? (rooms + '-Zimmer-' + typeName) : typeName;
     document.getElementById('u_label').value = [main, floor].filter(Boolean).join(' ');
+  }
+
+  /* Wohnfläche/Zimmer/Nebenkosten ergeben bei Garage/Parkplatz keinen
+     Sinn -- diese Felder werden für diese beiden Typen ausgeblendet
+     und geleert, damit dort weder ein irreführender Wert stehen bleibt
+     noch versehentlich einer gespeichert wird. */
+  var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'parkplatz'];
+  function applyUnitTypeFieldVisibility(type){
+    var hide = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
+    ['u_area_wrap', 'u_rooms_wrap', 'u_extra_costs_wrap'].forEach(function(wrapId){
+      document.getElementById(wrapId).hidden = hide;
+    });
+    if(hide){
+      document.getElementById('u_area').value = '';
+      document.getElementById('u_rooms').value = '';
+      document.getElementById('u_extra_costs').value = '';
+    }
   }
 
   function init(){
@@ -348,7 +365,10 @@
     ['u_rooms','u_floor'].forEach(function(id){
       document.getElementById(id).addEventListener('input', updateUnitLabelAuto);
     });
-    document.getElementById('u_type').addEventListener('change', updateUnitLabelAuto);
+    document.getElementById('u_type').addEventListener('change', function(){
+      updateUnitLabelAuto();
+      applyUnitTypeFieldVisibility(this.value);
+    });
     document.getElementById('u_label').addEventListener('input', function(){ unitLabelManualOverride = true; });
 
     loadAll().then(function(){
@@ -580,6 +600,7 @@
     }
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(key);
     updateUnitLabelAuto();
+    applyUnitTypeFieldVisibility(key);
     document.getElementById('newUnitModalBackdrop').hidden = false;
   }
 
