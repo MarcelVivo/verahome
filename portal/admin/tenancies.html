@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mietverhältnisse | Vera Portal Admin – Vera Home Immobilien</title>
-<meta name="description" content="Mietverhältnisse, Eigentümerschaften und Auftragszuweisungen verwalten im Vera Portal.">
+<meta name="description" content="Mietverhältnisse verwalten im Vera Portal.">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
 <link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
@@ -55,88 +55,46 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Mietverhältnisse</h1>
-      <p class="dash-lead">Mieter, Eigentümer, Hauswarte und Partner/Handwerker Objekten und Einheiten zuordnen.</p>
+      <p class="dash-lead">Mieter Einheiten zuordnen. Klicken Sie einen Eintrag an, um ihn zu bearbeiten oder zu löschen.</p>
 
-      <!-- Mietverhältnisse -->
       <div class="dash-card">
-        <h2>Neues Mietverhältnis</h2>
-        <form class="auth-form" id="newTenancyForm">
-          <select id="t_tenant" required><option value="" disabled selected>Mieter wählen *</option></select>
-          <select id="t_unit" required><option value="" disabled selected>Einheit wählen *</option></select>
-          <div class="auth-form-row">
-            <div><input type="date" id="t_start" required></div>
-            <div><input type="date" id="t_end" placeholder="Ende (optional)"></div>
-          </div>
-          <button type="submit" class="btn btn-primary">Mietverhältnis anlegen</button>
-          <p class="form-status" id="newTenancyStatus"></p>
-        </form>
-      </div>
-      <div class="dash-card">
-        <h2>Bestehende Mietverhältnisse</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+          <h2 style="margin:0;">Mietverhältnisse</h2>
+          <button type="button" class="dash-btn-sm" id="newTenancyBtn">+ Neu</button>
+        </div>
         <input type="text" class="dash-search-input" id="tenancySearch" placeholder="Suchen nach Mieter, Einheit, Status …">
         <table class="dash-table" id="tenanciesTable"></table>
-      </div>
-
-      <!-- Eigentümerschaften -->
-      <div class="dash-card">
-        <h2>Neue Eigentümerschaft</h2>
-        <form class="auth-form" id="newOwnershipForm">
-          <select id="o_owner" required><option value="" disabled selected>Eigentümer wählen *</option></select>
-          <select id="o_property"><option value="">– kein Objekt –</option></select>
-          <select id="o_unit"><option value="">– keine Einheit –</option></select>
-          <input type="number" step="0.01" min="0" max="100" id="o_share" placeholder="Anteil in % (optional)">
-          <button type="submit" class="btn btn-primary">Eigentümerschaft anlegen</button>
-          <p class="form-status" id="newOwnershipStatus"></p>
-        </form>
-      </div>
-      <div class="dash-card">
-        <h2>Bestehende Eigentümerschaften</h2>
-        <input type="text" class="dash-search-input" id="ownershipSearch" placeholder="Suchen nach Eigentümer, Objekt/Einheit …">
-        <table class="dash-table" id="ownershipsTable"></table>
-      </div>
-
-      <!-- Hauswart-Zuweisungen -->
-      <div class="dash-card">
-        <h2>Neue Hauswart-Zuweisung</h2>
-        <form class="auth-form" id="newHauswartForm">
-          <select id="h_profile" required><option value="" disabled selected>Hauswart wählen *</option></select>
-          <select id="h_property" required><option value="" disabled selected>Objekt wählen *</option></select>
-          <button type="submit" class="btn btn-primary">Hauswart zuweisen</button>
-          <p class="form-status" id="newHauswartStatus"></p>
-        </form>
-      </div>
-      <div class="dash-card">
-        <h2>Bestehende Hauswart-Zuweisungen</h2>
-        <input type="text" class="dash-search-input" id="hauswartSearch" placeholder="Suchen nach Hauswart oder Objekt …">
-        <table class="dash-table" id="hauswartsTable"></table>
-      </div>
-
-      <!-- Auftragszuweisungen -->
-      <div class="dash-card">
-        <h2>Neue Auftragszuweisung</h2>
-        <form class="auth-form" id="newJobForm">
-          <select id="j_profile" required><option value="" disabled selected>Partner/Handwerker wählen *</option></select>
-          <select id="j_property"><option value="">– kein Objekt –</option></select>
-          <select id="j_unit"><option value="">– keine Einheit –</option></select>
-          <input id="j_title" placeholder="Titel *" required>
-          <textarea id="j_description" placeholder="Beschreibung"></textarea>
-          <select id="j_status">
-            <option value="open">Offen</option>
-            <option value="in_progress">In Bearbeitung</option>
-            <option value="done">Erledigt</option>
-          </select>
-          <button type="submit" class="btn btn-primary">Auftrag zuweisen</button>
-          <p class="form-status" id="newJobStatus"></p>
-        </form>
-      </div>
-      <div class="dash-card">
-        <h2>Bestehende Auftragszuweisungen</h2>
-        <input type="text" class="dash-search-input" id="jobSearch" placeholder="Suchen nach Zugewiesen an, Titel, Objekt, Status …">
-        <table class="dash-table" id="jobsTable"></table>
       </div>
     </section>
   </div>
 </main>
+
+<!-- Mietverhältnis-Modal (Anlegen + Bearbeiten) -->
+<div class="share-modal-backdrop" id="tenancyModalBackdrop" hidden>
+  <div class="share-modal">
+    <button type="button" class="obj-modal-close" id="tenancyModalClose" aria-label="Schliessen">✕</button>
+    <h3 id="tenancyModalTitle">Neues Mietverhältnis</h3>
+    <form class="auth-form modal-scroll-body" id="tenancyForm">
+      <select id="t_tenant" required><option value="" disabled selected>Mieter wählen *</option></select>
+      <select id="t_unit" required><option value="" disabled selected>Einheit wählen *</option></select>
+      <div class="auth-form-row">
+        <div><input type="date" id="t_start" required></div>
+        <div><input type="date" id="t_end" placeholder="Ende (optional)"></div>
+      </div>
+      <select id="t_status">
+        <option value="upcoming">Bevorstehend</option>
+        <option value="active">Aktiv</option>
+        <option value="ended">Beendet</option>
+      </select>
+      <div class="dash-btn-row">
+        <button type="submit" class="btn btn-primary" id="tenancySaveBtn">Anlegen</button>
+        <button type="button" class="dash-btn-sm" id="tenancyCancelBtn">Abbrechen</button>
+        <button type="button" class="dash-btn-sm danger" id="tenancyDeleteBtn" hidden>Löschen</button>
+      </div>
+      <p class="form-status" id="tenancyFormStatus"></p>
+    </form>
+  </div>
+</div>
 
 <!-- =================== FOOTER =================== -->
 <footer>
@@ -169,7 +127,7 @@
 (function(){
   "use strict";
   var client;
-  var JOB_STATUS_LABEL = { open: 'Offen', in_progress: 'In Bearbeitung', done: 'Erledigt' };
+  var STATUS_LABEL = { upcoming: 'Bevorstehend', active: 'Aktiv', ended: 'Beendet' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
@@ -180,49 +138,35 @@
 
   function profileLabel(p){ return p.last_name + ' ' + p.first_name + ' (' + p.member_number + ')'; }
 
-  async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').order('last_name');
-    var profiles = profilesRes.data || [];
-    var tenants = profiles.filter(function(p){ return p.category === 'mieter'; });
-    var owners = profiles.filter(function(p){ return p.category === 'eigentuemer'; });
-    var hauswarts = profiles.filter(function(p){ return p.category === 'hauswart'; });
-    var jobProfiles = profiles.filter(function(p){ return p.category === 'partner' || p.category === 'handwerker'; });
+  var allUnits = [];
+  var editingTenancyId = null;
 
-    var propertiesRes = await client.from('properties').select('*').order('label');
-    var properties = propertiesRes.data || [];
+  async function init(){
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').eq('category', 'mieter').order('last_name');
+    var tenants = profilesRes.data || [];
+
     var unitsRes = await client.from('units').select('*, properties(label)').order('label');
-    var units = unitsRes.data || [];
+    allUnits = unitsRes.data || [];
 
     document.getElementById('t_tenant').innerHTML = '<option value="" disabled selected>Mieter wählen *</option>' +
       tenants.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
     document.getElementById('t_unit').innerHTML = '<option value="" disabled selected>Einheit wählen *</option>' +
-      units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
+      allUnits.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
 
-    document.getElementById('o_owner').innerHTML = '<option value="" disabled selected>Eigentümer wählen *</option>' +
-      owners.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
-    document.getElementById('o_property').innerHTML = '<option value="">– kein Objekt –</option>' +
-      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
-    document.getElementById('o_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
-      units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
+    document.getElementById('newTenancyBtn').addEventListener('click', function(){ openTenancyModal(null); });
+    document.getElementById('tenancyModalClose').addEventListener('click', closeTenancyModal);
+    document.getElementById('tenancyCancelBtn').addEventListener('click', closeTenancyModal);
+    document.getElementById('tenancyForm').addEventListener('submit', saveTenancy);
+    document.getElementById('tenancyDeleteBtn').addEventListener('click', deleteTenancy);
 
-    document.getElementById('h_profile').innerHTML = '<option value="" disabled selected>Hauswart wählen *</option>' +
-      hauswarts.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
-    document.getElementById('h_property').innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
-      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+    document.getElementById('tenanciesTable').addEventListener('click', function(e){
+      var row = e.target.closest('[data-tenancy-id]');
+      if(!row) return;
+      var t = allTenancies.filter(function(x){ return x.id === row.getAttribute('data-tenancy-id'); })[0];
+      if(t) openTenancyModal(t);
+    });
 
-    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker wählen *</option>' +
-      jobProfiles.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+VeraDashboard.categoryLabel(p.category))+'</option>'; }).join('');
-    document.getElementById('j_property').innerHTML = '<option value="">– kein Objekt –</option>' +
-      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
-    document.getElementById('j_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
-      units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
-
-    wireForms();
     loadTenancies().then(function(){ VeraDashboard.applyQueryParamSearch('tenancySearch'); });
-    loadOwnerships();
-    loadHauswarts();
-    loadJobs();
-
     document.getElementById('tenancySearch').addEventListener('input', function(){
       var q = this.value.trim();
       renderTenanciesTable(allTenancies.filter(function(t){
@@ -230,104 +174,62 @@
         return VeraDashboard.matchesSearch([t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'', unitLabel, t.status], q);
       }));
     });
-    document.getElementById('ownershipSearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderOwnershipsTable(allOwnerships.filter(function(o){
-        var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '');
-        return VeraDashboard.matchesSearch([o.owner?o.owner.last_name+' '+o.owner.first_name:'', scope], q);
-      }));
-    });
-    document.getElementById('hauswartSearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderHauswartsTable(allHauswarts.filter(function(h){
-        return VeraDashboard.matchesSearch([h.profile?h.profile.last_name+' '+h.profile.first_name:'', h.properties?h.properties.label:''], q);
-      }));
-    });
-    document.getElementById('jobSearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderJobsTable(allJobs.filter(function(j){
-        var unitLabel = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : '';
-        return VeraDashboard.matchesSearch(
-          [j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'', j.title, j.properties?j.properties.label:'', unitLabel, JOB_STATUS_LABEL[j.status]||j.status], q
-        );
-      }));
-    });
   }
 
-  function wireForms(){
-    document.getElementById('newTenancyForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      var statusEl = document.getElementById('newTenancyStatus');
-      var tenant = document.getElementById('t_tenant').value;
-      var unit = document.getElementById('t_unit').value;
-      var start = document.getElementById('t_start').value;
-      if(!tenant || !unit || !start){ statusEl.textContent = 'Bitte alle Pflichtfelder ausfüllen.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('tenancies').insert({
-        tenant_profile_id: tenant, unit_id: unit, start_date: start,
-        end_date: document.getElementById('t_end').value || null
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Mietverhältnis angelegt.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newTenancyForm').reset(); loadTenancies(); }
-    });
+  function openTenancyModal(tenancy){
+    editingTenancyId = tenancy ? tenancy.id : null;
+    document.getElementById('tenancyModalTitle').textContent = tenancy ? 'Mietverhältnis bearbeiten' : 'Neues Mietverhältnis';
+    document.getElementById('tenancySaveBtn').textContent = tenancy ? 'Speichern' : 'Anlegen';
+    document.getElementById('tenancyDeleteBtn').hidden = !tenancy;
+    document.getElementById('t_tenant').value = tenancy ? tenancy.tenant_profile_id : '';
+    document.getElementById('t_unit').value = tenancy ? tenancy.unit_id : '';
+    document.getElementById('t_start').value = tenancy ? tenancy.start_date : '';
+    document.getElementById('t_end').value = tenancy && tenancy.end_date ? tenancy.end_date : '';
+    document.getElementById('t_status').value = tenancy ? tenancy.status : 'active';
+    var statusEl = document.getElementById('tenancyFormStatus');
+    statusEl.textContent = ''; statusEl.classList.remove('show');
+    document.getElementById('tenancyModalBackdrop').hidden = false;
+  }
 
-    document.getElementById('newOwnershipForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      var statusEl = document.getElementById('newOwnershipStatus');
-      var owner = document.getElementById('o_owner').value;
-      var propertyId = document.getElementById('o_property').value;
-      var unitId = document.getElementById('o_unit').value;
-      if(!owner || (!propertyId && !unitId)){ statusEl.textContent = 'Bitte Eigentümer und mindestens Objekt oder Einheit angeben.'; statusEl.classList.add('show'); return; }
-      var shareVal = document.getElementById('o_share').value;
-      var res = await client.from('ownerships').insert({
-        owner_profile_id: owner, property_id: propertyId || null, unit_id: unitId || null,
-        share_percent: shareVal ? parseFloat(shareVal) : null
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Eigentümerschaft angelegt.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newOwnershipForm').reset(); loadOwnerships(); }
-    });
+  function closeTenancyModal(){
+    document.getElementById('tenancyModalBackdrop').hidden = true;
+    editingTenancyId = null;
+  }
 
-    document.getElementById('newHauswartForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      var statusEl = document.getElementById('newHauswartStatus');
-      var profileId = document.getElementById('h_profile').value;
-      var propertyId = document.getElementById('h_property').value;
-      if(!profileId || !propertyId){ statusEl.textContent = 'Bitte Hauswart und Objekt wählen.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('property_permissions').insert({
-        profile_id: profileId,
-        property_id: propertyId,
-        permission: 'hauswart'
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Hauswart zugewiesen.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newHauswartForm').reset(); loadHauswarts(); }
-    });
+  async function saveTenancy(e){
+    e.preventDefault();
+    var statusEl = document.getElementById('tenancyFormStatus');
+    var tenant = document.getElementById('t_tenant').value;
+    var unit = document.getElementById('t_unit').value;
+    var start = document.getElementById('t_start').value;
+    if(!tenant || !unit || !start){ statusEl.textContent = 'Bitte alle Pflichtfelder ausfüllen.'; statusEl.classList.add('show'); return; }
+    var payload = {
+      tenant_profile_id: tenant, unit_id: unit, start_date: start,
+      end_date: document.getElementById('t_end').value || null,
+      status: document.getElementById('t_status').value
+    };
+    var res = editingTenancyId
+      ? await client.from('tenancies').update(payload).eq('id', editingTenancyId)
+      : await client.from('tenancies').insert(payload);
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
+    statusEl.classList.add('show');
+    if(!res.error){
+      await loadTenancies();
+      closeTenancyModal();
+    }
+  }
 
-    document.getElementById('newJobForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      var statusEl = document.getElementById('newJobStatus');
-      var profileId = document.getElementById('j_profile').value;
-      var title = document.getElementById('j_title').value.trim();
-      if(!profileId || !title){ statusEl.textContent = 'Bitte Partner/Handwerker und Titel angeben.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('job_assignments').insert({
-        profile_id: profileId,
-        property_id: document.getElementById('j_property').value || null,
-        unit_id: document.getElementById('j_unit').value || null,
-        title: title,
-        description: document.getElementById('j_description').value.trim() || null,
-        status: document.getElementById('j_status').value
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Auftrag zugewiesen.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newJobForm').reset(); loadJobs(); }
-    });
+  async function deleteTenancy(){
+    if(!editingTenancyId) return;
+    if(!window.confirm('Dieses Mietverhältnis wirklich löschen?')) return;
+    if(!window.confirm('Letzte Bestätigung: jetzt endgültig löschen?')) return;
+    var res = await client.from('tenancies').delete().eq('id', editingTenancyId);
+    if(res.error){ window.alert('Fehler beim Löschen: ' + res.error.message); return; }
+    closeTenancyModal();
+    loadTenancies();
   }
 
   var allTenancies = [];
-  var allOwnerships = [];
-  var allHauswarts = [];
-  var allJobs = [];
 
   async function loadTenancies(){
     var res = await client.from('tenancies')
@@ -343,71 +245,10 @@
     table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Beginn</th><th>Ende</th><th>Status</th></tr>' +
       rows.map(function(t){
         var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
-        return '<tr><td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
+        return '<tr class="dash-row-clickable" data-tenancy-id="'+t.id+'"><td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(unitLabel)+'</td>' +
           '<td>'+VeraDashboard.formatDate(t.start_date)+'</td><td>'+VeraDashboard.formatDate(t.end_date)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(t.status)+'</td></tr>';
-      }).join('');
-  }
-
-  async function loadOwnerships(){
-    var res = await client.from('ownerships')
-      .select('*, owner:profiles!owner_profile_id(first_name,last_name), properties(label), units(label)')
-      .order('created_at', { ascending:false });
-    allOwnerships = res.data || [];
-    renderOwnershipsTable(allOwnerships);
-  }
-
-  function renderOwnershipsTable(rows){
-    var table = document.getElementById('ownershipsTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allOwnerships.length?'Keine Treffer.':'Noch keine Eigentümerschaften.')+'</td></tr>'; return; }
-    table.innerHTML = '<tr><th>Eigentümer</th><th>Objekt/Einheit</th><th>Anteil</th></tr>' +
-      rows.map(function(o){
-        var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '–');
-        return '<tr><td>'+VeraDashboard.escapeHtml(o.owner?o.owner.last_name+' '+o.owner.first_name:'–')+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(scope)+'</td>' +
-          '<td>'+(o.share_percent!=null?o.share_percent+'%':'–')+'</td></tr>';
-      }).join('');
-  }
-
-  async function loadHauswarts(){
-    var res = await client.from('property_permissions')
-      .select('*, profile:profiles!profile_id(first_name,last_name,member_number), properties(label)')
-      .eq('permission', 'hauswart')
-      .order('created_at', { ascending:false });
-    allHauswarts = res.data || [];
-    renderHauswartsTable(allHauswarts);
-  }
-
-  function renderHauswartsTable(rows){
-    var table = document.getElementById('hauswartsTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allHauswarts.length?'Keine Treffer.':'Noch keine Hauswart-Zuweisungen.')+'</td></tr>'; return; }
-    table.innerHTML = '<tr><th>Hauswart</th><th>Objekt</th></tr>' +
-      rows.map(function(h){
-        var name = h.profile ? h.profile.last_name+' '+h.profile.first_name+' ('+h.profile.member_number+')' : '–';
-        return '<tr><td>'+VeraDashboard.escapeHtml(name)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(h.properties?h.properties.label:'–')+'</td></tr>';
-      }).join('');
-  }
-
-  async function loadJobs(){
-    var res = await client.from('job_assignments')
-      .select('*, assignee:profiles!profile_id(first_name,last_name,category), properties(label), units(label, properties(label))')
-      .order('created_at', { ascending:false });
-    allJobs = res.data || [];
-    renderJobsTable(allJobs);
-  }
-
-  function renderJobsTable(rows){
-    var table = document.getElementById('jobsTable');
-    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allJobs.length?'Keine Treffer.':'Noch keine Auftragszuweisungen.')+'</td></tr>'; return; }
-    table.innerHTML = '<tr><th>Zugewiesen an</th><th>Titel</th><th>Objekt/Einheit</th><th>Status</th></tr>' +
-      rows.map(function(j){
-        var scope = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : (j.properties ? j.properties.label : '–');
-        return '<tr><td>'+VeraDashboard.escapeHtml(j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'–')+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(j.title)+(j.source_issue_report_id ? ' <span class="doc-meta">aus Meldung</span>' : '')+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(scope)+'</td>' +
-          '<td>'+(JOB_STATUS_LABEL[j.status]||j.status)+'</td></tr>';
+          '<td>'+(STATUS_LABEL[t.status]||t.status)+'</td></tr>';
       }).join('');
   }
 })();

@@ -68,6 +68,8 @@
 .dash-table tr:last-child td{border-bottom:none;}
 .dash-table a{color:var(--color-blue-mid);font-weight:600;}
 .dash-table a:hover{color:var(--color-gold);}
+.dash-row-clickable{cursor:pointer;transition:background .15s;}
+.dash-row-clickable:hover{background:var(--color-bg);}
 
 .dash-btn-row{display:flex;gap:8px;flex-wrap:wrap;}
 .dash-btn-sm{

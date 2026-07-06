@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aufträge | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Auftragszuweisungen an Partner/Handwerker verwalten im Vera Portal.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<!-- =================== NAVIGATION =================== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+    <div class="nav-right">
+      <!-- Instagram-Handle: noch zu bestätigen – Platzhalter @verahome_immobilien -->
+      <a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="nav-social" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Aufträge</h1>
+      <p class="dash-lead">Partner/Handwerker Aufträge an Objekten oder Einheiten zuweisen. Klicken Sie einen Eintrag an, um ihn zu bearbeiten oder zu löschen.</p>
+
+      <div class="dash-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+          <h2 style="margin:0;">Aufträge</h2>
+          <button type="button" class="dash-btn-sm" id="newJobBtn">+ Neu</button>
+        </div>
+        <input type="text" class="dash-search-input" id="jobSearch" placeholder="Suchen nach Zugewiesen an, Titel, Objekt, Status …">
+        <table class="dash-table" id="jobsTable"></table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Auftrag-Modal (Anlegen + Bearbeiten) -->
+<div class="share-modal-backdrop" id="jobModalBackdrop" hidden>
+  <div class="share-modal">
+    <button type="button" class="obj-modal-close" id="jobModalClose" aria-label="Schliessen">✕</button>
+    <h3 id="jobModalTitle">Neuer Auftrag</h3>
+    <form class="auth-form modal-scroll-body" id="jobForm">
+      <select id="j_profile" required><option value="" disabled selected>Partner/Handwerker wählen *</option></select>
+      <select id="j_property"><option value="">– kein Objekt –</option></select>
+      <select id="j_unit"><option value="">– keine Einheit –</option></select>
+      <input id="j_title" placeholder="Titel *" required>
+      <textarea id="j_description" placeholder="Beschreibung"></textarea>
+      <select id="j_status">
+        <option value="open">Offen</option>
+        <option value="in_progress">In Bearbeitung</option>
+        <option value="done">Erledigt</option>
+      </select>
+      <div class="dash-btn-row">
+        <button type="submit" class="btn btn-primary" id="jobSaveBtn">Anlegen</button>
+        <button type="button" class="dash-btn-sm" id="jobCancelBtn">Abbrechen</button>
+        <button type="button" class="dash-btn-sm danger" id="jobDeleteBtn" hidden>Löschen</button>
+      </div>
+      <p class="form-status" id="jobFormStatus"></p>
+    </form>
+  </div>
+</div>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a><a href="https://instagram.com/verahome_immobilien" target="_blank" rel="noopener" class="footer-social" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/></svg></a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client;
+  var JOB_STATUS_LABEL = { open: 'Offen', in_progress: 'In Bearbeitung', done: 'Erledigt' };
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    VeraDashboard.renderSidebar('admin-jobs', ctx.profile);
+    client = VeraPortal.getClient();
+    init();
+  });
+
+  function profileLabel(p){ return p.last_name + ' ' + p.first_name + ' (' + p.member_number + ')'; }
+
+  var editingJobId = null;
+
+  async function init(){
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').order('last_name');
+    var jobProfiles = (profilesRes.data || []).filter(function(p){ return p.category === 'partner' || p.category === 'handwerker'; });
+
+    var propertiesRes = await client.from('properties').select('*').order('label');
+    var properties = propertiesRes.data || [];
+    var unitsRes = await client.from('units').select('*, properties(label)').order('label');
+    var units = unitsRes.data || [];
+
+    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker wählen *</option>' +
+      jobProfiles.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+VeraDashboard.categoryLabel(p.category))+'</option>'; }).join('');
+    document.getElementById('j_property').innerHTML = '<option value="">– kein Objekt –</option>' +
+      properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
+    document.getElementById('j_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
+      units.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');
+
+    document.getElementById('newJobBtn').addEventListener('click', function(){ openJobModal(null); });
+    document.getElementById('jobModalClose').addEventListener('click', closeJobModal);
+    document.getElementById('jobCancelBtn').addEventListener('click', closeJobModal);
+    document.getElementById('jobForm').addEventListener('submit', saveJob);
+    document.getElementById('jobDeleteBtn').addEventListener('click', deleteJob);
+
+    document.getElementById('jobsTable').addEventListener('click', function(e){
+      var row = e.target.closest('[data-job-id]');
+      if(!row) return;
+      var j = allJobs.filter(function(x){ return x.id === row.getAttribute('data-job-id'); })[0];
+      if(j) openJobModal(j);
+    });
+
+    loadJobs().then(function(){ VeraDashboard.applyQueryParamSearch('jobSearch'); });
+    document.getElementById('jobSearch').addEventListener('input', function(){
+      var q = this.value.trim();
+      renderJobsTable(allJobs.filter(function(j){
+        var unitLabel = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : '';
+        return VeraDashboard.matchesSearch(
+          [j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'', j.title, j.properties?j.properties.label:'', unitLabel, JOB_STATUS_LABEL[j.status]||j.status], q
+        );
+      }));
+    });
+  }
+
+  function openJobModal(job){
+    editingJobId = job ? job.id : null;
+    document.getElementById('jobModalTitle').textContent = job ? 'Auftrag bearbeiten' : 'Neuer Auftrag';
+    document.getElementById('jobSaveBtn').textContent = job ? 'Speichern' : 'Anlegen';
+    document.getElementById('jobDeleteBtn').hidden = !job;
+    document.getElementById('j_profile').value = job ? job.profile_id : '';
+    document.getElementById('j_property').value = job ? (job.property_id || '') : '';
+    document.getElementById('j_unit').value = job ? (job.unit_id || '') : '';
+    document.getElementById('j_title').value = job ? job.title : '';
+    document.getElementById('j_description').value = job && job.description ? job.description : '';
+    document.getElementById('j_status').value = job ? job.status : 'open';
+    var statusEl = document.getElementById('jobFormStatus');
+    statusEl.textContent = ''; statusEl.classList.remove('show');
+    document.getElementById('jobModalBackdrop').hidden = false;
+  }
+
+  function closeJobModal(){
+    document.getElementById('jobModalBackdrop').hidden = true;
+    editingJobId = null;
+  }
+
+  async function saveJob(e){
+    e.preventDefault();
+    var statusEl = document.getElementById('jobFormStatus');
+    var profileId = document.getElementById('j_profile').value;
+    var title = document.getElementById('j_title').value.trim();
+    if(!profileId || !title){ statusEl.textContent = 'Bitte Partner/Handwerker und Titel angeben.'; statusEl.classList.add('show'); return; }
+    var payload = {
+      profile_id: profileId,
+      property_id: document.getElementById('j_property').value || null,
+      unit_id: document.getElementById('j_unit').value || null,
+      title: title,
+      description: document.getElementById('j_description').value.trim() || null,
+      status: document.getElementById('j_status').value
+    };
+    var res = editingJobId
+      ? await client.from('job_assignments').update(payload).eq('id', editingJobId)
+      : await client.from('job_assignments').insert(payload);
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
+    statusEl.classList.add('show');
+    if(!res.error){
+      await loadJobs();
+      closeJobModal();
+    }
+  }
+
+  async function deleteJob(){
+    if(!editingJobId) return;
+    if(!window.confirm('Diesen Auftrag wirklich löschen?')) return;
+    if(!window.confirm('Letzte Bestätigung: jetzt endgültig löschen?')) return;
+    var res = await client.from('job_assignments').delete().eq('id', editingJobId);
+    if(res.error){ window.alert('Fehler beim Löschen: ' + res.error.message); return; }
+    closeJobModal();
+    loadJobs();
+  }
+
+  var allJobs = [];
+
+  async function loadJobs(){
+    var res = await client.from('job_assignments')
+      .select('*, assignee:profiles!profile_id(first_name,last_name,category), properties(label), units(label, properties(label))')
+      .order('created_at', { ascending:false });
+    allJobs = res.data || [];
+    renderJobsTable(allJobs);
+  }
+
+  function renderJobsTable(rows){
+    var table = document.getElementById('jobsTable');
+    if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allJobs.length?'Keine Treffer.':'Noch keine Aufträge.')+'</td></tr>'; return; }
+    table.innerHTML = '<tr><th>Zugewiesen an</th><th>Titel</th><th>Objekt/Einheit</th><th>Status</th></tr>' +
+      rows.map(function(j){
+        var scope = j.units ? ((j.units.properties?j.units.properties.label+' – ':'')+j.units.label) : (j.properties ? j.properties.label : '–');
+        return '<tr class="dash-row-clickable" data-job-id="'+j.id+'"><td>'+VeraDashboard.escapeHtml(j.assignee?j.assignee.last_name+' '+j.assignee.first_name:'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(j.title)+(j.source_issue_report_id ? ' <span class="doc-meta">aus Meldung</span>' : '')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(scope)+'</td>' +
+          '<td>'+(JOB_STATUS_LABEL[j.status]||j.status)+'</td></tr>';
+      }).join('');
+  }
+})();
+</script>
+</body>
+</html>
