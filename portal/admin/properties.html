@@ -230,14 +230,15 @@
   }
 
   /* Wohnfläche/Zimmer/Nebenkosten ergeben bei Garage/Parkplatz keinen
-     Sinn -- komplett ausgeblendet und geleert. Bei Gewerbe/Gastronomie
-     ist "Zimmer" ebenfalls unpassend (niemand beschreibt ein Lokal in
-     Zimmern), Fläche und Nebenkosten bleiben dort aber relevant --
-     nur die Fläche heisst dort "Fläche m²" statt "Wohnfläche m²", da
+     Sinn -- komplett ausgeblendet und geleert. Bei Gewerbe/Gastronomie/
+     Lager/Sonstiges ist "Zimmer" ebenfalls unpassend (niemand
+     beschreibt ein Lokal, Lager oder eine sonstige Fläche in Zimmern),
+     Fläche und Nebenkosten bleiben dort aber relevant -- nur die
+     Fläche heisst dort "Fläche m²" statt "Wohnfläche m²", da
      "Wohnfläche" ausdrücklich Wohnraum meint. */
   var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'parkplatz'];
-  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie'];
-  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager'];
+  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie', 'lager', 'sonstiges'];
+  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager', 'sonstiges'];
   function applyUnitTypeFieldVisibility(type){
     var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
     var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
