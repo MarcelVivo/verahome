@@ -81,7 +81,15 @@ Deno.serve(async (req) => {
         address_zip: address_zip || null,
         address_city: address_city || null,
       },
-      redirectTo: "https://www.verahome.ch/portal/login.html",
+      // update-password.html, nicht login.html: der Einladungs-Link
+      // liefert per Hash-Fragment ein access_token, aus dem
+      // supabase-js (detectSessionInUrl, Standardverhalten) automatisch
+      // eine Session herstellt -- der neue Kontakt hat noch kein
+      // Passwort und kann sich daher nicht einloggen, sondern muss
+      // erst eines setzen (exakt der gleiche Ablauf wie beim
+      // "Passwort vergessen"-Link, siehe resetPasswordForEmail in
+      // portal-auth.js).
+      redirectTo: "https://www.verahome.ch/portal/update-password.html",
     });
 
     if (inviteErr || !invited?.user) {

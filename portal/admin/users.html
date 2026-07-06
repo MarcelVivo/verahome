@@ -138,6 +138,24 @@
   var allContacts = [];
   var columnSearchState = {};
 
+  /* supabase-js befuellt bei einem Non-2xx-Status von functions.invoke()
+     NUR res.error (mit generischer Meldung "Edge Function returned a
+     non-2xx status code"), NICHT res.data -- der eigentliche JSON-Body
+     unserer Edge Function (z.B. {"error":"Keine Berechtigung."}) steckt
+     stattdessen in res.error.context, der rohen Response. Ohne dieses
+     Auslesen sieht man nie den echten Grund eines Fehlers. */
+  async function edgeFunctionErrorMessage(res){
+    if(res.data && res.data.error) return res.data.error;
+    var ctx = res.error && res.error.context;
+    if(ctx){
+      try {
+        var body = typeof ctx.json === 'function' ? await ctx.clone().json() : ctx;
+        if(body && body.error) return body.error;
+      } catch(e){ /* Body war kein JSON -- auf die generische Meldung zurückfallen */ }
+    }
+    return res.error ? res.error.message : 'Unbekannter Fehler.';
+  }
+
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
@@ -174,7 +192,7 @@
       try {
         var res = await client.functions.invoke('admin-create-user', { body: payload });
         if(res.error || (res.data && res.data.error)){
-          statusEl.textContent = 'Fehler: ' + (res.data && res.data.error ? res.data.error : res.error.message);
+          statusEl.textContent = 'Fehler: ' + (await edgeFunctionErrorMessage(res));
           return;
         }
         statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
@@ -442,7 +460,7 @@
     try {
       var res = await client.functions.invoke('admin-delete-user', { body: { profileId: contactId } });
       if(res.error || (res.data && res.data.error)){
-        window.alert('Fehler beim Löschen: ' + (res.data && res.data.error ? res.data.error : res.error.message));
+        window.alert('Fehler beim Löschen: ' + (await edgeFunctionErrorMessage(res)));
         return;
       }
       closeContactModal();
