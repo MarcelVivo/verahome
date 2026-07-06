@@ -4142,3 +4142,177 @@ alter table public.units add column if not exists unit_type text not null defaul
 alter table public.units drop constraint if exists units_unit_type_check;
 alter table public.units add constraint units_unit_type_check
   check (unit_type in ('wohnung','garage','studio','lager','gewerbe','gastronomie','sonstiges'));
+
+-- =====================================================================
+-- WASCHPLAN-AUSBAU: pro Objekt waehlbar, wie viele Waschmaschinen/
+-- Tumbler es gibt (1 oder 2 -- das ist die Kapazitaet pro Halbtag) und
+-- ob der Admin die Slots fix zuweist ("fixed", bisheriges Verhalten)
+-- oder die Mieter sich selbst in einen Kalender eintragen
+-- ("self_service", neu). Zeiten sind bewusst nicht mehr frei waehlbar
+-- (immer 07:00-13:00 / 13:00-19:00), damit Kapazitaet ueberhaupt
+-- zaehlbar ist.
+-- =====================================================================
+alter table public.properties add column if not exists laundry_mode text not null default 'fixed'
+  check (laundry_mode in ('fixed', 'self_service'));
+alter table public.properties add column if not exists laundry_machine_count int not null default 2
+  check (laundry_machine_count in (1, 2));
+
+-- Bestehende freie Zeiten (falls vorhanden) bleiben unangetastet -- die
+-- Constraint gilt "not valid", damit ein historischer Slot ausserhalb
+-- des 07-13/13-19 Rasters die Migration nicht blockiert. Neue/geaenderte
+-- Zeilen muessen sich daran halten; Admin-UI bietet ohnehin nur noch
+-- Vormittag/Nachmittag als Auswahl an.
+alter table public.laundry_schedule_slots add constraint laundry_schedule_slots_period_check
+  check (
+    (start_time = '07:00' and end_time = '13:00')
+    or (start_time = '13:00' and end_time = '19:00')
+  ) not valid;
+
+-- Kapazitaet ("max. 2 Wohnungen pro Halbtag, bzw. 1 bei nur einer
+-- Waschmaschine") laesst sich nicht als einfache Check-Constraint
+-- ausdruecken (haengt von COUNT(*) anderer Zeilen ab), deshalb ein
+-- Trigger -- gleiches Prinzip wie trg_laundry_schedule_slots_touch_updated_at
+-- weiter oben, nur vor INSERT/UPDATE statt danach.
+create or replace function public.check_laundry_slot_capacity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_capacity int;
+  v_count int;
+begin
+  select laundry_machine_count into v_capacity from public.properties where id = new.property_id;
+
+  select count(*) into v_count
+  from public.laundry_schedule_slots
+  where property_id = new.property_id
+    and weekday = new.weekday
+    and start_time = new.start_time
+    and end_time = new.end_time
+    and id is distinct from new.id;
+
+  if v_count >= coalesce(v_capacity, 2) then
+    raise exception 'Für diesen Halbtag sind bereits alle Waschmaschinen/Tumbler vergeben.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_laundry_schedule_slots_capacity on public.laundry_schedule_slots;
+create trigger trg_laundry_schedule_slots_capacity
+  before insert or update on public.laundry_schedule_slots
+  for each row execute function public.check_laundry_slot_capacity();
+
+-- Selbsteintrag-Kalender fuer den "self_service"-Modus: Mieter tragen
+-- sich selbst in einen Halbtag ein (First-come-first-served), statt
+-- dass der Admin fix zuweist. Eigene Tabelle statt Wiederverwendung von
+-- laundry_schedule_slots, weil die Semantik grundverschieden ist (ein
+-- konkretes Datum statt ein wiederkehrender Wochentag).
+create table public.laundry_bookings (
+  id                uuid primary key default gen_random_uuid(),
+  property_id       uuid not null references public.properties(id) on delete cascade,
+  unit_id           uuid references public.units(id),
+  tenant_profile_id uuid not null references public.profiles(id) on delete cascade,
+  booking_date      date not null,
+  period            text not null check (period in ('vormittag', 'nachmittag')),
+  created_at        timestamptz not null default now(),
+  unique (property_id, booking_date, period, tenant_profile_id)
+);
+
+alter table public.laundry_bookings enable row level security;
+alter table public.laundry_bookings force row level security;
+
+-- SELECT mirrort laundry_schedule_slots_select 1:1 -- alle Mieter des
+-- Objekts sehen den vollen Kalender (wie bisher schon fremde Whg.-Labels
+-- im fixen Modus sichtbar sind), Waschplan-Koordinatoren/Admin ebenso.
+create policy laundry_bookings_select on public.laundry_bookings
+  for select using (
+    public.is_admin()
+    or public.has_property_permission(laundry_bookings.property_id, 'waschplan')
+    or exists (
+      select 1 from public.units u
+      join public.tenancies t on t.unit_id = u.id
+      where u.property_id = laundry_bookings.property_id
+        and t.tenant_profile_id = auth.uid() and public.is_approved()
+    )
+  );
+create policy laundry_bookings_admin_all on public.laundry_bookings
+  for all using (public.is_admin()) with check (public.is_admin());
+-- Absagen laeuft direkt (kein RPC noetig, keine Kapazitaetspruefung
+-- beim Loeschen); das Eintragen selbst NUR ueber create_laundry_booking()
+-- unten (security definer, bypasst RLS), damit die Kapazitaetspruefung
+-- atomar bleibt -- deshalb bewusst keine Insert-Policy fuer Mieter hier.
+create policy laundry_bookings_self_delete on public.laundry_bookings
+  for delete using (tenant_profile_id = auth.uid());
+
+-- Analog zu create_booking() oben: security-definer RPC statt direktem
+-- Insert, damit "First come, first served" unter Nebenlaeufigkeit
+-- tatsaechlich haelt (pg_advisory_xact_lock serialisiert konkurrierende
+-- Eintragungen fuer denselben Objekt/Datum/Halbtag-Schluessel).
+create or replace function public.create_laundry_booking(
+  p_property_id uuid, p_booking_date date, p_period text
+)
+returns public.laundry_bookings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_capacity int;
+  v_count int;
+  v_unit_id uuid;
+  result public.laundry_bookings;
+begin
+  if p_period not in ('vormittag', 'nachmittag') then
+    raise exception 'Ungültiger Zeitraum.';
+  end if;
+  if p_booking_date < current_date then
+    raise exception 'Datum liegt in der Vergangenheit.';
+  end if;
+
+  select laundry_machine_count into v_capacity
+  from public.properties
+  where id = p_property_id and laundry_mode = 'self_service';
+  if v_capacity is null then
+    raise exception 'Für dieses Objekt ist kein Waschplan-Kalender aktiv.';
+  end if;
+
+  select u.id into v_unit_id
+  from public.units u
+  join public.tenancies t on t.unit_id = u.id
+  where u.property_id = p_property_id and t.tenant_profile_id = auth.uid()
+    and t.status in ('active', 'upcoming')
+  limit 1;
+
+  if v_unit_id is null and not public.is_admin() then
+    raise exception 'Sie sind keinem Mietverhältnis in diesem Objekt zugeordnet.';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(p_property_id::text || p_booking_date::text || p_period));
+
+  if exists (
+    select 1 from public.laundry_bookings
+    where property_id = p_property_id and booking_date = p_booking_date and period = p_period
+      and tenant_profile_id = auth.uid()
+  ) then
+    raise exception 'Sie sind für diesen Zeitraum bereits eingetragen.';
+  end if;
+
+  select count(*) into v_count
+  from public.laundry_bookings
+  where property_id = p_property_id and booking_date = p_booking_date and period = p_period;
+
+  if v_count >= v_capacity then
+    raise exception 'Dieser Zeitraum ist bereits ausgebucht.';
+  end if;
+
+  insert into public.laundry_bookings (property_id, unit_id, tenant_profile_id, booking_date, period)
+  values (p_property_id, v_unit_id, auth.uid(), p_booking_date, p_period)
+  returning * into result;
+
+  return result;
+end;
+$$;

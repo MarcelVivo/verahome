@@ -604,21 +604,46 @@
       '<table class="dash-table" id="docsTable-'+id+'" style="margin-top:16px;"></table>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Waschplan</h3>' +
-      '<div class="laundry-week-grid" id="laundryWeek-'+id+'"></div>' +
-      '<form class="auth-form" id="laundryForm-'+id+'" style="margin-top:16px;">' +
-        '<select id="laundryWeekday-'+id+'">' +
-          '<option value="mo">Montag</option><option value="di">Dienstag</option><option value="mi">Mittwoch</option>' +
-          '<option value="do">Donnerstag</option><option value="fr">Freitag</option><option value="sa">Samstag</option><option value="so">Sonntag</option>' +
-        '</select>' +
-        '<div class="auth-form-row">' +
-          '<div><input type="time" id="laundryStart-'+id+'" required></div>' +
-          '<div><input type="time" id="laundryEnd-'+id+'" required></div>' +
+      '<div class="auth-form-row">' +
+        '<div>' +
+          '<div class="doc-meta" style="margin-bottom:4px;">Anzahl Waschmaschinen/Tumbler</div>' +
+          '<select id="laundryMachineCount-'+id+'">' +
+            '<option value="1"'+(p.laundry_machine_count===1?' selected':'')+'>1</option>' +
+            '<option value="2"'+(p.laundry_machine_count!==1?' selected':'')+'>2</option>' +
+          '</select>' +
         '</div>' +
-        '<select id="laundryUnit-'+id+'"><option value="">– keine bestimmte Einheit –</option></select>' +
-        '<input type="text" id="laundryLabel-'+id+'" placeholder="Bezeichnung (z.B. Whg. Müller)">' +
-        '<button type="submit" class="dash-btn-sm">Slot hinzufügen</button>' +
-        '<p class="form-status" id="laundryStatus-'+id+'"></p>' +
-      '</form>' +
+        '<div>' +
+          '<div class="doc-meta" style="margin-bottom:4px;">Modus</div>' +
+          '<select id="laundryMode-'+id+'">' +
+            '<option value="fixed"'+(p.laundry_mode!=='self_service'?' selected':'')+'>Admin weist Wohnungen zu</option>' +
+            '<option value="self_service"'+(p.laundry_mode==='self_service'?' selected':'')+'>Mieter tragen sich selbst ein (Kalender)</option>' +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="dash-btn-sm" id="laundrySettingsSaveBtn-'+id+'" style="margin-top:8px;">Einstellungen speichern</button>' +
+      '<p class="form-status" id="laundrySettingsStatus-'+id+'"></p>' +
+
+      '<div id="laundryFixedSection-'+id+'" style="margin-top:16px;">' +
+        '<div class="laundry-week-grid" id="laundryWeek-'+id+'"></div>' +
+        '<form class="auth-form" id="laundryForm-'+id+'" style="margin-top:16px;">' +
+          '<select id="laundryWeekday-'+id+'">' +
+            '<option value="mo">Montag</option><option value="di">Dienstag</option><option value="mi">Mittwoch</option>' +
+            '<option value="do">Donnerstag</option><option value="fr">Freitag</option><option value="sa">Samstag</option><option value="so">Sonntag</option>' +
+          '</select>' +
+          '<select id="laundryPeriod-'+id+'">' +
+            '<option value="vormittag">Vormittag (07:00–13:00)</option>' +
+            '<option value="nachmittag">Nachmittag (13:00–19:00)</option>' +
+          '</select>' +
+          '<select id="laundryUnit-'+id+'"><option value="">– keine bestimmte Einheit –</option></select>' +
+          '<input type="text" id="laundryLabel-'+id+'" placeholder="Bezeichnung (z.B. Whg. Müller)">' +
+          '<button type="submit" class="dash-btn-sm">Slot hinzufügen</button>' +
+          '<p class="form-status" id="laundryStatus-'+id+'"></p>' +
+        '</form>' +
+      '</div>' +
+      '<div id="laundrySelfServiceSection-'+id+'" style="margin-top:16px;" hidden>' +
+        '<p class="doc-meta" style="margin-bottom:8px;">Mieter tragen sich im Waschplan-Kalender selbst ein (First-come-first-served). Kommende Eintragungen, bei Bedarf entfernbar:</p>' +
+        '<table class="dash-table" id="laundryBookingsTable-'+id+'"></table>' +
+      '</div>' +
 
       '<h3 style="font-size:.95rem;margin:24px 0 10px;">Waschplan-Berechtigung</h3>' +
       '<p class="doc-meta" style="margin-bottom:8px;">Wer ausser Ihnen darf den Waschplan dieses Objekts bearbeiten?</p>' +
@@ -672,6 +697,7 @@
     loadThumbs(propertyId);
     loadUserPicker(propertyId);
     loadPropertyDocs(propertyId);
+    applyLaundryMode(property);
     loadLaundryWeek(propertyId);
     loadLaundryUnits(propertyId);
     loadLaundryPermissions(propertyId);
@@ -706,6 +732,9 @@
     });
     document.getElementById('laundryForm-'+propertyId).addEventListener('submit', function(e){
       addLaundrySlot(e, propertyId);
+    });
+    document.getElementById('laundrySettingsSaveBtn-'+propertyId).addEventListener('click', function(){
+      saveLaundrySettings(propertyId, property);
     });
     document.getElementById('laundryPermSaveBtn-'+propertyId).addEventListener('click', function(){
       saveLaundryPermissions(propertyId);
@@ -906,6 +935,32 @@
     { key: 'mo', label: 'Montag' }, { key: 'di', label: 'Dienstag' }, { key: 'mi', label: 'Mittwoch' },
     { key: 'do', label: 'Donnerstag' }, { key: 'fr', label: 'Freitag' }, { key: 'sa', label: 'Samstag' }, { key: 'so', label: 'Sonntag' }
   ];
+  var LAUNDRY_PERIOD_TIMES = { vormittag: ['07:00','13:00'], nachmittag: ['13:00','19:00'] };
+  function laundryPeriodOfSlot(s){ return s.start_time.slice(0,5) === '07:00' ? 'vormittag' : 'nachmittag'; }
+  function laundryPeriodLabel(period){ return period === 'vormittag' ? 'Vormittag (07:00–13:00)' : 'Nachmittag (13:00–19:00)'; }
+
+  function applyLaundryMode(property){
+    var isSelfService = property.laundry_mode === 'self_service';
+    document.getElementById('laundryFixedSection-'+property.id).hidden = isSelfService;
+    document.getElementById('laundrySelfServiceSection-'+property.id).hidden = !isSelfService;
+    if(isSelfService) loadLaundryBookings(property.id);
+  }
+
+  async function saveLaundrySettings(propertyId, property){
+    var statusEl = document.getElementById('laundrySettingsStatus-'+propertyId);
+    var res = await client.from('properties').update({
+      laundry_machine_count: parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10),
+      laundry_mode: document.getElementById('laundryMode-'+propertyId).value
+    }).eq('id', propertyId);
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einstellungen gespeichert.';
+    statusEl.classList.add('show');
+    if(!res.error){
+      property.laundry_machine_count = parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10);
+      property.laundry_mode = document.getElementById('laundryMode-'+propertyId).value;
+      applyLaundryMode(property);
+      await loadAll();
+    }
+  }
 
   async function loadLaundryWeek(propertyId){
     var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', propertyId).order('start_time');
@@ -916,7 +971,7 @@
       return '<div class="laundry-day-col"><h3>'+day.label+'</h3>' +
         (daySlots.length ? daySlots.map(function(s){
           return '<div class="laundry-slot">' +
-            '<div class="laundry-slot-time">'+s.start_time.slice(0,5)+' – '+s.end_time.slice(0,5)+'</div>' +
+            '<div class="laundry-slot-time">'+laundryPeriodLabel(laundryPeriodOfSlot(s))+'</div>' +
             (s.label ? '<div>'+VeraDashboard.escapeHtml(s.label)+'</div>' : '') +
             (s.units ? '<div class="doc-meta">'+VeraDashboard.escapeHtml(s.units.label)+'</div>' : '') +
             '<div class="laundry-slot-actions"><button type="button" class="prop-icon-btn danger del-laundry-btn" data-id="'+s.id+'">✕</button></div>' +
@@ -946,11 +1001,13 @@
   async function addLaundrySlot(e, propertyId){
     e.preventDefault();
     var statusEl = document.getElementById('laundryStatus-'+propertyId);
+    var period = document.getElementById('laundryPeriod-'+propertyId).value;
+    var times = LAUNDRY_PERIOD_TIMES[period];
     var res = await client.from('laundry_schedule_slots').insert({
       property_id: propertyId,
       weekday: document.getElementById('laundryWeekday-'+propertyId).value,
-      start_time: document.getElementById('laundryStart-'+propertyId).value,
-      end_time: document.getElementById('laundryEnd-'+propertyId).value,
+      start_time: times[0],
+      end_time: times[1],
       unit_id: document.getElementById('laundryUnit-'+propertyId).value || null,
       label: document.getElementById('laundryLabel-'+propertyId).value.trim() || null,
       created_by: profile.id
@@ -961,6 +1018,34 @@
       document.getElementById('laundryForm-'+propertyId).reset();
       loadLaundryWeek(propertyId);
     }
+  }
+
+  async function loadLaundryBookings(propertyId){
+    var res = await client.from('laundry_bookings')
+      .select('*, units(label), tenant:tenant_profile_id(first_name,last_name)')
+      .eq('property_id', propertyId)
+      .gte('booking_date', new Date().toISOString().slice(0,10))
+      .order('booking_date').order('period');
+    var bookings = res.data || [];
+    var table = document.getElementById('laundryBookingsTable-'+propertyId);
+    if(!bookings.length){ table.innerHTML = '<p class="dash-empty">Noch keine Eintragungen.</p>'; return; }
+    table.innerHTML = '<tr><th>Datum</th><th>Zeitraum</th><th>Mieter</th><th>Einheit</th><th></th></tr>' +
+      bookings.map(function(b){
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(b.booking_date)+'</td>' +
+          '<td>'+laundryPeriodLabel(b.period)+'</td>' +
+          '<td>'+(b.tenant?VeraDashboard.escapeHtml(b.tenant.last_name+' '+b.tenant.first_name):'–')+'</td>' +
+          '<td>'+(b.units?VeraDashboard.escapeHtml(b.units.label):'–')+'</td>' +
+          '<td><button type="button" class="prop-icon-btn danger del-booking-btn" data-id="'+b.id+'">✕</button></td>' +
+        '</tr>';
+      }).join('');
+    table.querySelectorAll('.del-booking-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        if(!window.confirm('Diese Eintragung wirklich entfernen?')) return;
+        await client.from('laundry_bookings').delete().eq('id', btn.getAttribute('data-id'));
+        loadLaundryBookings(propertyId);
+      });
+    });
   }
 
   async function loadLaundryPermissions(propertyId){
