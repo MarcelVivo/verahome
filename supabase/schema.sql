@@ -3633,3 +3633,379 @@ begin
   return result;
 end;
 $$;
+
+-- =====================================================================
+-- ORDNER-ABLAGESYSTEM (document_folders/document_files/document_shares):
+-- ersetzt den alten "Dokument zuweisen"-Workflow auf der Dokumente-Seite
+-- komplett. Bewusst NEUE, separate Tabellen statt die alte "documents"
+-- Tabelle umzubauen — die alte Tabelle/ihr Storage-Bucket bleiben
+-- unangetastet (kein Datenverlust), nur die UI nutzt sie nicht mehr.
+--
+-- Freigabe ist ein Schnappschuss: wer einen Ordner teilt, bekommt für
+-- jede DATEI darin (rekursiv, zum Zeitpunkt des Teilens) eine eigene
+-- Zeile in document_shares — es gibt keine "lebende" Ordner-Freigabe,
+-- die automatisch neue Dateien mit einschliesst. Das vermeidet
+-- rekursive RLS-Policies, für die es in diesem Schema kein Vorbild
+-- gibt; die Zugriffsprüfung bleibt eine einzige, einfache
+-- Existenzprüfung auf document_shares.
+-- =====================================================================
+create table public.document_folders (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  parent_id   uuid references public.document_folders(id) on delete cascade,
+  created_by  uuid references public.profiles(id),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+alter table public.document_folders enable row level security;
+alter table public.document_folders force row level security;
+create policy document_folders_admin_all on public.document_folders
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create table public.document_files (
+  id                 uuid primary key default gen_random_uuid(),
+  folder_id          uuid references public.document_folders(id) on delete cascade,
+  title              text not null,
+  file_path          text not null,
+  mime_type          text,
+  size_bytes         bigint,
+  needs_confirmation boolean not null default false,
+  created_by         uuid references public.profiles(id),
+  created_at         timestamptz not null default now()
+);
+alter table public.document_files enable row level security;
+alter table public.document_files force row level security;
+create policy document_files_admin_all on public.document_files
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create table public.document_shares (
+  id           uuid primary key default gen_random_uuid(),
+  file_id      uuid not null references public.document_files(id) on delete cascade,
+  profile_id   uuid not null references public.profiles(id) on delete cascade,
+  confirmed_at timestamptz,
+  created_by   uuid references public.profiles(id),
+  created_at   timestamptz not null default now(),
+  unique (file_id, profile_id)
+);
+alter table public.document_shares enable row level security;
+alter table public.document_shares force row level security;
+create policy document_shares_admin_all on public.document_shares
+  for all using (public.is_admin()) with check (public.is_admin());
+-- Nutzer duerfen ihre eigenen Freigabe-Zeilen lesen (get_my_shared_documents()
+-- unten reicht fuer die UI, aber das schadet nicht und folgt dem Muster
+-- von property_document_access_own_or_admin). Bewusst KEINE Update-Policy
+-- fuer Nutzer -- das Bestaetigen laeuft ausschliesslich ueber die RPC
+-- unten, sonst koennte ein Nutzer file_id seiner eigenen Zeile auf eine
+-- fremde Datei "ummuenzen" und sich so Zugriff verschaffen.
+create policy document_shares_self_select on public.document_shares
+  for select using (profile_id = auth.uid());
+
+create or replace function public.confirm_document_share(p_share_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.document_shares
+  set confirmed_at = now()
+  where id = p_share_id and profile_id = auth.uid() and confirmed_at is null;
+end;
+$$;
+
+create or replace function public.can_access_document_file(p_file_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin() or exists (
+    select 1 from public.document_shares
+    where file_id = p_file_id and profile_id = auth.uid()
+  );
+$$;
+
+-- Fuer die Storage-Policy (storage.objects kennt nur den Pfad, keine
+-- file_id) -- gleiches Muster wie storage_documents_select, das ueber
+-- file_path zurueck auf die Metadatentabelle joint.
+create or replace function public.can_access_document_file_by_path(p_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin() or exists (
+    select 1 from public.document_files f
+    join public.document_shares ds on ds.file_id = f.id
+    where f.file_path = p_path and ds.profile_id = auth.uid()
+  );
+$$;
+
+-- Flache Liste aller fuer den eingeloggten Nutzer freigegebenen Dateien,
+-- inkl. eines lesbaren Ordner-Pfads ("Vertraege / 2026") als Text --
+-- dafuer wird pro Zeile einmal die parent_id-Kette nach oben durchlaufen
+-- (kein rekursives CTE, es gibt kein Vorbild dafuer in diesem Schema;
+-- eine einfache Schleife passt zum Stil von get_available_slots() oben).
+-- Rein kosmetisch: sicherheitsrelevant ist nur die Existenz der
+-- document_shares-Zeile, nicht dieser Pfad-Text.
+create or replace function public.get_my_shared_documents()
+returns table(
+  share_id uuid, file_id uuid, title text, file_path text, mime_type text,
+  size_bytes bigint, needs_confirmation boolean, confirmed_at timestamptz,
+  folder_path text, shared_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  r record;
+  v_folder_id uuid;
+  v_path text;
+  v_name text;
+begin
+  if me is null then
+    return;
+  end if;
+
+  for r in
+    select ds.id as s_id, df.id as f_id, df.title as f_title, df.file_path as f_path,
+           df.mime_type as f_mime, df.size_bytes as f_size, df.needs_confirmation as f_needs_confirmation,
+           ds.confirmed_at as s_confirmed_at, df.folder_id as f_folder_id, ds.created_at as s_created_at
+    from public.document_shares ds
+    join public.document_files df on df.id = ds.file_id
+    where ds.profile_id = me
+    order by ds.created_at desc
+  loop
+    v_path := null;
+    v_folder_id := r.f_folder_id;
+    while v_folder_id is not null loop
+      select name, parent_id into v_name, v_folder_id from public.document_folders where id = v_folder_id;
+      v_path := case when v_path is null then v_name else v_name || ' / ' || v_path end;
+    end loop;
+
+    share_id := r.s_id;
+    file_id := r.f_id;
+    title := r.f_title;
+    file_path := r.f_path;
+    mime_type := r.f_mime;
+    size_bytes := r.f_size;
+    needs_confirmation := r.f_needs_confirmation;
+    confirmed_at := r.s_confirmed_at;
+    folder_path := coalesce(v_path, '');
+    shared_at := r.s_created_at;
+    return next;
+  end loop;
+end;
+$$;
+
+insert into storage.buckets (id, name, public)
+values ('document-vault', 'document-vault', false)
+on conflict (id) do nothing;
+
+create policy storage_document_vault_select on storage.objects
+  for select using (
+    bucket_id = 'document-vault'
+    and public.can_access_document_file_by_path(name)
+  );
+create policy storage_document_vault_admin_write on storage.objects
+  for insert with check (bucket_id = 'document-vault' and public.is_admin());
+create policy storage_document_vault_admin_update on storage.objects
+  for update using (bucket_id = 'document-vault' and public.is_admin());
+create policy storage_document_vault_admin_delete on storage.objects
+  for delete using (bucket_id = 'document-vault' and public.is_admin());
+
+-- get_unread_counts(): neue Version angehaengt, einzige Aenderung ist
+-- der c_documents-Block (jetzt document_shares statt der alten
+-- documents-Tabelle; fuer Admin immer 0, da Admin selbst teilt statt
+-- zugeteilt zu bekommen) -- alles andere ist eine exakte Kopie der
+-- vorherigen Version.
+create or replace function public.get_unread_counts()
+returns table(section text, unread_count integer)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  am_admin boolean;
+  c_messages int;
+  c_invoices int;
+  c_meldungen int;
+  c_documents int;
+  c_announcements int;
+  c_calendar int;
+  c_waschplan int;
+  c_tickets int;
+  c_rapporte int;
+  c_termine int;
+begin
+  if me is null then
+    return;
+  end if;
+
+  am_admin := public.is_admin();
+
+  select count(*) into c_messages
+  from public.messages
+  where recipient_profile_id = me and read_at is null;
+
+  select count(*) into c_invoices
+  from public.invoices
+  where recipient_profile_id = me
+    and issuer_profile_id <> me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'invoices'),
+      '-infinity'::timestamptz
+    );
+
+  if am_admin then
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_meldungen
+    from public.issue_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'meldungen'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  if am_admin then
+    c_documents := 0;
+  else
+    select count(*) into c_documents
+    from public.document_shares ds
+    where ds.profile_id = me
+      and ds.created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  select count(*) into c_announcements
+  from public.property_announcements pa
+  where created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
+      '-infinity'::timestamptz
+    )
+    and (
+      exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = pa.property_id
+          and t.tenant_profile_id = me and t.status = 'active' and public.is_approved()
+      )
+      or exists (
+        select 1 from public.ownerships o
+        where (o.property_id = pa.property_id or o.unit_id in (select id from public.units where property_id = pa.property_id))
+          and o.owner_profile_id = me
+          and (o.end_date is null or o.end_date >= current_date)
+          and public.is_approved()
+      )
+      or public.has_property_permission(pa.property_id, 'hauswart')
+    );
+
+  c_documents := c_documents + c_announcements;
+
+  select count(*) into c_calendar
+  from public.calendar_events
+  where profile_id = me
+    and created_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'calendar'),
+      '-infinity'::timestamptz
+    );
+
+  select count(*) into c_waschplan
+  from public.laundry_schedule_slots l
+  where l.updated_at > coalesce(
+      (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
+      '-infinity'::timestamptz
+    )
+    and l.created_by is distinct from me
+    and (
+      am_admin
+      or public.has_property_permission(l.property_id, 'waschplan')
+      or public.has_property_permission(l.property_id, 'hauswart')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = l.property_id
+          and t.tenant_profile_id = me and public.is_approved()
+      )
+    );
+
+  if am_admin then
+    select count(*) into c_tickets
+    from public.admin_tickets
+    where (
+      (created_by <> me and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+      or
+      (updated_by is distinct from me and updated_at > created_at and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'tickets'),
+        '-infinity'::timestamptz
+      ))
+    );
+  else
+    c_tickets := 0;
+  end if;
+
+  if am_admin then
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id <> me
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  else
+    select count(*) into c_rapporte
+    from public.hauswart_reports
+    where reporter_profile_id = me
+      and updated_at > created_at
+      and updated_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'rapporte'),
+        '-infinity'::timestamptz
+      );
+  end if;
+
+  if am_admin then
+    select count(*) into c_termine
+    from public.bookings
+    where status in ('bestaetigt','angefragt')
+      and created_at > coalesce(
+        (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'termine'),
+        '-infinity'::timestamptz
+      );
+  else
+    c_termine := 0;
+  end if;
+
+  return query values
+    ('messages',  c_messages),
+    ('invoices',  c_invoices),
+    ('meldungen', c_meldungen),
+    ('documents', c_documents),
+    ('calendar',  c_calendar),
+    ('waschplan', c_waschplan),
+    ('tickets',   c_tickets),
+    ('rapporte',  c_rapporte),
+    ('termine',   c_termine);
+end;
+$$;
+

@@ -67,43 +67,44 @@
           <h2>Objekt-Dokumente</h2>
           <div class="doc-list" id="propertyDocsUserList"></div>
         </div>
-        <div class="doc-list" id="docsUserList"></div>
+        <div class="dash-card">
+          <h2>Für Sie freigegebene Dokumente</h2>
+          <div class="doc-list" id="sharedDocsList"></div>
+        </div>
       </div>
 
-      <!-- Admin-Ansicht -->
+      <!-- Admin-Ansicht: klassisches Ordner-Ablagesystem -->
       <div id="docsAdminView" style="display:none;">
         <div class="dash-card">
-          <h2>Neues Dokument zuweisen</h2>
-          <form class="auth-form" id="newDocForm">
-            <select id="nd_recipient" required>
-              <option value="" disabled selected>Empfänger wählen *</option>
-            </select>
-            <select id="nd_tenancy">
-              <option value="">– keine Mietverhältnis-Zuordnung –</option>
-            </select>
-            <input id="nd_title" placeholder="Titel *" required>
-            <select id="nd_category">
-              <option value="uebergabeprotokoll">Übergabeprotokoll</option>
-              <option value="abrechnung">Abrechnung</option>
-              <option value="vertrag">Vertrag</option>
-              <option value="versicherung">Versicherung</option>
-              <option value="sonstiges" selected>Sonstiges</option>
-            </select>
-            <select id="nd_action">
-              <option value="view_only">Nur zur Information</option>
-              <option value="sign">Unterschreiben / Bestätigen</option>
-              <option value="fill">Ausfüllen</option>
-            </select>
-            <input type="file" id="nd_file" required>
-            <button type="submit" class="btn btn-primary" id="newDocSubmit">Hochladen &amp; zuweisen</button>
-            <p class="form-status" id="newDocStatus"></p>
-          </form>
+          <div class="filemgr-toolbar">
+            <div class="filemgr-breadcrumb" id="filemgrBreadcrumb"></div>
+            <div class="filemgr-toolbar-actions">
+              <label class="filemgr-confirm-label">
+                <input type="checkbox" id="fm_needs_confirmation"> Bestätigung einfordern
+              </label>
+              <input type="file" id="fm_upload_input" multiple hidden
+                accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx">
+              <button type="button" class="dash-btn-sm" id="fm_upload_btn">Datei hochladen</button>
+              <button type="button" class="dash-btn-sm" id="fm_new_folder_btn">Neuer Ordner</button>
+            </div>
+          </div>
+          <p class="form-status" id="fmStatus"></p>
+          <div class="filemgr-folder-grid" id="filemgrFolderGrid"></div>
+          <div class="filemgr-file-list" id="filemgrFileList"></div>
         </div>
+      </div>
 
-        <div class="dash-card">
-          <h2>Alle Dokumente</h2>
-          <input type="text" class="dash-search-input" id="docSearch" placeholder="Suchen nach Empfänger, Titel, Kategorie, Status …">
-          <table class="dash-table" id="docsAdminTable"></table>
+      <!-- Teilen-Modal (admin) -->
+      <div class="share-modal-backdrop" id="shareModalBackdrop" hidden>
+        <div class="share-modal">
+          <h3 id="shareModalTitle">Teilen</h3>
+          <p class="doc-meta" id="shareModalHint"></p>
+          <div class="prop-user-picker" id="shareModalPicker"></div>
+          <p class="form-status" id="shareModalStatus"></p>
+          <div class="share-modal-actions">
+            <button type="button" class="dash-btn-sm" id="shareModalCancel">Abbrechen</button>
+            <button type="button" class="btn btn-primary" id="shareModalConfirm">Teilen</button>
+          </div>
         </div>
       </div>
     </section>
@@ -143,26 +144,20 @@
   var profile;
   var client;
 
-  var CATEGORY_TEXT = {
-    uebergabeprotokoll: 'Übergabeprotokoll', abrechnung: 'Abrechnung', vertrag: 'Vertrag',
-    versicherung: 'Versicherung', sonstiges: 'Sonstiges'
-  };
-  var ACTION_TEXT = { view_only: 'Information', sign: 'Unterschreiben', fill: 'Ausfüllen' };
-
   VeraDashboard.init('documents').then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
     document.getElementById('docsLead').textContent = profile.category === 'admin'
-      ? 'Dokumente hochladen und Nutzern zuweisen.'
-      : 'Ihre zugewiesenen Dokumente.';
+      ? 'Ordner anlegen, Dokumente hochladen und mit Nutzern teilen.'
+      : 'Ihre freigegebenen Dokumente.';
 
     if(profile.category === 'admin'){
       document.getElementById('docsAdminView').style.display = 'block';
-      initAdminView();
+      initFileManager();
     } else {
       document.getElementById('docsUserView').style.display = 'block';
-      loadUserDocuments();
+      loadSharedDocs();
       loadAnnouncements();
       loadPropertyDocuments();
     }
@@ -219,186 +214,382 @@
     });
   }
 
-  async function loadUserDocuments(){
-    var res = await client.from('documents').select('*').order('created_at', { ascending:false });
-    renderUserDocs(res.data || []);
+  async function loadSharedDocs(){
+    var res = await client.rpc('get_my_shared_documents');
+    renderSharedDocs(res.data || []);
   }
 
-  function renderUserDocs(docs){
-    var list = document.getElementById('docsUserList');
+  function renderSharedDocs(docs){
+    var list = document.getElementById('sharedDocsList');
     if(!docs.length){
-      list.innerHTML = '<p class="dash-empty">Noch keine Dokumente vorhanden.</p>';
+      list.innerHTML = '<p class="dash-empty">Noch keine Dokumente für Sie freigegeben.</p>';
       return;
     }
     list.innerHTML = docs.map(function(d){
-      var action = '';
-      if(d.status === 'pending' && d.action_type === 'sign'){
-        action = '<button type="button" class="dash-btn-sm sign-btn" data-id="'+d.id+'">Bestätigen / Unterschreiben</button>';
-      } else if(d.status === 'pending' && d.action_type === 'fill'){
-        action = '<form class="fill-form" data-id="'+d.id+'">' +
-          '<textarea required placeholder="z.B. Zählerstände, Bemerkungen"></textarea>' +
-          '<button type="submit" class="dash-btn-sm">Absenden</button></form>';
-      } else if(d.status === 'completed'){
-        action = '<span class="status-badge active">Erledigt</span>';
+      var action;
+      if(d.needs_confirmation && !d.confirmed_at){
+        action = '<button type="button" class="dash-btn-sm confirm-share-btn" data-share-id="'+d.share_id+'">Bestätigen</button>';
+      } else if(d.confirmed_at){
+        action = '<span class="doc-confirmed-badge">✓ Bestätigt</span>';
       } else {
-        action = '<span class="status-badge">Zur Information</span>';
+        action = '';
       }
       return '<div class="doc-row">' +
         '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
-        '<span class="doc-meta">'+VeraDashboard.escapeHtml(CATEGORY_TEXT[d.category] || d.category)+' · '+VeraDashboard.formatDate(d.created_at)+'</span></div>' +
+        '<span class="doc-meta">'+(d.folder_path ? VeraDashboard.escapeHtml(d.folder_path)+' · ' : '')+VeraDashboard.formatDate(d.shared_at)+'</span></div>' +
         '<div class="dash-btn-row"><a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' + action + '</div>' +
       '</div>';
     }).join('');
 
-    wireOpenLinks(list, 'documents');
-    list.querySelectorAll('.sign-btn').forEach(function(btn){
+    wireOpenLinks(list, 'document-vault');
+    list.querySelectorAll('.confirm-share-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         btn.disabled = true;
         btn.textContent = 'Wird bestätigt …';
-        try{ await VeraPortal.completeDocument(btn.getAttribute('data-id')); }
-        finally{ loadUserDocuments(); }
-      });
-    });
-    list.querySelectorAll('.fill-form').forEach(function(form){
-      form.addEventListener('submit', async function(e){
-        e.preventDefault();
-        var text = form.querySelector('textarea').value.trim();
-        if(!text) return;
-        var btn = form.querySelector('button');
-        btn.disabled = true; btn.textContent = 'Wird gesendet …';
-        try{ await VeraPortal.completeDocument(form.getAttribute('data-id'), text); }
-        finally{ loadUserDocuments(); }
+        try{ await client.rpc('confirm_document_share', { p_share_id: btn.getAttribute('data-share-id') }); }
+        finally{ loadSharedDocs(); }
       });
     });
   }
 
-  async function initAdminView(){
-    var recipientSel = document.getElementById('nd_recipient');
-    var tenancySel = document.getElementById('nd_tenancy');
+  /* ============================================================
+     ORDNER-ABLAGESYSTEM (Admin) — klassischer Datei-Explorer:
+     Ordner-Kacheln + Datei-Liste für den aktuellen Ordner, Drag&Drop
+     zum Verschieben, Breadcrumb-Navigation. Ordnerhierarchie lebt nur
+     in der DB (document_folders/document_files) — Storage-Pfade sind
+     flach, Verschieben ist daher nie eine Storage-Operation.
+  ============================================================ */
+  var fmPath = []; // Stack von {id, name} — aktueller Ordner ist das letzte Element, [] = Wurzel
+  var fmFolders = [];
+  var fmFiles = [];
+  var fmAllProfiles = [];
+  var fmDragged = null; // { type: 'folder'|'file', id }
+  var fmShareTarget = null; // { type: 'folder'|'file', id, name }
 
-    var res = await client.from('profiles')
-      .select('id, first_name, last_name, member_number, category')
-      .neq('category', 'admin')
-      .order('last_name');
-    var profiles = res.data || [];
+  function fmCurrentFolderId(){
+    return fmPath.length ? fmPath[fmPath.length - 1].id : null;
+  }
 
-    recipientSel.innerHTML = '<option value="" disabled selected>Empfänger wählen *</option>' +
-      profiles.map(function(p){
-        return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+' ('+p.member_number+')</option>';
-      }).join('');
-
-    recipientSel.addEventListener('change', async function(){
-      var tRes = await client.from('tenancies')
-        .select('id, units(label, properties(label))')
-        .eq('tenant_profile_id', recipientSel.value);
-      var tenancies = tRes.data || [];
-      tenancySel.innerHTML = '<option value="">– keine Mietverhältnis-Zuordnung –</option>' +
-        tenancies.map(function(t){
-          var label = (t.units && t.units.properties) ? (t.units.properties.label + ' – ' + t.units.label) : t.id;
-          return '<option value="'+t.id+'">'+VeraDashboard.escapeHtml(label)+'</option>';
-        }).join('');
+  function initFileManager(){
+    document.getElementById('fm_new_folder_btn').addEventListener('click', fmCreateFolder);
+    document.getElementById('fm_upload_btn').addEventListener('click', function(){
+      document.getElementById('fm_upload_input').click();
     });
+    document.getElementById('fm_upload_input').addEventListener('change', fmUploadFiles);
 
-    document.getElementById('newDocForm').addEventListener('submit', async function(e){
+    document.getElementById('shareModalCancel').addEventListener('click', fmCloseShareModal);
+    document.getElementById('shareModalConfirm').addEventListener('click', fmSubmitShare);
+
+    client.from('profiles').select('id, first_name, last_name, category, email')
+      .eq('status', 'active').neq('category', 'admin').order('category').order('last_name')
+      .then(function(res){ fmAllProfiles = res.data || []; });
+
+    fmLoadCurrentFolder();
+  }
+
+  function fmSetStatus(msg){
+    var el = document.getElementById('fmStatus');
+    el.textContent = msg || '';
+    el.classList.toggle('show', !!msg);
+  }
+
+  async function fmLoadCurrentFolder(){
+    var folderId = fmCurrentFolderId();
+
+    var foldersQuery = client.from('document_folders').select('*').order('name');
+    foldersQuery = folderId === null ? foldersQuery.is('parent_id', null) : foldersQuery.eq('parent_id', folderId);
+    var foldersRes = await foldersQuery;
+    fmFolders = foldersRes.data || [];
+
+    var filesQuery = client.from('document_files').select('*').order('title');
+    filesQuery = folderId === null ? filesQuery.is('folder_id', null) : filesQuery.eq('folder_id', folderId);
+    var filesRes = await filesQuery;
+    fmFiles = filesRes.data || [];
+
+    fmRenderBreadcrumb();
+    fmRenderFolderGrid();
+    fmRenderFileList();
+  }
+
+  function fmRenderBreadcrumb(){
+    var el = document.getElementById('filemgrBreadcrumb');
+    var rootHtml = '<span class="filemgr-breadcrumb-item" data-crumb-index="-1">Alle Dokumente</span>';
+    var restHtml = fmPath.map(function(p, i){
+      return '<span class="filemgr-breadcrumb-sep">/</span>' +
+        '<span class="filemgr-breadcrumb-item" data-crumb-index="'+i+'">'+VeraDashboard.escapeHtml(p.name)+'</span>';
+    }).join('');
+    el.innerHTML = rootHtml + restHtml;
+
+    el.querySelectorAll('.filemgr-breadcrumb-item').forEach(function(item){
+      var idx = parseInt(item.getAttribute('data-crumb-index'), 10);
+      item.addEventListener('click', function(){
+        fmPath = idx === -1 ? [] : fmPath.slice(0, idx + 1);
+        fmLoadCurrentFolder();
+      });
+      fmWireDropTarget(item, idx === -1 ? null : fmPath[idx].id);
+    });
+  }
+
+  function fmWireDropTarget(el, targetFolderId){
+    el.addEventListener('dragover', function(e){
       e.preventDefault();
-      var recipientId = recipientSel.value;
-      var fileInput = document.getElementById('nd_file');
-      var file = fileInput.files[0];
-      var title = document.getElementById('nd_title').value.trim();
-      var statusEl = document.getElementById('newDocStatus');
-      var submitBtn = document.getElementById('newDocSubmit');
-
-      if(!recipientId || !title || !file){
-        statusEl.textContent = 'Bitte Empfänger, Titel und Datei angeben.';
-        statusEl.classList.add('show');
-        return;
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', function(){ el.classList.remove('drag-over'); });
+    el.addEventListener('drop', async function(e){
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if(!fmDragged) return;
+      if(fmDragged.type === 'folder'){
+        if(fmDragged.id === targetFolderId) return;
+        await client.from('document_folders').update({ parent_id: targetFolderId }).eq('id', fmDragged.id);
+      } else {
+        await client.from('document_files').update({ folder_id: targetFolderId }).eq('id', fmDragged.id);
       }
+      fmDragged = null;
+      fmLoadCurrentFolder();
+    });
+  }
 
-      submitBtn.disabled = true;
-      statusEl.textContent = 'Wird hochgeladen …';
-      statusEl.classList.add('show');
+  function fmRenderFolderGrid(){
+    var grid = document.getElementById('filemgrFolderGrid');
+    grid.innerHTML = fmFolders.map(function(f){
+      return '<div class="filemgr-folder-tile" draggable="true" data-folder-id="'+f.id+'" data-folder-name="'+VeraDashboard.escapeHtml(f.name)+'">' +
+        '<span class="filemgr-folder-icon">📁</span>' +
+        '<span class="filemgr-folder-name">'+VeraDashboard.escapeHtml(f.name)+'</span>' +
+        '<div class="filemgr-folder-actions">' +
+          '<button type="button" class="fm-share-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Teilen</button>' +
+          '<button type="button" class="fm-rename-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Umbenennen</button>' +
+          '<button type="button" class="fm-delete-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Löschen</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
 
-      // Id first, client-side — the storage path needs it before either
-      // the upload or the row insert happens.
-      var docId = crypto.randomUUID();
-      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      var filePath = recipientId + '/' + docId + '-' + safeName;
-
-      var upRes = await client.storage.from('documents').upload(filePath, file);
-      if(upRes.error){
-        statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
-        submitBtn.disabled = false;
-        return;
-      }
-
-      var insRes = await client.from('documents').insert({
-        id: docId,
-        title: title,
-        category: document.getElementById('nd_category').value,
-        file_path: filePath,
-        owner_profile_id: recipientId,
-        tenancy_id: tenancySel.value || null,
-        action_type: document.getElementById('nd_action').value,
-        created_by: profile.id
+    grid.querySelectorAll('.filemgr-folder-tile').forEach(function(tile){
+      var id = tile.getAttribute('data-folder-id');
+      var name = tile.getAttribute('data-folder-name');
+      tile.addEventListener('dblclick', function(e){
+        if(e.target.closest('button')) return;
+        fmPath.push({ id: id, name: name });
+        fmLoadCurrentFolder();
       });
-
-      if(insRes.error){
-        await client.storage.from('documents').remove([filePath]);
-        statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
-        submitBtn.disabled = false;
-        return;
-      }
-
-      statusEl.textContent = 'Dokument erfolgreich zugewiesen.';
-      submitBtn.disabled = false;
-      document.getElementById('newDocForm').reset();
-      tenancySel.innerHTML = '<option value="">– keine Mietverhältnis-Zuordnung –</option>';
-      loadAdminDocsTable();
+      tile.addEventListener('dragstart', function(){ fmDragged = { type: 'folder', id: id }; });
+      fmWireDropTarget(tile, id);
     });
-
-    loadAdminDocsTable();
-    document.getElementById('docSearch').addEventListener('input', function(){
-      var q = this.value.trim();
-      renderAdminDocsTable(allAdminDocs.filter(function(d){
-        var owner = d.owner ? (d.owner.last_name + ' ' + d.owner.first_name) : '';
-        return VeraDashboard.matchesSearch(
-          [owner, d.title, CATEGORY_TEXT[d.category]||d.category, ACTION_TEXT[d.action_type]||d.action_type, d.status], q
-        );
-      }));
+    grid.querySelectorAll('.fm-rename-folder-btn').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        fmRenameFolder(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      });
+    });
+    grid.querySelectorAll('.fm-delete-folder-btn').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        fmDeleteFolder(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      });
+    });
+    grid.querySelectorAll('.fm-share-folder-btn').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        fmOpenShareModal('folder', btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      });
     });
   }
 
-  var allAdminDocs = [];
-
-  async function loadAdminDocsTable(){
-    // documents has three FKs into profiles (owner/created_by/completed_by)
-    // so the embed must name which one explicitly.
-    var res = await client.from('documents')
-      .select('*, owner:profiles!owner_profile_id(first_name,last_name,member_number)')
-      .order('created_at', { ascending:false });
-    allAdminDocs = res.data || [];
-    renderAdminDocsTable(allAdminDocs);
+  function fmFileIcon(mime){
+    if(!mime) return '📄';
+    if(mime.indexOf('pdf') > -1) return '📕';
+    if(mime.indexOf('image') > -1) return '🖼️';
+    if(mime.indexOf('word') > -1 || mime.indexOf('msword') > -1) return '📝';
+    if(mime.indexOf('presentation') > -1 || mime.indexOf('powerpoint') > -1) return '📊';
+    if(mime.indexOf('sheet') > -1 || mime.indexOf('excel') > -1) return '📈';
+    return '📄';
   }
 
-  function renderAdminDocsTable(docs){
-    var table = document.getElementById('docsAdminTable');
-    if(!docs.length){
-      table.innerHTML = '<tr><td class="dash-empty">'+(allAdminDocs.length?'Keine Treffer.':'Noch keine Dokumente vorhanden.')+'</td></tr>';
+  function fmFormatSize(bytes){
+    if(!bytes) return '';
+    if(bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function fmRenderFileList(){
+    var list = document.getElementById('filemgrFileList');
+    if(!fmFiles.length){
+      list.innerHTML = fmFolders.length ? '' : '<p class="dash-empty">Dieser Ordner ist leer.</p>';
       return;
     }
-    table.innerHTML = '<tr><th>Empfänger</th><th>Titel</th><th>Typ</th><th>Aktion</th><th>Status</th><th></th></tr>' +
-      docs.map(function(d){
-        var owner = d.owner ? (d.owner.last_name + ' ' + d.owner.first_name) : '–';
-        return '<tr>' +
-          '<td>'+VeraDashboard.escapeHtml(owner)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(d.title)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(CATEGORY_TEXT[d.category] || d.category)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(ACTION_TEXT[d.action_type] || d.action_type)+'</td>' +
-          '<td><span class="status-badge '+(d.status==='completed'?'active':'pending')+'">'+(d.status==='completed'?'Erledigt':'Offen')+'</span></td>' +
-          '<td><a href="#" class="doc-open-link" data-path="'+d.file_path+'">Öffnen</a></td>' +
-        '</tr>';
-      }).join('');
-    wireOpenLinks(table, 'documents');
+    list.innerHTML = fmFiles.map(function(f){
+      return '<div class="filemgr-file-row" draggable="true" data-file-id="'+f.id+'" data-file-title="'+VeraDashboard.escapeHtml(f.title)+'">' +
+        '<div class="filemgr-file-info">' +
+          '<span class="filemgr-file-icon">'+fmFileIcon(f.mime_type)+'</span>' +
+          '<span class="filemgr-file-title">'+VeraDashboard.escapeHtml(f.title)+'</span>' +
+          '<span class="filemgr-file-meta">'+fmFormatSize(f.size_bytes)+(f.needs_confirmation ? ' · Bestätigung erforderlich' : '')+'</span>' +
+        '</div>' +
+        '<div class="dash-btn-row">' +
+          '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+f.file_path+'">Öffnen</a>' +
+          '<button type="button" class="dash-btn-sm fm-share-file-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.title)+'">Teilen</button>' +
+          '<button type="button" class="dash-btn-sm danger fm-delete-file-btn" data-id="'+f.id+'" data-path="'+f.file_path+'" data-name="'+VeraDashboard.escapeHtml(f.title)+'">Löschen</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    wireOpenLinks(list, 'document-vault');
+    list.querySelectorAll('.filemgr-file-row').forEach(function(row){
+      row.addEventListener('dragstart', function(){
+        fmDragged = { type: 'file', id: row.getAttribute('data-file-id') };
+      });
+    });
+    list.querySelectorAll('.fm-share-file-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        fmOpenShareModal('file', btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      });
+    });
+    list.querySelectorAll('.fm-delete-file-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        fmDeleteFile(btn.getAttribute('data-id'), btn.getAttribute('data-path'), btn.getAttribute('data-name'));
+      });
+    });
+  }
+
+  async function fmCreateFolder(){
+    var name = window.prompt('Ordnername:');
+    if(!name || !name.trim()) return;
+    await client.from('document_folders').insert({
+      name: name.trim(), parent_id: fmCurrentFolderId(), created_by: profile.id
+    });
+    fmLoadCurrentFolder();
+  }
+
+  async function fmRenameFolder(id, currentName){
+    var name = window.prompt('Neuer Name:', currentName);
+    if(!name || !name.trim() || name.trim() === currentName) return;
+    await client.from('document_folders').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('id', id);
+    fmLoadCurrentFolder();
+  }
+
+  // Sammelt rekursiv alle Datei-Zeilen unterhalb eines Ordners (admin
+  // hat ohnehin Vollzugriff auf beide Tabellen) — für Löschen (Storage
+  // aufräumen) und Teilen (Fan-out auf Datei-Ebene) gleichermassen.
+  async function fmCollectFilesRecursive(folderId){
+    var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId);
+    var files = filesRes.data || [];
+    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+    var subFolders = subRes.data || [];
+    for(var i = 0; i < subFolders.length; i++){
+      var nested = await fmCollectFilesRecursive(subFolders[i].id);
+      files = files.concat(nested);
+    }
+    return files;
+  }
+
+  async function fmDeleteFolder(id, name){
+    if(!window.confirm('Ordner "'+name+'" wirklich löschen? Alle Unterordner und Dateien darin werden unwiderruflich gelöscht.')) return;
+    var files = await fmCollectFilesRecursive(id);
+    if(files.length){
+      await client.storage.from('document-vault').remove(files.map(function(f){ return f.file_path; }));
+    }
+    await client.from('document_folders').delete().eq('id', id);
+    fmLoadCurrentFolder();
+  }
+
+  async function fmDeleteFile(id, path, name){
+    if(!window.confirm('Datei "'+name+'" wirklich löschen?')) return;
+    await client.storage.from('document-vault').remove([path]);
+    await client.from('document_files').delete().eq('id', id);
+    fmLoadCurrentFolder();
+  }
+
+  async function fmUploadFiles(){
+    var input = document.getElementById('fm_upload_input');
+    var files = Array.prototype.slice.call(input.files);
+    if(!files.length) return;
+    var needsConfirmation = document.getElementById('fm_needs_confirmation').checked;
+    var folderId = fmCurrentFolderId();
+
+    fmSetStatus('Wird hochgeladen …');
+    for(var i = 0; i < files.length; i++){
+      var file = files[i];
+      var fileId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var filePath = fileId + '-' + safeName;
+
+      var upRes = await client.storage.from('document-vault').upload(filePath, file);
+      if(upRes.error){
+        fmSetStatus('Fehler beim Hochladen von "'+file.name+'": ' + upRes.error.message);
+        continue;
+      }
+      await client.from('document_files').insert({
+        id: fileId, folder_id: folderId, title: file.name, file_path: filePath,
+        mime_type: file.type || null, size_bytes: file.size,
+        needs_confirmation: needsConfirmation, created_by: profile.id
+      });
+    }
+    fmSetStatus('Hochladen abgeschlossen.');
+    input.value = '';
+    fmLoadCurrentFolder();
+  }
+
+  function fmOpenShareModal(type, id, name){
+    fmShareTarget = { type: type, id: id, name: name };
+    document.getElementById('shareModalTitle').textContent = 'Teilen: ' + name;
+    document.getElementById('shareModalHint').textContent = type === 'folder'
+      ? 'Teilt alle Dateien in diesem Ordner (und Unterordnern) mit den ausgewählten Nutzern.'
+      : 'Teilt diese Datei mit den ausgewählten Nutzern.';
+    document.getElementById('shareModalPicker').innerHTML = fmAllProfiles.map(function(p){
+      return '<label><input type="checkbox" value="'+p.id+'"> '+VeraDashboard.escapeHtml(p.first_name+' '+p.last_name)+
+        ' <span class="cal-participant-cat">('+VeraDashboard.categoryLabel(p.category)+')</span></label>';
+    }).join('');
+    document.getElementById('shareModalStatus').textContent = '';
+    document.getElementById('shareModalBackdrop').hidden = false;
+  }
+
+  function fmCloseShareModal(){
+    document.getElementById('shareModalBackdrop').hidden = true;
+    fmShareTarget = null;
+  }
+
+  async function fmSubmitShare(){
+    if(!fmShareTarget) return;
+    var statusEl = document.getElementById('shareModalStatus');
+    var profileIds = Array.prototype.slice.call(
+      document.querySelectorAll('#shareModalPicker input[type=checkbox]:checked')
+    ).map(function(cb){ return cb.value; });
+    if(!profileIds.length){
+      statusEl.textContent = 'Bitte mindestens einen Nutzer auswählen.';
+      return;
+    }
+
+    statusEl.textContent = 'Wird geteilt …';
+    var fileIds;
+    if(fmShareTarget.type === 'folder'){
+      var files = await fmCollectFilesRecursive(fmShareTarget.id);
+      fileIds = files.map(function(f){ return f.id; });
+    } else {
+      fileIds = [fmShareTarget.id];
+    }
+    if(!fileIds.length){
+      statusEl.textContent = 'Keine Dateien zum Teilen vorhanden.';
+      return;
+    }
+
+    var rows = [];
+    fileIds.forEach(function(fid){
+      profileIds.forEach(function(pid){
+        rows.push({ file_id: fid, profile_id: pid, created_by: profile.id });
+      });
+    });
+    var upsertRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+    if(upsertRes.error){
+      statusEl.textContent = 'Fehler: ' + upsertRes.error.message;
+      return;
+    }
+
+    try {
+      await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds } });
+    } catch(err) { /* Freigabe steht, Mail-Fehler blockiert nichts */ }
+
+    statusEl.textContent = 'Geteilt und per E-Mail versendet.';
+    setTimeout(fmCloseShareModal, 900);
   }
 })();
 </script>
