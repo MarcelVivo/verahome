@@ -717,6 +717,7 @@
 
   async function deleteProperty(propertyId, label){
     if(!window.confirm('Objekt "' + label + '" wirklich löschen? Einheiten, Mietverhältnisse, Eigentümerschaften, Bilder und Objekt-Dokumente werden mitgelöscht.')) return;
+    if(!window.confirm('Letzte Bestätigung: "' + label + '" jetzt endgültig löschen?')) return;
     var res = await client.from('properties').delete().eq('id', propertyId);
     if(res.error){
       window.alert('Fehler beim Löschen: ' + res.error.message + '\n\nMöglicher Grund: Es gibt noch Auftragszuweisungen oder persönliche Dokumente, die direkt auf dieses Objekt verweisen — diese zuerst in "Mietverhältnisse" bzw. "Dokumente" entfernen oder umhängen.');
@@ -833,6 +834,7 @@
 
   async function deleteUnit(unitId, label){
     if(!window.confirm('Einheit "' + label + '" wirklich löschen? Bilder, Mietverhältnisse/Eigentümerschaften und Auftragszuweisungen dazu werden mitgelöscht.')) return;
+    if(!window.confirm('Letzte Bestätigung: "' + label + '" jetzt endgültig löschen?')) return;
     var res = await client.from('units').delete().eq('id', unitId);
     if(res.error){
       window.alert('Fehler beim Löschen: ' + res.error.message);
