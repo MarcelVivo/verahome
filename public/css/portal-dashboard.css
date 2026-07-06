@@ -292,7 +292,7 @@
    overflow-x is non-visible, clipping the popover's own vertical
    overflow. A single fixed-position element sidesteps that entirely. */
 .cal-event-detail{
-  position:fixed;width:250px;z-index:2000;
+  position:fixed;width:250px;z-index:2000;max-height:calc(100vh - 32px);overflow-y:auto;
   background:var(--color-navy-deep);color:var(--color-white);border-radius:10px;padding:14px 16px;
   box-shadow:0 12px 28px rgba(13,36,64,.35);font-size:.8rem;line-height:1.5;
   opacity:0;visibility:hidden;transform:translateY(4px);pointer-events:none;

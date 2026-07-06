@@ -699,6 +699,7 @@
      auch vertikal erzwingt, siehe CSS-Kommentar) nicht zum Opfer fällt. */
   var calPopover = document.getElementById('calDetailPopover');
   var calPinnedKey = null;
+  var calLastTargetEl = null;
 
   function calPositionPopover(targetEl){
     var rect = targetEl.getBoundingClientRect();
@@ -718,6 +719,7 @@
     calPopover.innerHTML = html;
     calPopover.classList.add('show');
     calPositionPopover(targetEl);
+    calLastTargetEl = targetEl;
   }
   function calHidePopover(){
     calPopover.classList.remove('show');
@@ -809,6 +811,7 @@
       var naDate = newApptBtn.getAttribute('data-date');
       var naHour = parseInt(newApptBtn.getAttribute('data-hour'), 10);
       calPopover.innerHTML = calNewApptFormHtml(naDate, naHour);
+      if(calLastTargetEl) calPositionPopover(calLastTargetEl);
       document.getElementById('na_name').focus();
     }
   });
