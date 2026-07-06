@@ -739,6 +739,39 @@ section{position:relative;padding:110px 0;}
 }
 .kontakt-form input:not([type="checkbox"]):focus,.kontakt-form select:focus,.kontakt-form textarea:focus{border-color:var(--color-gold);box-shadow:0 0 0 3px rgba(201,168,76,.18);outline:none;background:var(--color-white);}
 .kontakt-form textarea{min-height:230px;resize:vertical;line-height:1.55;}
+
+/* Custom-Select: ersetzt das native <select> optisch (dessen
+   aufgeklapptes Options-Menü vom Betriebssystem gerendert wird und
+   sich per CSS nicht ins Design einfärben lässt -- auf macOS im
+   Dark Mode z.B. ein dunkles Popup mitten im hellen Formular). Das
+   echte <select> bleibt im DOM (Wert/Formular-Semantik, i18n via
+   data-i18n auf den <option>-Elementen), ist aber unsichtbar --
+   dieser Button+Liste hier ist die tatsächliche Bedienoberfläche. */
+.custom-select{position:relative;}
+.custom-select-native{display:none;}
+.custom-select-trigger{
+  width:100%;min-height:58px;padding:16px 18px;border:1px solid rgba(214,228,240,.85);
+  border-radius:8px;background:rgba(247,249,251,.96);color:var(--color-gray-text);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-family:inherit;font-size:1rem;text-align:left;
+  transition:border-color .25s,box-shadow .25s,background .25s;
+}
+.custom-select-trigger svg{width:16px;height:16px;flex-shrink:0;transition:transform .2s;color:var(--color-gray-text);}
+.custom-select.open .custom-select-trigger svg{transform:rotate(180deg);}
+.custom-select-trigger:focus-visible,.custom-select.open .custom-select-trigger{
+  border-color:var(--color-gold);box-shadow:0 0 0 3px rgba(201,168,76,.18);outline:none;background:var(--color-white);
+}
+.custom-select-list{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:20;
+  background:var(--color-white);border:1px solid rgba(214,228,240,.85);border-radius:8px;
+  box-shadow:0 12px 32px rgba(20,30,45,.16);padding:6px;max-height:280px;overflow-y:auto;
+}
+.custom-select-option{
+  padding:11px 14px;border-radius:6px;font-size:.95rem;color:var(--color-gray-text);cursor:pointer;
+}
+.custom-select-option:hover,.custom-select-option:focus{background:var(--color-bg);outline:none;}
+.custom-select-option.selected{color:var(--color-navy);font-weight:600;}
+.custom-select-option.selected::before{content:"✓ ";color:var(--color-gold);}
 .kontakt-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
 .kontakt-form-row > div,.kontakt-form-row > input{min-width:0;}
 .kontakt-message-field{min-width:0;}

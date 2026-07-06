@@ -1008,6 +1008,9 @@ function applyTranslations(lang){
     if(translations[lang][key] !== undefined) el.setAttribute('placeholder', translations[lang][key]);
   });
   document.documentElement.setAttribute('lang', lang);
+  document.querySelectorAll('.custom-select').forEach(function(wrapper){
+    if(wrapper._rebuildCustomSelect) wrapper._rebuildCustomSelect();
+  });
 }
 
 function switchLang(lang){
@@ -2188,6 +2191,98 @@ var BETREFF_SLUG_MAP = {
   var subjectSelect = document.getElementById('c_subject');
   if(subjectSelect) subjectSelect.value = subjectValue;
 })();
+
+/* Baut aus einem <select> eine eigene Button+Liste-Bedienoberfläche
+   (siehe .custom-select in styles.css). Das <select> selbst bleibt im
+   DOM als alleinige Quelle für Wert und Beschriftung (inkl. i18n) --
+   rebuild() liest bei jedem Aufruf einfach dessen aktuelle <option>s
+   neu ein, dadurch bleibt z.B. der Sprachwechsel automatisch in Sync,
+   ohne die Übersetzungslogik zu duplizieren. */
+function buildCustomSelect(selectId){
+  var select = document.getElementById(selectId);
+  if(!select || select.closest('.custom-select')) return;
+
+  var wrapper = document.createElement('div');
+  wrapper.className = 'custom-select';
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add('custom-select-native');
+  select.tabIndex = -1;
+  select.setAttribute('aria-hidden', 'true');
+
+  var trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'custom-select-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  var triggerLabel = document.createElement('span');
+  trigger.appendChild(triggerLabel);
+  trigger.insertAdjacentHTML('beforeend',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+  wrapper.appendChild(trigger);
+
+  var list = document.createElement('ul');
+  list.className = 'custom-select-list';
+  list.setAttribute('role', 'listbox');
+  list.hidden = true;
+  wrapper.appendChild(list);
+
+  function rebuild(){
+    var selected = select.options[select.selectedIndex];
+    triggerLabel.textContent = selected ? selected.textContent : '';
+    list.innerHTML = '';
+    Array.prototype.forEach.call(select.options, function(opt, idx){
+      var li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.className = 'custom-select-option' + (idx === select.selectedIndex ? ' selected' : '');
+      li.textContent = opt.textContent;
+      li.tabIndex = -1;
+      li.dataset.value = opt.value;
+      list.appendChild(li);
+    });
+  }
+  rebuild();
+  wrapper._rebuildCustomSelect = rebuild;
+
+  function open(){
+    list.hidden = false;
+    wrapper.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    var current = list.querySelector('.selected') || list.firstElementChild;
+    if(current) current.focus();
+  }
+  function close(){
+    list.hidden = true;
+    wrapper.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  trigger.addEventListener('click', function(){
+    if(list.hidden) open(); else close();
+  });
+  list.addEventListener('click', function(e){
+    var li = e.target.closest('.custom-select-option');
+    if(!li) return;
+    select.value = li.dataset.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    rebuild();
+    close();
+    trigger.focus();
+  });
+  list.addEventListener('keydown', function(e){
+    var items = Array.prototype.slice.call(list.children);
+    var idx = items.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown'){ e.preventDefault(); (items[idx + 1] || items[0]).focus(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); (items[idx - 1] || items[items.length - 1]).focus(); }
+    else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); document.activeElement.click(); }
+    else if(e.key === 'Escape'){ close(); trigger.focus(); }
+    else if(e.key === 'Tab'){ close(); }
+  });
+  document.addEventListener('click', function(e){
+    if(!wrapper.contains(e.target)) close();
+  });
+}
+buildCustomSelect('c_subject');
 
 var contactForm = document.getElementById('contactForm');
 contactForm.addEventListener('submit', function(e){
