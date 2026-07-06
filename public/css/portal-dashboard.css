@@ -332,17 +332,18 @@
 }
 .cal-day-col{flex:1;min-width:100px;border-right:1px solid var(--color-blue-light);}
 /* Auf schmalen Screens (wo .cal-grid ohnehin horizontal scrollen muss,
-   da min-width:760px) fühlt sich das Scrollen per Snap wie ein
-   Wischen zwischen Tagen an statt wie ein unhandliches breites
-   Raster. Bewusst "proximity" statt "mandatory": Mandatory hat sich
-   auf echten Touch-Geräten als instabil erwiesen (Scroll-Position
-   sprang unter der Hand zurück, was Taps auf die Stundenfelder
-   teilweise komplett verschluckte) -- proximity snapt nur sanft, wenn
-   der Scroll ohnehin natürlich in der Nähe eines Tages zur Ruhe kommt,
-   und blockiert nie ein Tap/Scroll-Gesture. */
+   da min-width:760px) macht scroll-snap (egal ob mandatory oder
+   proximity) auf echten Touch-Geraeten Taps auf die Stundenfelder
+   unzuverlaessig -- iOS/Android werten die minimale, unvermeidliche
+   Fingerbewegung beim Antippen als Scroll-Geste, sobald der Finger
+   innerhalb eines Snap-Containers steht, und unterdruecken danach
+   den Click komplett. In Playwright (perfekt stillstehender
+   synthetischer Tap) unsichtbar, auf einem echten Gerät aber
+   reproduzierbar ("Popup öffnet sich gar nicht"). Deshalb bewusst
+   KEIN Snap mehr -- normales, zuverlässiges Scrollen ohne die
+   Wisch-Politur, aber Taps funktionieren garantiert. */
 @media (max-width:900px){
-  .cal-grid-wrap{scroll-snap-type:x proximity;}
-  .cal-day-col{scroll-snap-align:start;min-width:78vw;}
+  .cal-day-col{min-width:78vw;}
 }
 .cal-day-col:last-child{border-right:none;}
 .cal-day-head{
