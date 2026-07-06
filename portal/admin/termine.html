@@ -610,11 +610,21 @@
       '</div>';
   }
 
-  function calSlotTimeLabel(dateStr, hour){
+  var APPT_DURATION_OPTIONS = [30, 60, 90, 120, 150, 180, 240];
+  function apptDurationLabel(minutes){
+    var h = Math.floor(minutes / 60), m = minutes % 60;
+    if(!h) return m + ' Minuten';
+    var hLabel = h + (h === 1 ? ' Stunde' : ' Stunden');
+    return m ? (hLabel + ' ' + m + ' Minuten') : hLabel;
+  }
+
+  function calSlotTimeLabel(dateStr, hour, durationMinutes){
     var d = new Date(dateStr + 'T00:00:00');
     var dateLabel = d.toLocaleDateString('de-CH', { weekday:'long', day:'numeric', month:'long' });
-    var timeLabel = String(hour).padStart(2,'0') + ':00–' + String(hour + 1).padStart(2,'0') + ':00';
-    return dateLabel + ', ' + timeLabel + ' Uhr';
+    var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
+    var endsAt = new Date(startsAt.getTime() + (durationMinutes || 60) * 60000);
+    var fmt = function(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+    return dateLabel + ', ' + fmt(startsAt) + '–' + fmt(endsAt) + ' Uhr';
   }
 
   /* Klick auf eine freie Stunde: erst die Wahl zwischen Sperren und
@@ -642,11 +652,15 @@
             ' <span class="cal-participant-cat">(' + VeraDashboard.categoryLabel(p.category) + ')</span></label>';
         }).join('') + '</div>'
       : '<p class="cal-new-appt-status">Keine registrierten Nutzer gefunden.</p>';
-    return '<p><strong>Neuer Termin</strong><br>' + calSlotTimeLabel(dateStr, hour) + '</p>' +
+    var durationOptions = APPT_DURATION_OPTIONS.map(function(m){
+      return '<option value="' + m + '"' + (m === 60 ? ' selected' : '') + '>' + apptDurationLabel(m) + '</option>';
+    }).join('');
+    return '<p><strong>Neuer Termin</strong><br><span id="na_time_label">' + calSlotTimeLabel(dateStr, hour, 60) + '</span></p>' +
       '<form id="calNewApptForm" class="cal-new-appt-form">' +
         '<input type="text" id="na_name" placeholder="Titel (z.B. Fenster reparieren) *" required>' +
         '<select id="na_category" aria-label="Kategorie">' + categoryOptions + '</select>' +
         '<select id="na_property" aria-label="Betreffendes Objekt">' + propertyOptions + '</select>' +
+        '<select id="na_duration" aria-label="Dauer">' + durationOptions + '</select>' +
         '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates" checked> Ich nehme selbst teil</label>' +
         '<span class="cal-picker-label">Teilnehmer einladen (optional, werden per E-Mail benachrichtigt)</span>' +
         participantsHtml +
@@ -815,6 +829,9 @@
       calPopover.innerHTML = calNewApptFormHtml(naDate, naHour);
       if(calLastTargetEl) calPositionPopover(calLastTargetEl);
       document.getElementById('na_name').focus();
+      document.getElementById('na_duration').addEventListener('change', function(){
+        document.getElementById('na_time_label').textContent = calSlotTimeLabel(naDate, naHour, parseInt(this.value, 10));
+      });
     }
   });
   calPopover.addEventListener('submit', async function(e){
@@ -828,8 +845,9 @@
     }
     var dateStr = document.getElementById('na_date').value;
     var hour = parseInt(document.getElementById('na_hour').value, 10);
+    var durationMinutes = parseInt(document.getElementById('na_duration').value, 10) || 60;
     var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
-    var endsAt = new Date(startsAt.getTime() + 60 * 60000);
+    var endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
     var adminParticipates = document.getElementById('na_admin_participates').checked;
     var participantIds = Array.prototype.slice.call(
       document.querySelectorAll('#na_participants input[type=checkbox]:checked')
