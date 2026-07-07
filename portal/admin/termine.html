@@ -858,7 +858,7 @@
         '<div class="cal-new-appt-actions">' +
           '<button type="submit" class="cal-save-appt-btn">' + (isEdit ? 'Änderungen speichern' : 'Termin speichern') + '</button>' +
           (isEdit ? '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + appointment.id + '">Löschen</button>' : '') +
-          (isEdit ? '<button type="button" class="cal-cancel-appt-edit-btn">Abbrechen</button>' : '') +
+          (isEdit ? '<button type="button" class="cal-cancel-appt-edit-btn">Abbrechen</button>' : '<button type="button" class="cal-cancel-appt-btn">Abbrechen</button>') +
         '</div>' +
         '<p class="cal-new-appt-status" id="naStatus"></p>' +
       '</form>';
@@ -926,7 +926,7 @@
   }
   function calPositionPopover(targetEl){
     var rect = targetEl.getBoundingClientRect();
-    var popW = Math.min(380, window.innerWidth - 24); // muss mit .cal-event-detail{width:380px} in portal-dashboard.css übereinstimmen
+    var popW = Math.min(380, window.innerWidth - 24); // Desktop-Basisbreite; Tablet/Phone werden per CSS-Sheet-Regeln positioniert.
     var left = Math.min(rect.right + 8, window.innerWidth - popW - 12);
     if(left < 8) left = 8;
     calPopover.style.left = left + 'px';
@@ -938,6 +938,18 @@
         calPopover.style.top = Math.max(8, bottomLimit - pr.height) + 'px';
       }
     });
+  }
+  function calKeepPopoverUsable(){
+    requestAnimationFrame(function(){
+      if(calPopover.classList.contains('show') && calLastTargetEl) calPositionPopover(calLastTargetEl);
+    });
+  }
+  function calCanAutoFocus(){
+    return !window.matchMedia('(max-width: 1100px), (pointer: coarse)').matches;
+  }
+  function calFocusApptTitle(){
+    var titleEl = document.getElementById('na_name');
+    if(titleEl && calCanAutoFocus()) titleEl.focus();
   }
   function calShowPopover(targetEl, html){
     calPopover.innerHTML = html;
@@ -966,6 +978,7 @@
           selectEl.innerHTML = calParticipantContactOptions(e.target.value, '');
           selectEl.disabled = !e.target.value || !calParticipantContactsForCategory(e.target.value).length;
           calRefreshParticipantDuplicates();
+          calKeepPopoverUsable();
         }
         if(e.target.classList.contains('na-participant-select')){
           var statusEl = document.getElementById('naStatus');
@@ -995,6 +1008,7 @@
           selectEl.disabled = true;
         }
         calRefreshParticipantDuplicates();
+        calKeepPopoverUsable();
       });
       calRefreshParticipantDuplicates();
     }
@@ -1002,8 +1016,12 @@
       addParticipantBtn.addEventListener('click', function(){
         participantRowsEl.insertAdjacentHTML('beforeend', calParticipantRowHtml('', ''));
         calRefreshParticipantDuplicates();
+        participantRowsEl.lastElementChild.scrollIntoView({ block: 'nearest' });
+        calKeepPopoverUsable();
       });
     }
+    var cancelNewBtn = document.querySelector('.cal-cancel-appt-btn');
+    if(cancelNewBtn) cancelNewBtn.addEventListener('click', calHidePopover);
     var cancelBtn = document.querySelector('.cal-cancel-appt-edit-btn');
     if(cancelBtn){
       cancelBtn.addEventListener('click', function(){
@@ -1018,7 +1036,7 @@
     calPinnedKey = appointment ? 'appt-' + appointment.id : calPinnedKey;
     calShowPopover(targetEl, calNewApptFormHtml(null, null, appointment));
     calWireApptForm();
-    document.getElementById('na_name').focus();
+    calFocusApptTitle();
   }
   function calHidePopover(){
     calPopover.classList.remove('show');
@@ -1126,9 +1144,10 @@
       calPopover.innerHTML = calNewApptFormHtml(naDate, naHour);
       if(calLastTargetEl) calPositionPopover(calLastTargetEl);
       calWireApptForm();
-      document.getElementById('na_name').focus();
+      calFocusApptTitle();
     }
   });
+  window.addEventListener('resize', calKeepPopoverUsable);
   calPopover.addEventListener('submit', async function(e){
     if(e.target.id !== 'calNewApptForm') return;
     e.preventDefault();
