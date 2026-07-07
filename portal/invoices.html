@@ -127,6 +127,13 @@
         <div class="dash-table-wrap"><table class="dash-table" id="issuedTable"></table></div>
       </div>
 
+      <div class="dash-card" id="reconcileCard" style="display:none;">
+        <h2>Zahlungseingänge abgleichen</h2>
+        <p class="dash-lead">Kontoauszug im camt.053-Format (XML) hochladen — von praktisch jeder Schweizer Bank im E-Banking exportierbar. Nichts wird automatisch als bezahlt markiert; jeder Vorschlag muss einzeln bestätigt werden.</p>
+        <input type="file" id="camtFileInput" accept=".xml">
+        <div id="reconcileResults" style="margin-top:14px;"></div>
+      </div>
+
       <div class="dash-card" id="allInvoicesCard" style="display:none;">
         <h2>Alle Rechnungen</h2>
         <input type="text" class="dash-search-input" id="allInvoicesSearch" placeholder="Suchen nach Nr., Von, An, Kategorie, Status …">
@@ -215,6 +222,9 @@
       document.getElementById('allInvoicesCard').style.display = 'block';
       await loadAllInvoices();
       VeraDashboard.applyQueryParamSearch('allInvoicesSearch');
+
+      document.getElementById('reconcileCard').style.display = 'block';
+      document.getElementById('camtFileInput').addEventListener('change', handleCamtFile);
     }
 
     document.getElementById('receivedSearch').addEventListener('input', function(){
@@ -320,6 +330,94 @@
           '<td><a href="/portal/invoice-detail.html?id='+inv.id+'">Ansehen</a></td>' +
         '</tr>';
       }).join('');
+  }
+
+  /* Liest einen camt.053-Kontoauszug (ISO-20022-XML, von jeder
+     Schweizer Bank exportierbar) und schlaegt fuer jede eingehende
+     Gutschrift (CdtDbtInd=CRDT) eine passende offene Rechnung vor --
+     zuerst per Rechnungsnummer im Zahlungszweck (die QR-Rechnung trägt
+     "Rechnung <Nr.>" als unstrukturierte Mitteilung), sonst per exaktem
+     Betrag. Nichts wird automatisch gebucht; jede Zeile braucht eine
+     explizite Bestätigung durch den Admin. */
+  function parseCamtEntries(xmlText){
+    var xml = new DOMParser().parseFromString(xmlText, 'text/xml');
+    if(xml.querySelector('parsererror')) throw new Error('Die Datei ist kein gültiges XML.');
+    var entries = Array.prototype.slice.call(xml.getElementsByTagName('Ntry'));
+    return entries.map(function(ntry){
+      var amtEl = ntry.getElementsByTagName('Amt')[0];
+      var indEl = ntry.getElementsByTagName('CdtDbtInd')[0];
+      var dateEl = ntry.querySelector('BookgDt Dt') || ntry.querySelector('BookgDt DtTm');
+      var ustrdEls = ntry.getElementsByTagName('Ustrd');
+      var remittance = Array.prototype.map.call(ustrdEls, function(el){ return el.textContent; }).join(' ');
+      return {
+        amount: amtEl ? parseFloat(amtEl.textContent) : null,
+        currency: amtEl ? amtEl.getAttribute('Ccy') : null,
+        isCredit: indEl && indEl.textContent === 'CRDT',
+        date: dateEl ? dateEl.textContent : null,
+        remittance: remittance.trim()
+      };
+    }).filter(function(e){ return e.isCredit && e.amount != null; });
+  }
+
+  function matchEntryToInvoice(entry, openInvoices){
+    var numMatch = entry.remittance.match(/\b(20\d{2}-\d{5})\b/);
+    if(numMatch){
+      var byNumber = openInvoices.filter(function(inv){ return inv.invoice_number === numMatch[1]; })[0];
+      if(byNumber) return { invoice: byNumber, confidence: 'sicher' };
+    }
+    var byAmount = openInvoices.filter(function(inv){ return Math.abs(Number(inv.total) - entry.amount) < 0.005; });
+    if(byAmount.length === 1) return { invoice: byAmount[0], confidence: 'unsicher' };
+    return { invoice: null, confidence: 'keine' };
+  }
+
+  async function handleCamtFile(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var resultsEl = document.getElementById('reconcileResults');
+    resultsEl.innerHTML = '<p class="dash-empty">Wird eingelesen …</p>';
+
+    var text = await file.text();
+    var entries;
+    try { entries = parseCamtEntries(text); }
+    catch(err){ resultsEl.innerHTML = '<p class="dash-empty">Fehler: '+VeraDashboard.escapeHtml(err.message)+'</p>'; return; }
+
+    if(!entries.length){
+      resultsEl.innerHTML = '<p class="dash-empty">Keine eingehenden Gutschriften in dieser Datei gefunden.</p>';
+      return;
+    }
+
+    var openInvoices = allInvoicesData.filter(function(inv){ return inv.status === 'offen'; });
+    var matches = entries.map(function(entry){ return { entry: entry, match: matchEntryToInvoice(entry, openInvoices) }; });
+
+    resultsEl.innerHTML = '<div class="dash-table-wrap"><table class="dash-table"><tr><th>Datum</th><th>Betrag</th><th>Zahlungszweck</th><th>Vorschlag</th><th></th></tr>' +
+      matches.map(function(m, idx){
+        var inv = m.match.invoice;
+        var recLabel = inv && inv.recipient ? (inv.recipient.last_name+' '+inv.recipient.first_name) : '';
+        var suggestion = inv
+          ? VeraDashboard.escapeHtml(inv.invoice_number) + ' — ' + VeraDashboard.escapeHtml(recLabel) + (m.match.confidence === 'unsicher' ? ' (nur Betrag passt)' : '')
+          : 'Keine passende offene Rechnung gefunden';
+        return '<tr>' +
+          '<td>'+VeraDashboard.escapeHtml(m.entry.date||'–')+'</td>' +
+          '<td>'+fmtCHF(m.entry.amount)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(m.entry.remittance||'–')+'</td>' +
+          '<td>'+suggestion+'</td>' +
+          '<td>'+(inv ? '<button type="button" class="dash-btn-sm confirm-camt-btn" data-idx="'+idx+'">Als bezahlt markieren</button>' : '')+'</td>' +
+        '</tr>';
+      }).join('') +
+      '</table></div>';
+
+    resultsEl.querySelectorAll('.confirm-camt-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var inv = matches[idx].match.invoice;
+        btn.disabled = true;
+        btn.textContent = 'Wird gebucht …';
+        var res = await VeraPortal.markInvoicePaid(inv.id);
+        if(res.error){ window.alert('Fehler: ' + res.error.message); btn.disabled = false; btn.textContent = 'Als bezahlt markieren'; return; }
+        btn.textContent = '✓ Gebucht';
+        openInvoices = openInvoices.filter(function(o){ return o.id !== inv.id; });
+      });
+    });
   }
 
   async function initIssueForm(){
