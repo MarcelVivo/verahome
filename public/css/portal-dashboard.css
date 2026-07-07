@@ -384,10 +384,18 @@
 }
 .cal-day-head.today{color:var(--color-gold);}
 .cal-day-body{position:relative;}
-.cal-hour-slot{height:48px;box-sizing:border-box;border-bottom:1px solid var(--color-blue-light);transition:background .15s;cursor:pointer;}
+.cal-hour-slot{height:48px;box-sizing:border-box;border-bottom:1px solid var(--color-blue-light);transition:background .15s;cursor:pointer;position:relative;}
 .cal-hour-slot:hover{background:rgba(201,168,76,.1);}
+.cal-hour-add-btn{
+  position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;padding:0;
+  border-radius:50%;border:1px solid var(--color-blue-light);background:var(--color-white);
+  color:var(--color-blue-mid);font-size:.8rem;font-weight:700;cursor:pointer;z-index:3;
+  opacity:.4;transition:opacity .15s;
+}
+.cal-hour-slot:hover .cal-hour-add-btn, .cal-hour-add-btn:focus-visible{opacity:1;}
+.cal-hour-add-btn:hover{background:var(--color-gold);border-color:var(--color-gold);color:var(--color-navy-deep);}
 .cal-event{
-  position:absolute;left:2px;right:2px;border-radius:6px;font-size:.72rem;line-height:1.25;
+  position:absolute;border-radius:6px;font-size:.72rem;line-height:1.25;
   overflow:hidden;padding:3px 6px;cursor:pointer;border:1px solid transparent;z-index:1;
 }
 .cal-event.pending{background:rgba(201,168,76,.2);border-color:var(--color-gold);color:#7a5f16;}

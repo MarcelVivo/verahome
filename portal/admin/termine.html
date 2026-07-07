@@ -531,29 +531,66 @@
     renderCalGrid(days);
   }
 
-  function calEventPos(startIso, endIso){
+  function calEventPos(startIso, endIso, layout){
     var s = new Date(startIso), e = new Date(endIso);
     var startMin = (s.getHours() - calHourStart) * 60 + s.getMinutes();
     var durMin = (e - s) / 60000;
     var top = (startMin / 60) * CAL_HOUR_HEIGHT;
     var height = Math.max((durMin / 60) * CAL_HOUR_HEIGHT - 2, 20);
-    return { top: top, height: height };
+    var col = layout ? layout._col : 0, colCount = layout ? layout._colCount : 1;
+    var widthPct = 100 / colCount;
+    return { top: top, height: height, leftPct: col * widthPct, widthPct: widthPct };
+  }
+
+  function calPosStyle(pos){
+    return 'top:' + pos.top + 'px;height:' + pos.height + 'px;left:calc(' + pos.leftPct + '% + 2px);width:calc(' + pos.widthPct + '% - 4px);';
+  }
+
+  /* Mehrere Termine/Buchungen/Sperrungen zur selben Stunde -- z.B. ein
+     Termin ohne Julia (appt-other) plus ein eigener Termin daneben --
+     wurden bisher als volle Breite uebereinander gestapelt und
+     verdeckten sich gegenseitig. Klassischer Kalender-Spalten-
+     Algorithmus: ueberlappende Cluster bilden, darin greedy Spalten
+     zuweisen, damit alle nebeneinander sichtbar UND klickbar bleiben. */
+  function calLayoutEvents(items){
+    items.sort(function(a, b){ return a.start - b.start || a.end - b.end; });
+    var i = 0;
+    while(i < items.length){
+      var j = i, clusterEnd = items[i].end;
+      while(j + 1 < items.length && items[j + 1].start < clusterEnd){
+        j++;
+        if(items[j].end > clusterEnd) clusterEnd = items[j].end;
+      }
+      var columns = [];
+      for(var k = i; k <= j; k++){
+        var ev = items[k], placed = -1;
+        for(var c = 0; c < columns.length; c++){
+          if(ev.start >= columns[c]){ placed = c; break; }
+        }
+        if(placed === -1){ placed = columns.length; columns.push(ev.end); }
+        else columns[placed] = ev.end;
+        ev._col = placed;
+      }
+      for(var k2 = i; k2 <= j; k2++) items[k2]._colCount = columns.length;
+      i = j + 1;
+    }
+    return items;
   }
 
   function renderBookingEvent(b){
-    var pos = calEventPos(b.starts_at, b.ends_at);
+    var pos = calEventPos(b.starts_at, b.ends_at, b);
     var statusClass = b.status === 'angefragt' ? 'pending' : 'confirmed';
     var timeLabel = new Date(b.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
-    return '<div class="cal-event ' + statusClass + '" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-booking-id="' + b.id + '" tabindex="0">' +
+    return '<div class="cal-event ' + statusClass + '" style="' + calPosStyle(pos) + '" data-booking-id="' + b.id + '" tabindex="0">' +
       '<span class="cal-event-time">' + timeLabel + '</span>' +
       '<span class="cal-event-title">' + VeraDashboard.escapeHtml(b.name) + '</span>' +
     '</div>';
   }
 
   function renderBlockEvent(k){
-    var pos = calEventPos(k.starts_at, k.ends_at);
+    var pos = calEventPos(k.starts_at, k.ends_at, k);
     var timeLabel = new Date(k.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
-    return '<div class="cal-event blocked" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-block-id="' + k.id + '" tabindex="0">' +
+    return '<div class="cal-event blocked" style="' + calPosStyle(pos) + '" data-block-id="' + k.id + '" tabindex="0">' +
       '<span class="cal-event-time">' + timeLabel + '</span>' +
       '<span class="cal-event-title">Gesperrt</span>' +
     '</div>';
@@ -574,10 +611,10 @@
   }
 
   function renderAppointmentEvent(a){
-    var pos = calEventPos(a.starts_at, a.ends_at);
+    var pos = calEventPos(a.starts_at, a.ends_at, a);
     var styleClass = a.admin_participates ? 'appt-mine' : 'appt-other';
     var timeLabel = new Date(a.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
-    return '<div class="cal-event ' + styleClass + '" style="top:' + pos.top + 'px;height:' + pos.height + 'px;" data-appointment-id="' + a.id + '" tabindex="0">' +
+    return '<div class="cal-event ' + styleClass + '" style="' + calPosStyle(pos) + '" data-appointment-id="' + a.id + '" tabindex="0">' +
       '<span class="cal-event-time">' + timeLabel + '</span>' +
       '<span class="cal-event-title">' + VeraDashboard.escapeHtml(a.title) + '</span>' +
     '</div>';
@@ -702,12 +739,19 @@
 
       var slotsHtml = '';
       for(var h = calHourStart; h < calHourEnd; h++){
-        slotsHtml += '<div class="cal-hour-slot" data-date="' + dateStr + '" data-hour="' + h + '"></div>';
+        slotsHtml += '<div class="cal-hour-slot" data-date="' + dateStr + '" data-hour="' + h + '">' +
+          '<button type="button" class="cal-hour-add-btn" data-date="' + dateStr + '" data-hour="' + h + '" title="Weiteren Termin hinzufügen">+</button>' +
+        '</div>';
       }
 
       var dayBookings = calBookings.filter(function(b){ return calDateStr(new Date(b.starts_at)) === dateStr; });
       var dayBlocks = calBlocks.filter(function(k){ return calDateStr(new Date(k.starts_at)) === dateStr; });
       var dayAppointments = calAppointments.filter(function(a){ return calDateStr(new Date(a.starts_at)) === dateStr; });
+
+      var dayEvents = [].concat(dayBookings, dayBlocks, dayAppointments);
+      dayEvents.forEach(function(ev){ ev.start = new Date(ev.starts_at); ev.end = new Date(ev.ends_at); });
+      calLayoutEvents(dayEvents);
+
       var eventsHtml = dayBookings.map(renderBookingEvent).join('') + dayBlocks.map(renderBlockEvent).join('') + dayAppointments.map(renderAppointmentEvent).join('');
 
       return '<div class="cal-day-col' + (isToday ? ' today' : '') + '">' + head +
