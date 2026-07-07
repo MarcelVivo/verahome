@@ -43,6 +43,28 @@ function escapeHtml(s: unknown): string {
   );
 }
 
+function envFlagEnabled(name: string): boolean {
+  return ["1", "true", "yes", "on"].includes(String(Deno.env.get(name) ?? "").toLowerCase());
+}
+
+async function outboundEmailsDisabled(adminClient: any): Promise<boolean> {
+  if (envFlagEnabled("DISABLE_OUTBOUND_EMAILS")) return true;
+  const { data, error } = await adminClient
+    .from("portal_settings")
+    .select("value")
+    .eq("key", "outbound_email_mode")
+    .maybeSingle();
+  if (error) return false;
+  return data?.value?.mode === "test" || data?.value?.disabled === true;
+}
+
+function suppressedEmailResponse(extra: Record<string, unknown> = {}): Response {
+  return new Response(JSON.stringify({ ok: true, skipped: true, reason: "outbound_email_mode_test", ...extra }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -138,6 +160,9 @@ Deno.serve(async (req) => {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (await outboundEmailsDisabled(adminClient)) {
+      return suppressedEmailResponse({ invoiceId, reminder: !!reminder });
     }
 
     const issuerLabel =

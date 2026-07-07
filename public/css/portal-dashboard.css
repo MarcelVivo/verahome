@@ -152,6 +152,29 @@
 .dash-btn-sm.danger{border-color:#F0C6C0;color:#A32E22;}
 .dash-btn-sm.danger:hover{border-color:#A32E22;}
 
+.email-mode-card{border-color:rgba(201,168,76,.45);background:linear-gradient(135deg,#fff 0%,#fff 62%,rgba(201,168,76,.08) 100%);}
+.email-mode-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+.email-mode-head h2{margin-bottom:4px;}
+.email-mode-toggle{
+  display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--color-blue-light);
+  border-radius:12px;background:rgba(255,255,255,.75);cursor:pointer;touch-action:manipulation;
+}
+.email-mode-toggle input{position:absolute;opacity:0;pointer-events:none;}
+.email-mode-toggle-ui{
+  position:relative;width:58px;height:32px;flex:0 0 58px;border-radius:50px;background:#D8F0DE;
+  border:1px solid rgba(30,107,55,.25);transition:background .2s,border-color .2s;
+}
+.email-mode-toggle-ui::after{
+  content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--color-white);
+  box-shadow:0 2px 6px rgba(13,36,64,.2);transition:transform .2s;
+}
+.email-mode-toggle input:checked + .email-mode-toggle-ui{background:#FBEBC2;border-color:rgba(138,99,0,.35);}
+.email-mode-toggle input:checked + .email-mode-toggle-ui::after{transform:translateX(26px);}
+.email-mode-toggle strong{display:block;color:var(--color-navy);font-size:.94rem;margin-bottom:3px;}
+.email-mode-toggle small{display:block;color:var(--color-gray-text);line-height:1.45;}
+.email-mode-toggle input:focus-visible + .email-mode-toggle-ui{box-shadow:0 0 0 3px rgba(201,168,76,.25);}
+.email-mode-toggle:has(input:disabled){opacity:.65;cursor:not-allowed;}
+
 .dash-empty{color:var(--color-gray-text);opacity:.7;font-size:.92rem;padding:16px 0;}
 
 .dash-search-input{
@@ -801,6 +824,8 @@
   .dash-content > .dash-lead{font-size:.92rem;margin-bottom:22px;}
   .dash-card{padding:20px 18px;margin-bottom:18px;border-radius:10px;}
   .dash-card-head{align-items:stretch;flex-direction:column;}
+  .email-mode-head{flex-direction:column;align-items:flex-start;}
+  .email-mode-toggle{align-items:flex-start;}
   .dash-search-input{max-width:none;font-size:16px;}
   .dash-table th,.dash-table td{padding:11px 12px;font-size:.86rem;white-space:nowrap;}
   .doc-row,.cal-event-row{padding:14px 16px;}
