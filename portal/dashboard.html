@@ -231,7 +231,7 @@
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine überfälligen Rechnungen.</td></tr>'; return; }
     table.innerHTML = '<tr><th>Empfänger</th><th>Nr.</th><th>Betrag</th><th>Fällig seit</th><th></th></tr>' +
       rows.map(function(inv){
-        return '<tr>' +
+        return '<tr class="dash-row-link" data-href="/portal/invoice-detail.html?id='+inv.id+'">' +
           '<td>'+VeraDashboard.escapeHtml(inv.recipient?inv.recipient.last_name+' '+inv.recipient.first_name:'–')+'</td>' +
           '<td class="member-number">'+VeraDashboard.escapeHtml(inv.invoice_number)+'</td>' +
           '<td>'+fmtCHF(inv.total)+'</td>' +
@@ -240,7 +240,14 @@
         '</tr>';
       }).join('');
     table.querySelectorAll('.reminder-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){ sendReminder(btn.getAttribute('data-id'), btn); });
+      btn.addEventListener('click', function(e){ e.stopPropagation(); sendReminder(btn.getAttribute('data-id'), btn); });
+    });
+    wireRowLinks(table);
+  }
+
+  function wireRowLinks(table){
+    table.querySelectorAll('tr.dash-row-link').forEach(function(row){
+      row.addEventListener('click', function(){ window.location.href = row.getAttribute('data-href'); });
     });
   }
 
@@ -258,12 +265,13 @@
     table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Endet am</th></tr>' +
       rows.map(function(t){
         var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
-        return '<tr>' +
+        return '<tr class="dash-row-link" data-href="/portal/admin/tenancies.html">' +
           '<td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(unitLabel)+'</td>' +
           '<td>'+VeraDashboard.formatDate(t.end_date)+'</td>' +
         '</tr>';
       }).join('');
+    wireRowLinks(table);
   }
 
   function renderVacantUnits(rows){
@@ -271,11 +279,13 @@
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine leerstehenden Einheiten.</td></tr>'; return; }
     table.innerHTML = '<tr><th>Objekt</th><th>Einheit</th></tr>' +
       rows.map(function(u){
-        return '<tr>' +
+        var q = encodeURIComponent(u.label || (u.properties ? u.properties.label : ''));
+        return '<tr class="dash-row-link" data-href="/portal/admin/properties.html?q='+q+'">' +
           '<td>'+VeraDashboard.escapeHtml(u.properties?u.properties.label:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(u.label)+'</td>' +
         '</tr>';
       }).join('');
+    wireRowLinks(table);
   }
 })();
 </script>
