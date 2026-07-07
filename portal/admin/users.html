@@ -85,7 +85,11 @@
         <div><input id="nc_last_name" placeholder="Nachname *" required></div>
       </div>
       <input type="email" id="nc_email" placeholder="E-Mail *" required>
-      <input id="nc_phone" placeholder="Telefon">
+      <div class="auth-form-row">
+        <div><input id="nc_phone" placeholder="Telefon 1"></div>
+        <div><input id="nc_phone2" placeholder="Telefon 2"></div>
+      </div>
+      <input id="nc_phone3" placeholder="Telefon 3">
       <div class="auth-form-row">
         <div><input id="nc_street" placeholder="Strasse, Nr."></div>
         <div><input id="nc_zip" placeholder="PLZ"></div>
@@ -199,6 +203,8 @@
         last_name: document.getElementById('nc_last_name').value.trim(),
         category: document.getElementById('nc_category').value,
         phone: document.getElementById('nc_phone').value.trim() || null,
+        phone2: document.getElementById('nc_phone2').value.trim() || null,
+        phone3: document.getElementById('nc_phone3').value.trim() || null,
         company_name: document.getElementById('nc_company_name').value.trim() || null,
         address_street: document.getElementById('nc_street').value.trim() || null,
         address_zip: document.getElementById('nc_zip').value.trim() || null,
@@ -390,7 +396,11 @@
         '<select id="contactCategory-'+id+'">'+CATEGORY_ORDER.map(function(cat){
           return '<option value="'+cat+'"'+(cat===c.category?' selected':'')+'>'+VeraDashboard.categoryLabel(cat)+'</option>';
         }).join('')+'</select>' +
-        '<input id="contactPhone-'+id+'" placeholder="Telefon" value="'+VeraDashboard.escapeHtml(c.phone||'')+'">' +
+        '<div class="auth-form-row">' +
+          '<div><input id="contactPhone-'+id+'" placeholder="Telefon 1" value="'+VeraDashboard.escapeHtml(c.phone||'')+'"></div>' +
+          '<div><input id="contactPhone2-'+id+'" placeholder="Telefon 2" value="'+VeraDashboard.escapeHtml(c.phone2||'')+'"></div>' +
+        '</div>' +
+        '<input id="contactPhone3-'+id+'" placeholder="Telefon 3" value="'+VeraDashboard.escapeHtml(c.phone3||'')+'">' +
         '<div class="auth-form-row">' +
           '<div><input id="contactStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address_street||'')+'"></div>' +
           '<div><input id="contactZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address_zip||'')+'"></div>' +
@@ -459,6 +469,8 @@
         category: category,
         company_name: category === 'firma' ? companyName : null,
         phone: document.getElementById('contactPhone-'+id).value.trim() || null,
+        phone2: document.getElementById('contactPhone2-'+id).value.trim() || null,
+        phone3: document.getElementById('contactPhone3-'+id).value.trim() || null,
         address_street: document.getElementById('contactStreet-'+id).value.trim() || null,
         address_zip: document.getElementById('contactZip-'+id).value.trim() || null,
         address_city: document.getElementById('contactCity-'+id).value.trim() || null

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, first_name, last_name, category, phone, company_name, address_street, address_zip, address_city } = await req.json();
+    const { email, first_name, last_name, category, phone, phone2, phone3, company_name, address_street, address_zip, address_city } = await req.json();
     if (!email || !first_name || !last_name || !VALID_CATEGORIES.includes(category)) {
       return new Response(JSON.stringify({ error: "E-Mail, Vor-/Nachname und eine gültige Kategorie sind erforderlich." }), {
         status: 400,
@@ -77,6 +77,8 @@ Deno.serve(async (req) => {
         first_name,
         last_name,
         phone: phone || null,
+        phone2: phone2 || null,
+        phone3: phone3 || null,
         company_name: company_name || null,
         address_street: address_street || null,
         address_zip: address_zip || null,

@@ -4516,3 +4516,52 @@ end;
 $$;
 
 grant execute on function public.get_owner_property_report(int) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Zwei weitere Telefonfelder pro Kontakt (z.B. Mobile + Festnetz +
+-- Geschaeft) -- handle_new_user() neu definiert, damit auch per
+-- admin-create-user eingeladene Kontakte alle drei direkt mitbekommen.
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists phone2 text;
+alter table public.profiles add column if not exists phone3 text;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_category text;
+  safe_category public.profile_category;
+begin
+  requested_category := new.raw_user_meta_data->>'category';
+
+  if requested_category in ('mieter','eigentuemer','partner','handwerker','hauswart','firma','aemter') then
+    safe_category := requested_category::public.profile_category;
+  else
+    safe_category := 'mieter';
+  end if;
+
+  insert into public.profiles (
+    id, member_number, category, status, email, phone, phone2, phone3,
+    first_name, last_name, company_name, address_street, address_zip, address_city
+  ) values (
+    new.id,
+    public.generate_member_number(safe_category),
+    safe_category,
+    'active',
+    new.email,
+    new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'phone2',
+    new.raw_user_meta_data->>'phone3',
+    coalesce(new.raw_user_meta_data->>'first_name', ''),
+    coalesce(new.raw_user_meta_data->>'last_name', ''),
+    new.raw_user_meta_data->>'company_name',
+    new.raw_user_meta_data->>'address_street',
+    new.raw_user_meta_data->>'address_zip',
+    new.raw_user_meta_data->>'address_city'
+  );
+  return new;
+end;
+$$;
