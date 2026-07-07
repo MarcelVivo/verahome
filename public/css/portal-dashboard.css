@@ -493,7 +493,16 @@
   background:var(--color-gold);color:var(--color-navy-deep);transition:background .2s;
 }
 .cal-new-appt-form button.cal-save-appt-btn:hover{background:var(--color-gold-light);}
+.cal-new-appt-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.cal-new-appt-form button.cal-delete-appt-btn,.cal-new-appt-form button.cal-cancel-appt-edit-btn{
+  padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid rgba(255,255,255,.3);
+  color:var(--color-white);transition:border-color .2s,background .2s;
+}
+.cal-new-appt-form button.cal-delete-appt-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
+.cal-new-appt-form button.cal-delete-appt-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
+.cal-new-appt-form button.cal-cancel-appt-edit-btn:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
 .cal-new-appt-form{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.cal-new-appt-time-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{
   padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
   background:rgba(255,255,255,.08);color:var(--color-white);font-family:inherit;font-size:.78rem;

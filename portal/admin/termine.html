@@ -644,6 +644,7 @@
       participantsHtml +
       (a.note ? '<p><strong>Notiz:</strong> ' + VeraDashboard.escapeHtml(a.note) + '</p>' : '') +
       '<div class="cal-event-detail-actions">' +
+        '<button type="button" class="cal-edit-appt-btn" data-edit-appt-id="' + a.id + '">Bearbeiten</button>' +
         '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + a.id + '">Löschen</button>' +
         '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml(a.title) + '" data-ics-start="' + a.starts_at + '" data-ics-end="' + a.ends_at + '" data-ics-location="' + (propertyLabel || '') + '" data-ics-desc="' + VeraDashboard.escapeHtml(a.note || '') + '">In Kalender speichern</button>' +
       '</div>';
@@ -658,9 +659,23 @@
   }
 
   function calSlotTimeLabel(dateStr, hour, durationMinutes){
+    return calAppointmentTimeLabel(dateStr, String(hour).padStart(2,'0') + ':00', durationMinutes || 60);
+  }
+
+  function calAppointmentDateValue(iso){
+    return calDateStr(new Date(iso));
+  }
+  function calAppointmentTimeValue(iso){
+    var d = new Date(iso);
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  function calAppointmentDurationMinutes(a){
+    return Math.max(Math.round((new Date(a.ends_at) - new Date(a.starts_at)) / 60000), 1);
+  }
+  function calAppointmentTimeLabel(dateStr, timeStr, durationMinutes){
     var d = new Date(dateStr + 'T00:00:00');
     var dateLabel = d.toLocaleDateString('de-CH', { weekday:'long', day:'numeric', month:'long' });
-    var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
+    var startsAt = new Date(dateStr + 'T' + timeStr + ':00');
     var endsAt = new Date(startsAt.getTime() + (durationMinutes || 60) * 60000);
     var fmt = function(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
     return dateLabel + ', ' + fmt(startsAt) + '–' + fmt(endsAt) + ' Uhr';
@@ -678,14 +693,32 @@
       '</div>';
   }
 
-  function calNewApptFormHtml(dateStr, hour){
+  function calNewApptFormHtml(dateStr, hour, appointment){
+    var isEdit = !!appointment;
+    var startDate = isEdit ? calAppointmentDateValue(appointment.starts_at) : dateStr;
+    var startTime = isEdit ? calAppointmentTimeValue(appointment.starts_at) : String(hour).padStart(2,'0') + ':00';
+    var durationMinutes = isEdit ? calAppointmentDurationMinutes(appointment) : 60;
+    var selectedParticipants = {};
+    (isEdit ? (appointment.appointment_participants || []) : []).forEach(function(row){
+      selectedParticipants[row.profile_id] = row.status || 'eingeladen';
+    });
+    var participantSource = calAllProfiles.slice();
+    (isEdit ? (appointment.appointment_participants || []) : []).forEach(function(row){
+      if(!row.profiles || participantSource.some(function(p){ return p.id === row.profile_id; })) return;
+      participantSource.push({
+        id: row.profile_id,
+        first_name: row.profiles.first_name,
+        last_name: row.profiles.last_name,
+        category: row.profiles.category
+      });
+    });
     var propertyOptions = '<option value="">Kein Objekt</option>' + calProperties.map(function(p){
-      return '<option value="' + p.id + '">' + VeraDashboard.escapeHtml(p.label) + (p.city ? ' (' + VeraDashboard.escapeHtml(p.city) + ')' : '') + '</option>';
+      return '<option value="' + p.id + '"' + (isEdit && appointment.property_id === p.id ? ' selected' : '') + '>' + VeraDashboard.escapeHtml(p.label) + (p.city ? ' (' + VeraDashboard.escapeHtml(p.city) + ')' : '') + '</option>';
     }).join('');
     var categoryOptions = Object.keys(APPT_CATEGORY_LABEL).map(function(key){
-      return '<option value="' + key + '">' + APPT_CATEGORY_LABEL[key] + '</option>';
+      return '<option value="' + key + '"' + (isEdit && appointment.category === key ? ' selected' : '') + '>' + APPT_CATEGORY_LABEL[key] + '</option>';
     }).join('');
-    var participantCats = calAllProfiles.reduce(function(acc, p){
+    var participantCats = participantSource.reduce(function(acc, p){
       if(acc.indexOf(p.category) === -1) acc.push(p.category);
       return acc;
     }, []);
@@ -695,28 +728,38 @@
           participantCats.map(function(c){ return '<option value="' + c + '">' + VeraDashboard.categoryLabel(c) + '</option>'; }).join('') +
         '</select>'
       : '';
-    var participantsHtml = calAllProfiles.length
-      ? participantFilterHtml + '<div class="cal-participant-picker" id="na_participants">' + calAllProfiles.map(function(p){
-          return '<label data-participant-cat="' + p.category + '"><input type="checkbox" value="' + p.id + '"> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
+    var participantsHtml = participantSource.length
+      ? participantFilterHtml + '<div class="cal-participant-picker" id="na_participants">' + participantSource.map(function(p){
+          return '<label data-participant-cat="' + p.category + '"><input type="checkbox" value="' + p.id + '"' + (selectedParticipants[p.id] ? ' checked' : '') + '> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
             ' <span class="cal-participant-cat">(' + VeraDashboard.categoryLabel(p.category) + ')</span></label>';
         }).join('') + '</div>'
       : '<p class="cal-new-appt-status">Keine registrierten Nutzer gefunden.</p>';
-    var durationOptions = APPT_DURATION_OPTIONS.map(function(m){
-      return '<option value="' + m + '"' + (m === 60 ? ' selected' : '') + '>' + apptDurationLabel(m) + '</option>';
+    var durationValues = APPT_DURATION_OPTIONS.slice();
+    if(durationValues.indexOf(durationMinutes) === -1) durationValues.push(durationMinutes);
+    durationValues.sort(function(a,b){ return a - b; });
+    var durationOptions = durationValues.map(function(m){
+      return '<option value="' + m + '"' + (m === durationMinutes ? ' selected' : '') + '>' + apptDurationLabel(m) + '</option>';
     }).join('');
-    return '<p><strong>Neuer Termin</strong><br><span id="na_time_label">' + calSlotTimeLabel(dateStr, hour, 60) + '</span></p>' +
+    return '<p><strong>' + (isEdit ? 'Termin bearbeiten' : 'Neuer Termin') + '</strong><br><span id="na_time_label">' + calAppointmentTimeLabel(startDate, startTime, durationMinutes) + '</span></p>' +
       '<form id="calNewApptForm" class="cal-new-appt-form">' +
-        '<input type="text" id="na_name" placeholder="Titel (z.B. Fenster reparieren) *" required>' +
+        '<input type="text" id="na_name" placeholder="Titel (z.B. Fenster reparieren) *" required value="' + VeraDashboard.escapeHtml(isEdit ? appointment.title : '') + '">' +
         '<select id="na_category" aria-label="Kategorie">' + categoryOptions + '</select>' +
         '<select id="na_property" aria-label="Betreffendes Objekt">' + propertyOptions + '</select>' +
+        '<div class="cal-new-appt-time-row">' +
+          '<input type="date" id="na_date" value="' + startDate + '" required>' +
+          '<input type="time" id="na_time" value="' + startTime + '" required>' +
+        '</div>' +
         '<select id="na_duration" aria-label="Dauer">' + durationOptions + '</select>' +
-        '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates" checked> Ich nehme selbst teil</label>' +
+        '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates"' + (!isEdit || appointment.admin_participates ? ' checked' : '') + '> Ich nehme selbst teil</label>' +
         '<span class="cal-picker-label">Teilnehmer einladen (optional, werden per E-Mail benachrichtigt)</span>' +
         participantsHtml +
-        '<textarea id="na_note" placeholder="Notiz (optional)"></textarea>' +
-        '<input type="hidden" id="na_date" value="' + dateStr + '">' +
-        '<input type="hidden" id="na_hour" value="' + hour + '">' +
-        '<button type="submit" class="cal-save-appt-btn">Termin speichern</button>' +
+        '<textarea id="na_note" placeholder="Notiz (optional)">' + VeraDashboard.escapeHtml(isEdit ? (appointment.note || '') : '') + '</textarea>' +
+        (isEdit ? '<input type="hidden" id="na_appointment_id" value="' + appointment.id + '">' : '') +
+        '<div class="cal-new-appt-actions">' +
+          '<button type="submit" class="cal-save-appt-btn">' + (isEdit ? 'Änderungen speichern' : 'Termin speichern') + '</button>' +
+          (isEdit ? '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + appointment.id + '">Löschen</button>' : '') +
+          (isEdit ? '<button type="button" class="cal-cancel-appt-edit-btn">Abbrechen</button>' : '') +
+        '</div>' +
         '<p class="cal-new-appt-status" id="naStatus"></p>' +
       '</form>';
   }
@@ -802,6 +845,42 @@
     calPositionPopover(targetEl);
     calLastTargetEl = targetEl;
   }
+  function calWireApptForm(){
+    var dateEl = document.getElementById('na_date');
+    var timeEl = document.getElementById('na_time');
+    var durationEl = document.getElementById('na_duration');
+    var labelEl = document.getElementById('na_time_label');
+    function refreshLabel(){
+      if(dateEl.value && timeEl.value){
+        labelEl.textContent = calAppointmentTimeLabel(dateEl.value, timeEl.value, parseInt(durationEl.value, 10));
+      }
+    }
+    [dateEl, timeEl, durationEl].forEach(function(el){ el.addEventListener('change', refreshLabel); });
+    var filterEl = document.getElementById('na_participant_filter');
+    if(filterEl){
+      filterEl.addEventListener('change', function(){
+        var cat = this.value;
+        document.querySelectorAll('#na_participants label').forEach(function(label){
+          label.style.display = (!cat || label.getAttribute('data-participant-cat') === cat) ? '' : 'none';
+        });
+      });
+    }
+    var cancelBtn = document.querySelector('.cal-cancel-appt-edit-btn');
+    if(cancelBtn){
+      cancelBtn.addEventListener('click', function(){
+        if(!calLastTargetEl) return;
+        var appointmentId = document.getElementById('na_appointment_id').value;
+        var appointment = calAppointments.find(function(x){ return x.id === appointmentId; });
+        if(appointment) calShowPopover(calLastTargetEl, calDetailHtmlForAppointment(appointment));
+      });
+    }
+  }
+  function calShowApptForm(targetEl, appointment){
+    calPinnedKey = appointment ? 'appt-' + appointment.id : calPinnedKey;
+    calShowPopover(targetEl, calNewApptFormHtml(null, null, appointment));
+    calWireApptForm();
+    document.getElementById('na_name').focus();
+  }
   function calHidePopover(){
     calPopover.classList.remove('show');
     calPinnedKey = null;
@@ -826,6 +905,7 @@
     var unblockBtn = e.target.closest('.cal-unblock-btn');
     var blockSlotBtn = e.target.closest('.cal-slot-block-btn');
     var newApptBtn = e.target.closest('.cal-slot-new-btn');
+    var editApptBtn = e.target.closest('.cal-edit-appt-btn');
     var deleteBtn = e.target.closest('.cal-delete-btn');
     var deleteApptBtn = e.target.closest('.cal-delete-appt-btn');
     var icsBtn = e.target.closest('.cal-ics-btn');
@@ -879,6 +959,10 @@
       await client.from('appointments').delete().eq('id', daid);
       calHidePopover();
       loadCalWeek();
+    } else if(editApptBtn){
+      var editId = editApptBtn.getAttribute('data-edit-appt-id');
+      var editAppointment = calAppointments.find(function(x){ return x.id === editId; });
+      if(editAppointment && calLastTargetEl) calShowApptForm(calLastTargetEl, editAppointment);
     } else if(unblockBtn){
       if(!window.confirm('Sperrung wirklich aufheben?')) return;
       await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
@@ -902,19 +986,8 @@
       var naHour = parseInt(newApptBtn.getAttribute('data-hour'), 10);
       calPopover.innerHTML = calNewApptFormHtml(naDate, naHour);
       if(calLastTargetEl) calPositionPopover(calLastTargetEl);
+      calWireApptForm();
       document.getElementById('na_name').focus();
-      document.getElementById('na_duration').addEventListener('change', function(){
-        document.getElementById('na_time_label').textContent = calSlotTimeLabel(naDate, naHour, parseInt(this.value, 10));
-      });
-      var naFilterEl = document.getElementById('na_participant_filter');
-      if(naFilterEl){
-        naFilterEl.addEventListener('change', function(){
-          var cat = this.value;
-          document.querySelectorAll('#na_participants label').forEach(function(label){
-            label.style.display = (!cat || label.getAttribute('data-participant-cat') === cat) ? '' : 'none';
-          });
-        });
-      }
     }
   });
   calPopover.addEventListener('submit', async function(e){
@@ -927,40 +1000,66 @@
       return;
     }
     var dateStr = document.getElementById('na_date').value;
-    var hour = parseInt(document.getElementById('na_hour').value, 10);
+    var timeStr = document.getElementById('na_time').value;
+    if(!dateStr || !timeStr){
+      statusEl.textContent = 'Bitte Datum und Uhrzeit angeben.';
+      return;
+    }
     var durationMinutes = parseInt(document.getElementById('na_duration').value, 10) || 60;
-    var startsAt = new Date(dateStr + 'T' + String(hour).padStart(2,'0') + ':00:00');
+    var startsAt = new Date(dateStr + 'T' + timeStr + ':00');
     var endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
     var adminParticipates = document.getElementById('na_admin_participates').checked;
     var participantIds = Array.prototype.slice.call(
       document.querySelectorAll('#na_participants input[type=checkbox]:checked')
     ).map(function(cb){ return cb.value; });
+    var appointmentIdEl = document.getElementById('na_appointment_id');
+    var appointmentId = appointmentIdEl ? appointmentIdEl.value : null;
+    var existingAppointment = appointmentId ? calAppointments.find(function(x){ return x.id === appointmentId; }) : null;
+    var participantStatusById = {};
+    if(existingAppointment){
+      (existingAppointment.appointment_participants || []).forEach(function(row){
+        participantStatusById[row.profile_id] = row.status || 'eingeladen';
+      });
+    }
 
     statusEl.textContent = 'Wird gespeichert …';
-    var res = await client.from('appointments').insert({
+    var payload = {
       title: name,
       category: document.getElementById('na_category').value || null,
       note: document.getElementById('na_note').value.trim() || null,
       property_id: document.getElementById('na_property').value || null,
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
-      admin_participates: adminParticipates,
-      created_by: profile.id
-    }).select().single();
+      admin_participates: adminParticipates
+    };
+    var res = appointmentId
+      ? await client.from('appointments').update(payload).eq('id', appointmentId).select().single()
+      : await client.from('appointments').insert(Object.assign({}, payload, { created_by: profile.id })).select().single();
     if(res.error){
       statusEl.textContent = 'Fehler: ' + res.error.message;
       return;
     }
 
+    var savedAppointmentId = appointmentId || res.data.id;
+    if(appointmentId){
+      var deleteParticipantsRes = await client.from('appointment_participants').delete().eq('appointment_id', savedAppointmentId);
+      if(deleteParticipantsRes.error){
+        statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht aktualisiert werden: ' + deleteParticipantsRes.error.message;
+        loadCalWeek();
+        return;
+      }
+    }
     if(participantIds.length){
-      var participantRows = participantIds.map(function(pid){ return { appointment_id: res.data.id, profile_id: pid }; });
+      var participantRows = participantIds.map(function(pid){
+        return { appointment_id: savedAppointmentId, profile_id: pid, status: participantStatusById[pid] || 'eingeladen' };
+      });
       var partRes = await client.from('appointment_participants').insert(participantRows);
       if(partRes.error){
         statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht hinzugefügt werden: ' + partRes.error.message;
         loadCalWeek();
         return;
       }
-      try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: res.data.id } }); }
+      try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: savedAppointmentId } }); }
       catch(err) { /* Termin und Einladungen stehen, Mail-Fehler blockiert nichts */ }
     }
 
@@ -998,6 +1097,11 @@
       el.addEventListener('click', function(){
         if(calPinnedKey === key){ calHidePopover(); return; }
         calPinnedKey = key;
+        if(isAppointment){
+          var appointment = calAppointments.find(function(x){ return x.id === el.getAttribute('data-appointment-id'); });
+          if(appointment) calShowApptForm(el, appointment);
+          return;
+        }
         calShowPopover(el, detailHtml());
       });
       el.addEventListener('focus', function(){ calShowPopover(el, detailHtml()); });
