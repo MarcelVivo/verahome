@@ -88,6 +88,10 @@
           <p>IBAN: <strong id="payIban"></strong></p>
           <p id="payBankRow">Bank: <span id="payBank"></span></p>
           <p id="payHolderRow">Kontoinhaber: <span id="payHolder"></span></p>
+          <div id="qrBillHolder" style="display:none;margin-top:14px;">
+            <p style="font-size:.82rem;color:var(--color-gray-text);margin-bottom:8px;">Mit der Banking-App scannen und direkt bezahlen (Swiss QR-Rechnung):</p>
+            <img id="qrBillImg" alt="Swiss QR-Rechnung Code" width="200" height="200">
+          </div>
         </div>
 
         <p id="invoiceNote" class="dash-empty" style="display:none;"></p>
@@ -131,6 +135,7 @@
 <script src="/public/js/nav.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -145,6 +150,64 @@
   var STATUS_BADGE_CLASS = { entwurf: 'pending', offen: 'info', bezahlt: 'active', storniert: 'suspended' };
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  /* Schweizer QR-Rechnung (Swiss Payment Code, Spezifikation v2.2).
+     Referenztyp "NON" (keine Referenznummer) -- das ist gueltig fuer
+     jede normale IBAN, im Gegensatz zu "QRR", das eine spezielle
+     QR-IBAN vom Kontoinhaber-Bank voraussetzt, die wir hier nicht
+     garantiert haben. Adresstyp "S" (strukturiert): Strassenfeld
+     enthaelt bei uns die komplette Adresse inkl. Hausnummer, da
+     address_street nicht weiter aufgeteilt ist -- laut Spezifikation
+     zulaessig (Hausnummer-Feld bleibt leer). */
+  function isSwissIban(iban){
+    if(!iban) return false;
+    var clean = iban.replace(/\s/g, '').toUpperCase();
+    return /^(CH|LI)\d{19}$/.test(clean);
+  }
+
+  function buildSwissQrPayload(){
+    var clean = issuer.iban.replace(/\s/g, '').toUpperCase();
+    var creditorName = (issuer.category !== 'admin') ? (issuer.last_name+' '+issuer.first_name) : 'Vera Home Immobilien';
+    var debtorHasAddress = recipient && recipient.address_street && recipient.address_zip && recipient.address_city;
+    var lines = [
+      'SPC', '0200', '1',
+      clean,
+      'S', creditorName, issuer.address_street || '', '', issuer.address_zip || '', issuer.address_city || '', 'CH',
+      '', '', '', '', '', '', '',
+      Number(invoice.total).toFixed(2), invoice.currency || 'CHF',
+      debtorHasAddress ? 'S' : '',
+      debtorHasAddress ? (recipient.last_name+' '+recipient.first_name) : '',
+      debtorHasAddress ? recipient.address_street : '',
+      '',
+      debtorHasAddress ? recipient.address_zip : '',
+      debtorHasAddress ? recipient.address_city : '',
+      debtorHasAddress ? 'CH' : '',
+      'NON', '',
+      'Rechnung ' + invoice.invoice_number,
+      'EPD'
+    ];
+    return lines.join('\r\n');
+  }
+
+  /* qrcodejs zeichnet synchron in ein DOM-Element (Canvas) -- wir
+     rendern in einen unsichtbaren, temporären Container und lesen den
+     Canvas-Inhalt anschliessend als Data-URL aus. */
+  function getQrBillDataUrl(){
+    var holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-9999px';
+    document.body.appendChild(holder);
+    new window.QRCode(holder, {
+      text: buildSwissQrPayload(),
+      width: 400, height: 400,
+      correctLevel: window.QRCode.CorrectLevel.M
+    });
+    var canvas = holder.querySelector('canvas');
+    var url = canvas ? canvas.toDataURL('image/png') : null;
+    document.body.removeChild(holder);
+    if(!url) return Promise.reject(new Error('QR-Code konnte nicht gerendert werden.'));
+    return Promise.resolve(url);
+  }
   function addressLines(p){
     if(!p) return '';
     var parts = [];
@@ -213,6 +276,13 @@
       if(issuer.bank_account_holder) document.getElementById('payHolder').textContent = issuer.bank_account_holder;
       else document.getElementById('payHolderRow').style.display = 'none';
       document.getElementById('paymentInfo').style.display = 'block';
+
+      if(isSwissIban(issuer.iban)){
+        getQrBillDataUrl().then(function(url){
+          document.getElementById('qrBillImg').src = url;
+          document.getElementById('qrBillHolder').style.display = 'block';
+        }).catch(function(err){ console.warn('QR-Rechnung konnte nicht erzeugt werden:', err); });
+      }
     }
 
     if(invoice.note){
@@ -275,7 +345,7 @@
     });
   }
 
-  function downloadPdf(){
+  async function downloadPdf(){
     var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
     var issuerLabel = (issuer && issuer.category !== 'admin') ? (issuer.last_name+' '+issuer.first_name) : 'Vera Home Immobilien';
     var recipientLabel = recipient ? (recipient.last_name+' '+recipient.first_name) : '–';
@@ -313,6 +383,14 @@
       var y2 = y + 6;
       if(issuer.bank_name){ y2 += 5; doc.text('Bank: ' + issuer.bank_name, 15, y2); }
       if(issuer.bank_account_holder){ y2 += 5; doc.text('Kontoinhaber: ' + issuer.bank_account_holder, 15, y2); }
+
+      if(isSwissIban(issuer.iban)){
+        try {
+          var qrUrl = await getQrBillDataUrl();
+          doc.text('Swiss QR-Rechnung — mit Banking-App scannen:', 15, y2 + 12);
+          doc.addImage(qrUrl, 'PNG', 15, y2 + 15, 45, 45);
+        } catch(qrErr) { console.warn('QR-Rechnung konnte nicht ins PDF eingefügt werden:', qrErr); }
+      }
     }
 
     doc.save('Rechnung-' + invoice.invoice_number + '.pdf');
