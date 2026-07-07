@@ -363,11 +363,9 @@ body:has(#dashSidebar) footer{display:none;}
   border:6px solid var(--color-gold);box-shadow:var(--shadow-card-hover);
   background:radial-gradient(circle at 30% 25%,var(--color-blue-mid),var(--color-navy) 75%);
   display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
-  animation:float 4s ease-in-out infinite;
 }
 .about-photo span{font-family:var(--font-heading);font-size:5rem;color:var(--color-gold-light);}
 .about-photo img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
-@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
 .photo-badge{
   position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);z-index:2;
   background:var(--color-gold);color:var(--color-navy-deep);font-size:.8rem;font-weight:600;
