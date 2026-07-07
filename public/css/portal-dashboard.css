@@ -491,12 +491,19 @@
 }
 .obj-address-type-checks .cal-checkbox-label input{margin-top:2px;flex-shrink:0;}
 .cal-picker-label{font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px;}
-.cal-participant-picker{
-  max-height:150px;overflow-y:auto;border:1px solid rgba(255,255,255,.25);border-radius:8px;
-  padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.05);
+.cal-participant-rows{display:flex;flex-direction:column;gap:8px;}
+.cal-participant-row{
+  display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr) auto;gap:8px;align-items:center;
 }
-.cal-participant-picker label{display:flex;align-items:center;gap:8px;font-size:.76rem;color:rgba(255,255,255,.92);font-weight:400;}
-.cal-participant-picker input{width:auto;}
+.cal-participant-row select{min-width:0;}
+.cal-add-participant-btn,.cal-remove-participant-btn{
+  min-height:40px;padding:8px 12px;border-radius:50px;font-size:.72rem;font-weight:600;
+  border:1px solid rgba(255,255,255,.28);color:var(--color-white);background:rgba(255,255,255,.04);
+  transition:border-color .2s,background .2s;touch-action:manipulation;
+}
+.cal-add-participant-btn{align-self:flex-start;border-color:rgba(212,175,55,.75);color:var(--color-gold);}
+.cal-add-participant-btn:hover,.cal-remove-participant-btn:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
+.cal-remove-participant-btn{white-space:nowrap;color:rgba(255,255,255,.78);}
 .cal-participant-cat{color:rgba(255,255,255,.55);font-size:.7rem;}
 .cal-new-appt-form button.cal-save-appt-btn{
   padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid var(--color-gold);
@@ -790,10 +797,12 @@
   .cal-event-detail-actions button,
   .cal-new-appt-form button.cal-save-appt-btn,
   .cal-new-appt-form button.cal-delete-appt-btn,
-  .cal-new-appt-form button.cal-cancel-appt-edit-btn{min-height:42px;}
+  .cal-new-appt-form button.cal-cancel-appt-edit-btn,
+  .cal-add-participant-btn,
+  .cal-remove-participant-btn{min-height:42px;}
   .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{font-size:16px;}
-  .cal-participant-picker{max-height:190px;}
-  .cal-participant-picker label{min-height:34px;}
+  .cal-participant-row{grid-template-columns:1fr;}
+  .cal-add-participant-btn,.cal-remove-participant-btn{width:100%;justify-content:center;}
 }
 
 @media (max-width:480px){

@@ -215,9 +215,7 @@
     document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
     initCalJumpSearch();
 
-    computeCalHourRange().then(loadCalWeek);
-    loadCalProperties();
-    loadCalAllProfiles();
+    Promise.all([computeCalHourRange(), loadCalProperties(), loadCalAllProfiles()]).then(loadCalWeek);
     loadAvailability();
     loadBlockedDates();
     loadBookings();
@@ -320,11 +318,10 @@
   var calAppointments = [];
   var calProperties = [];
   var calAllProfiles = [];
+  var calApptFormProfiles = [];
+  var calParticipantRowSeq = 0;
   var calHourStart = 7, calHourEnd = 21;
-  var APPT_CATEGORY_LABEL = {
-    architekt: 'Architekt', eigentuemer: 'Eigentümer', mieter: 'Mieter',
-    handwerker: 'Handwerker', amt: 'Amt', andere: 'Andere'
-  };
+  var PROFILE_CATEGORY_ORDER = ['mieter', 'eigentuemer', 'partner', 'handwerker', 'hauswart', 'firma', 'aemter'];
 
   async function loadCalProperties(){
     var res = await client.from('properties').select('id, label, city').order('label');
@@ -332,9 +329,116 @@
   }
 
   async function loadCalAllProfiles(){
-    var res = await client.from('profiles').select('id, first_name, last_name, category, email')
+    var res = await client.from('profiles').select('id, first_name, last_name, company_name, category, email')
       .eq('status', 'active').neq('category', 'admin').order('category').order('last_name');
-    calAllProfiles = res.data || [];
+    var rows = res.data || [];
+    var rolesByProfile = {};
+    var rolesRes = await client.from('profile_role_assignments').select('profile_id, category');
+    if(!rolesRes.error){
+      (rolesRes.data || []).forEach(function(r){
+        if(!rolesByProfile[r.profile_id]) rolesByProfile[r.profile_id] = [];
+        if(rolesByProfile[r.profile_id].indexOf(r.category) === -1) rolesByProfile[r.profile_id].push(r.category);
+      });
+    }
+    calAllProfiles = rows.map(function(p){
+      p.categories = (rolesByProfile[p.id] && rolesByProfile[p.id].length) ? rolesByProfile[p.id] : [p.category];
+      return p;
+    });
+  }
+
+  function calProfileById(id){
+    return calApptFormProfiles.concat(calAllProfiles).filter(function(p){ return p.id === id; })[0] || null;
+  }
+
+  function calProfileCategories(p){
+    if(!p) return [];
+    var cats = Array.isArray(p.categories) && p.categories.length ? p.categories : (p.category ? [p.category] : []);
+    return cats.filter(function(cat, index){ return cat && cats.indexOf(cat) === index; });
+  }
+
+  function calProfileDisplayName(p){
+    if(!p) return 'Unbekannt';
+    var person = [p.first_name, p.last_name].filter(Boolean).join(' ');
+    if(calProfileCategories(p).indexOf('firma') > -1 && p.company_name){
+      return p.company_name + (person ? ' · ' + person : '');
+    }
+    return person || p.company_name || p.email || 'Kontakt';
+  }
+
+  function calProfileSortName(p){
+    return (p.last_name || '') + ' ' + (p.first_name || '') + ' ' + (p.company_name || '');
+  }
+
+  function calProfileCategorySort(a, b){
+    var ai = PROFILE_CATEGORY_ORDER.indexOf(a);
+    var bi = PROFILE_CATEGORY_ORDER.indexOf(b);
+    if(ai === -1) ai = 999;
+    if(bi === -1) bi = 999;
+    return ai !== bi ? ai - bi : VeraDashboard.categoryLabel(a).localeCompare(VeraDashboard.categoryLabel(b), 'de-CH');
+  }
+
+  function calParticipantCategories(){
+    var seen = {};
+    calApptFormProfiles.forEach(function(p){
+      calProfileCategories(p).forEach(function(cat){ seen[cat] = true; });
+    });
+    return Object.keys(seen).sort(calProfileCategorySort);
+  }
+
+  function calParticipantCategoryOptions(selectedCategory){
+    var categories = calParticipantCategories();
+    if(selectedCategory && categories.indexOf(selectedCategory) === -1) categories.push(selectedCategory);
+    categories.sort(calProfileCategorySort);
+    return '<option value="">Kategorie wählen</option>' + categories.map(function(cat){
+      return '<option value="' + VeraDashboard.escapeHtml(cat) + '"' + (cat === selectedCategory ? ' selected' : '') + '>' + VeraDashboard.escapeHtml(VeraDashboard.categoryLabel(cat)) + '</option>';
+    }).join('');
+  }
+
+  function calParticipantContactOptions(category, selectedId){
+    if(!category) return '<option value="">Zuerst Kategorie wählen</option>';
+    var rows = calApptFormProfiles.filter(function(p){ return calProfileCategories(p).indexOf(category) > -1; })
+      .sort(function(a,b){ return calProfileSortName(a).localeCompare(calProfileSortName(b), 'de-CH'); });
+    var foundSelected = false;
+    var options = '<option value="">Kontakt wählen</option>' + rows.map(function(p){
+      if(p.id === selectedId) foundSelected = true;
+      return '<option value="' + VeraDashboard.escapeHtml(p.id) + '"' + (p.id === selectedId ? ' selected' : '') + '>' +
+        VeraDashboard.escapeHtml(calProfileDisplayName(p)) + '</option>';
+    }).join('');
+    if(selectedId && !foundSelected){
+      var selectedProfile = calProfileById(selectedId);
+      if(selectedProfile){
+        options += '<option value="' + VeraDashboard.escapeHtml(selectedId) + '" selected>' + VeraDashboard.escapeHtml(calProfileDisplayName(selectedProfile)) + '</option>';
+      }
+    }
+    return options;
+  }
+
+  function calParticipantInitialCategory(profileId, appointment){
+    var profileRow = calProfileById(profileId);
+    var categories = calProfileCategories(profileRow);
+    if(appointment && appointment.category && categories.indexOf(appointment.category) > -1) return appointment.category;
+    return categories[0] || '';
+  }
+
+  function calParticipantRowHtml(selectedCategory, selectedId){
+    calParticipantRowSeq += 1;
+    return '<div class="cal-participant-row" data-participant-row="' + calParticipantRowSeq + '">' +
+      '<select class="na-participant-category" aria-label="Kontakt-Kategorie">' + calParticipantCategoryOptions(selectedCategory) + '</select>' +
+      '<select class="na-participant-select" aria-label="Kontakt auswählen"' + (selectedCategory ? '' : ' disabled') + '>' + calParticipantContactOptions(selectedCategory, selectedId) + '</select>' +
+      '<button type="button" class="cal-remove-participant-btn" aria-label="Teilnehmer entfernen">Entfernen</button>' +
+    '</div>';
+  }
+
+  function calRefreshParticipantDuplicates(){
+    var selected = {};
+    document.querySelectorAll('#na_participants .na-participant-select').forEach(function(selectEl){
+      if(selectEl.value) selected[selectEl.value] = (selected[selectEl.value] || 0) + 1;
+    });
+    document.querySelectorAll('#na_participants .na-participant-select').forEach(function(selectEl){
+      Array.prototype.slice.call(selectEl.options).forEach(function(option){
+        option.disabled = !!option.value && option.value !== selectEl.value && !!selected[option.value];
+      });
+    });
   }
 
   function calDateStr(d){
@@ -412,8 +516,8 @@
       .select('id, title, note, starts_at')
       .or('title.ilike.' + pattern + ',note.ilike.' + pattern);
     var apptsByParticipantRes = await client.from('appointment_participants')
-      .select('appointment_id, profiles!inner(first_name, last_name), appointments!inner(id, title, note, starts_at)')
-      .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern, { foreignTable: 'profiles' });
+      .select('appointment_id, profile_id, profiles!inner(first_name, last_name, company_name, category), appointments!inner(id, title, note, starts_at)')
+      .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',company_name.ilike.' + pattern, { foreignTable: 'profiles' });
 
     var results = [];
     (bookingsRes.data || []).forEach(function(b){
@@ -428,8 +532,8 @@
       var a = row.appointments;
       if(!a || seenApptIds[a.id]) return;
       seenApptIds[a.id] = true;
-      var p = row.profiles;
-      results.push({ type: 'appointment', id: a.id, starts_at: a.starts_at, title: a.title, meta: p ? (p.first_name + ' ' + p.last_name) : '' });
+      var p = calProfileById(row.profile_id) || row.profiles;
+      results.push({ type: 'appointment', id: a.id, starts_at: a.starts_at, title: a.title, meta: p ? calProfileDisplayName(p) : '' });
     });
 
     var future = results.filter(function(r){ return r.starts_at >= now; }).sort(function(a,b){ return a.starts_at < b.starts_at ? -1 : 1; });
@@ -520,7 +624,7 @@
         .gte('starts_at', rangeStart.toISOString())
         .lt('starts_at', rangeEnd.toISOString())
         .order('starts_at'),
-      client.from('appointments').select('*, properties(label, city), appointment_participants(profile_id, status, profiles(first_name, last_name, category))')
+      client.from('appointments').select('*, properties(label, city), appointment_participants(profile_id, status, profiles(first_name, last_name, company_name, category))')
         .gte('starts_at', rangeStart.toISOString())
         .lt('starts_at', rangeEnd.toISOString())
         .order('starts_at')
@@ -632,13 +736,14 @@
     var participants = a.appointment_participants || [];
     var participantsHtml = participants.length
       ? '<p><strong>Teilnehmer:</strong><br>' + participants.map(function(p){
-          var name = p.profiles ? VeraDashboard.escapeHtml(p.profiles.first_name + ' ' + p.profiles.last_name) : 'Unbekannt';
-          var catLabel = p.profiles ? VeraDashboard.categoryLabel(p.profiles.category) : '';
+          var profileRow = calProfileById(p.profile_id) || p.profiles;
+          var name = VeraDashboard.escapeHtml(calProfileDisplayName(profileRow));
+          var catLabel = calProfileCategories(profileRow).map(VeraDashboard.categoryLabel).join(', ');
           var mark = p.status === 'bestaetigt' ? '✓ bestätigt' : '⏳ offen';
           return name + (catLabel ? ' (' + catLabel + ')' : '') + ' — ' + mark;
         }).join('<br>') + '</p>'
       : '';
-    return '<p><strong>' + (a.category ? APPT_CATEGORY_LABEL[a.category] || VeraDashboard.escapeHtml(a.category) : 'Termin') + '</strong></p>' +
+    return '<p><strong>' + VeraDashboard.escapeHtml(a.title || 'Termin') + '</strong></p>' +
       (propertyLabel ? '<p><strong>Objekt:</strong> ' + propertyLabel + '</p>' : '') +
       '<p><strong>Julia nimmt teil:</strong> ' + (a.admin_participates ? 'Ja' : 'Nein') + '</p>' +
       participantsHtml +
@@ -698,41 +803,30 @@
     var startDate = isEdit ? calAppointmentDateValue(appointment.starts_at) : dateStr;
     var startTime = isEdit ? calAppointmentTimeValue(appointment.starts_at) : String(hour).padStart(2,'0') + ':00';
     var durationMinutes = isEdit ? calAppointmentDurationMinutes(appointment) : 60;
-    var selectedParticipants = {};
+    calApptFormProfiles = calAllProfiles.slice();
     (isEdit ? (appointment.appointment_participants || []) : []).forEach(function(row){
-      selectedParticipants[row.profile_id] = row.status || 'eingeladen';
-    });
-    var participantSource = calAllProfiles.slice();
-    (isEdit ? (appointment.appointment_participants || []) : []).forEach(function(row){
-      if(!row.profiles || participantSource.some(function(p){ return p.id === row.profile_id; })) return;
-      participantSource.push({
+      if(!row.profiles || calApptFormProfiles.some(function(p){ return p.id === row.profile_id; })) return;
+      calApptFormProfiles.push({
         id: row.profile_id,
         first_name: row.profiles.first_name,
         last_name: row.profiles.last_name,
-        category: row.profiles.category
+        company_name: row.profiles.company_name,
+        category: row.profiles.category,
+        categories: row.profiles.category ? [row.profiles.category] : []
       });
     });
     var propertyOptions = '<option value="">Kein Objekt</option>' + calProperties.map(function(p){
       return '<option value="' + p.id + '"' + (isEdit && appointment.property_id === p.id ? ' selected' : '') + '>' + VeraDashboard.escapeHtml(p.label) + (p.city ? ' (' + VeraDashboard.escapeHtml(p.city) + ')' : '') + '</option>';
     }).join('');
-    var categoryOptions = Object.keys(APPT_CATEGORY_LABEL).map(function(key){
-      return '<option value="' + key + '"' + (isEdit && appointment.category === key ? ' selected' : '') + '>' + APPT_CATEGORY_LABEL[key] + '</option>';
-    }).join('');
-    var participantCats = participantSource.reduce(function(acc, p){
-      if(acc.indexOf(p.category) === -1) acc.push(p.category);
-      return acc;
-    }, []);
-    var participantFilterHtml = participantCats.length
-      ? '<select id="na_participant_filter" class="cal-participant-filter" aria-label="Teilnehmer nach Rolle filtern">' +
-          '<option value="">Alle Rollen</option>' +
-          participantCats.map(function(c){ return '<option value="' + c + '">' + VeraDashboard.categoryLabel(c) + '</option>'; }).join('') +
-        '</select>'
-      : '';
-    var participantsHtml = participantSource.length
-      ? participantFilterHtml + '<div class="cal-participant-picker" id="na_participants">' + participantSource.map(function(p){
-          return '<label data-participant-cat="' + p.category + '"><input type="checkbox" value="' + p.id + '"' + (selectedParticipants[p.id] ? ' checked' : '') + '> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
-            ' <span class="cal-participant-cat">(' + VeraDashboard.categoryLabel(p.category) + ')</span></label>';
-        }).join('') + '</div>'
+    var selectedParticipantRows = (isEdit ? (appointment.appointment_participants || []) : []).map(function(row){
+      return { profileId: row.profile_id, category: calParticipantInitialCategory(row.profile_id, appointment) };
+    });
+    if(!selectedParticipantRows.length) selectedParticipantRows.push({ profileId: '', category: '' });
+    var participantsHtml = calApptFormProfiles.length
+      ? '<div class="cal-participant-rows" id="na_participants">' + selectedParticipantRows.map(function(row){
+          return calParticipantRowHtml(row.category, row.profileId);
+        }).join('') + '</div>' +
+        '<button type="button" class="cal-add-participant-btn" id="na_add_participant">+ Teilnehmer hinzufügen</button>'
       : '<p class="cal-new-appt-status">Keine registrierten Nutzer gefunden.</p>';
     var durationValues = APPT_DURATION_OPTIONS.slice();
     if(durationValues.indexOf(durationMinutes) === -1) durationValues.push(durationMinutes);
@@ -743,7 +837,6 @@
     return '<p><strong>' + (isEdit ? 'Termin bearbeiten' : 'Neuer Termin') + '</strong><br><span id="na_time_label">' + calAppointmentTimeLabel(startDate, startTime, durationMinutes) + '</span></p>' +
       '<form id="calNewApptForm" class="cal-new-appt-form">' +
         '<input type="text" id="na_name" placeholder="Titel (z.B. Fenster reparieren) *" required value="' + VeraDashboard.escapeHtml(isEdit ? appointment.title : '') + '">' +
-        '<select id="na_category" aria-label="Kategorie">' + categoryOptions + '</select>' +
         '<select id="na_property" aria-label="Betreffendes Objekt">' + propertyOptions + '</select>' +
         '<div class="cal-new-appt-time-row">' +
           '<input type="date" id="na_date" value="' + startDate + '" required>' +
@@ -751,7 +844,7 @@
         '</div>' +
         '<select id="na_duration" aria-label="Dauer">' + durationOptions + '</select>' +
         '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates"' + (!isEdit || appointment.admin_participates ? ' checked' : '') + '> Ich nehme selbst teil</label>' +
-        '<span class="cal-picker-label">Teilnehmer einladen (optional, werden per E-Mail benachrichtigt)</span>' +
+        '<span class="cal-picker-label">Teilnehmer einladen (optional, Kategorie wählen, dann Kontakt auswählen)</span>' +
         participantsHtml +
         '<textarea id="na_note" placeholder="Notiz (optional)">' + VeraDashboard.escapeHtml(isEdit ? (appointment.note || '') : '') + '</textarea>' +
         (isEdit ? '<input type="hidden" id="na_appointment_id" value="' + appointment.id + '">' : '') +
@@ -856,13 +949,52 @@
       }
     }
     [dateEl, timeEl, durationEl].forEach(function(el){ el.addEventListener('change', refreshLabel); });
-    var filterEl = document.getElementById('na_participant_filter');
-    if(filterEl){
-      filterEl.addEventListener('change', function(){
-        var cat = this.value;
-        document.querySelectorAll('#na_participants label').forEach(function(label){
-          label.style.display = (!cat || label.getAttribute('data-participant-cat') === cat) ? '' : 'none';
-        });
+    var participantRowsEl = document.getElementById('na_participants');
+    var addParticipantBtn = document.getElementById('na_add_participant');
+    if(participantRowsEl){
+      participantRowsEl.addEventListener('change', function(e){
+        if(e.target.classList.contains('na-participant-category')){
+          var row = e.target.closest('.cal-participant-row');
+          var selectEl = row.querySelector('.na-participant-select');
+          selectEl.innerHTML = calParticipantContactOptions(e.target.value, '');
+          selectEl.disabled = !e.target.value;
+          calRefreshParticipantDuplicates();
+        }
+        if(e.target.classList.contains('na-participant-select')){
+          var statusEl = document.getElementById('naStatus');
+          var duplicate = e.target.value && Array.prototype.slice.call(document.querySelectorAll('#na_participants .na-participant-select')).some(function(selectEl){
+            return selectEl !== e.target && selectEl.value === e.target.value;
+          });
+          if(duplicate){
+            e.target.value = '';
+            if(statusEl) statusEl.textContent = 'Dieser Teilnehmer ist bereits hinzugefügt.';
+          } else if(statusEl && statusEl.textContent === 'Dieser Teilnehmer ist bereits hinzugefügt.'){
+            statusEl.textContent = '';
+          }
+          calRefreshParticipantDuplicates();
+        }
+      });
+      participantRowsEl.addEventListener('click', function(e){
+        var removeBtn = e.target.closest('.cal-remove-participant-btn');
+        if(!removeBtn) return;
+        var rows = participantRowsEl.querySelectorAll('.cal-participant-row');
+        var row = removeBtn.closest('.cal-participant-row');
+        if(rows.length > 1){
+          row.remove();
+        } else {
+          row.querySelector('.na-participant-category').value = '';
+          var selectEl = row.querySelector('.na-participant-select');
+          selectEl.innerHTML = calParticipantContactOptions('', '');
+          selectEl.disabled = true;
+        }
+        calRefreshParticipantDuplicates();
+      });
+      calRefreshParticipantDuplicates();
+    }
+    if(addParticipantBtn){
+      addParticipantBtn.addEventListener('click', function(){
+        participantRowsEl.insertAdjacentHTML('beforeend', calParticipantRowHtml('', ''));
+        calRefreshParticipantDuplicates();
       });
     }
     var cancelBtn = document.querySelector('.cal-cancel-appt-edit-btn');
@@ -1009,9 +1141,28 @@
     var startsAt = new Date(dateStr + 'T' + timeStr + ':00');
     var endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
     var adminParticipates = document.getElementById('na_admin_participates').checked;
-    var participantIds = Array.prototype.slice.call(
-      document.querySelectorAll('#na_participants input[type=checkbox]:checked')
-    ).map(function(cb){ return cb.value; });
+    var participantIds = [];
+    var participantIdMap = {};
+    var duplicateParticipant = false;
+    var primaryParticipantCategory = null;
+    document.querySelectorAll('#na_participants .na-participant-select').forEach(function(selectEl){
+      if(!selectEl.value) return;
+      if(participantIdMap[selectEl.value]){
+        duplicateParticipant = true;
+        return;
+      }
+      participantIdMap[selectEl.value] = true;
+      participantIds.push(selectEl.value);
+      if(!primaryParticipantCategory){
+        var row = selectEl.closest('.cal-participant-row');
+        var categoryEl = row ? row.querySelector('.na-participant-category') : null;
+        primaryParticipantCategory = categoryEl ? categoryEl.value || null : null;
+      }
+    });
+    if(duplicateParticipant){
+      statusEl.textContent = 'Bitte jeden Teilnehmer nur einmal auswählen.';
+      return;
+    }
     var appointmentIdEl = document.getElementById('na_appointment_id');
     var appointmentId = appointmentIdEl ? appointmentIdEl.value : null;
     var existingAppointment = appointmentId ? calAppointments.find(function(x){ return x.id === appointmentId; }) : null;
@@ -1025,7 +1176,7 @@
     statusEl.textContent = 'Wird gespeichert …';
     var payload = {
       title: name,
-      category: document.getElementById('na_category').value || null,
+      category: primaryParticipantCategory,
       note: document.getElementById('na_note').value.trim() || null,
       property_id: document.getElementById('na_property').value || null,
       starts_at: startsAt.toISOString(),
