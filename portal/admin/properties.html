@@ -1051,17 +1051,25 @@
 
   async function loadPropertyAnnouncements(propertyId){
     var res = await client.from('property_announcements').select('*').eq('property_id', propertyId).order('created_at', { ascending:false });
-    renderAnnouncementsList(propertyId, res.data || []);
+    var rows = res.data || [];
+    var readCounts = {};
+    if(rows.length){
+      var ids = rows.map(function(a){ return a.id; });
+      var readsRes = await client.from('property_announcement_reads').select('announcement_id').in('announcement_id', ids);
+      (readsRes.data || []).forEach(function(r){ readCounts[r.announcement_id] = (readCounts[r.announcement_id] || 0) + 1; });
+    }
+    renderAnnouncementsList(propertyId, rows, readCounts);
   }
 
-  function renderAnnouncementsList(propertyId, rows){
+  function renderAnnouncementsList(propertyId, rows, readCounts){
     var el = document.getElementById('announcementsList-'+propertyId);
     if(!rows.length){ el.innerHTML = '<p class="dash-empty">Noch keine Rundschreiben für dieses Objekt.</p>'; return; }
     el.innerHTML = rows.map(function(a){
+      var readCount = (readCounts && readCounts[a.id]) || 0;
       return '<div class="doc-row" style="flex-direction:column;align-items:stretch;">' +
         '<div style="display:flex;justify-content:space-between;gap:10px;">' +
           '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>' +
-          '<span class="doc-meta">'+VeraDashboard.formatDateTime(a.created_at)+'</span></div>' +
+          '<span class="doc-meta">'+VeraDashboard.formatDateTime(a.created_at)+' · '+readCount+(readCount===1?' Person hat':' Personen haben')+' gelesen</span></div>' +
           '<button type="button" class="prop-icon-btn danger del-announce-btn" data-id="'+a.id+'">✕</button>' +
         '</div>' +
         '<p style="margin:6px 0 0;font-size:.88rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(a.body)+'</p>' +

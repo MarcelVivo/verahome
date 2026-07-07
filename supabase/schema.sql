@@ -4393,3 +4393,25 @@ $$;
 alter table public.units drop constraint if exists units_unit_type_check;
 alter table public.units add constraint units_unit_type_check
   check (unit_type in ('wohnung','haus','garage','parkplatz','studio','lager','gewerbe','gastronomie','sonstiges'));
+
+-- ---------------------------------------------------------------------
+-- Lesebestaetigung fuer Rundschreiben (property_announcements): eine
+-- Zeile pro Nutzer, der eine Mitteilung geoeffnet hat. profiles.id ist
+-- identisch mit auth.uid(), darum kann die RLS direkt darauf vergleichen.
+-- ---------------------------------------------------------------------
+create table public.property_announcement_reads (
+  id               uuid primary key default gen_random_uuid(),
+  announcement_id  uuid not null references public.property_announcements(id) on delete cascade,
+  profile_id       uuid not null references public.profiles(id) on delete cascade,
+  read_at          timestamptz not null default now(),
+  unique (announcement_id, profile_id)
+);
+
+alter table public.property_announcement_reads enable row level security;
+alter table public.property_announcement_reads force row level security;
+
+create policy property_announcement_reads_select on public.property_announcement_reads
+  for select using (public.is_admin() or profile_id = auth.uid());
+
+create policy property_announcement_reads_insert on public.property_announcement_reads
+  for insert with check (profile_id = auth.uid());

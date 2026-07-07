@@ -171,13 +171,25 @@
       list.innerHTML = '<p class="dash-empty">Keine Rundschreiben vorhanden.</p>';
       return;
     }
+    var readsRes = await client.from('property_announcement_reads').select('announcement_id').eq('profile_id', profile.id);
+    var readIds = new Set((readsRes.data || []).map(function(r){ return r.announcement_id; }));
+
     list.innerHTML = rows.map(function(a){
+      var isNew = !readIds.has(a.id);
       return '<div class="doc-row" style="flex-direction:column;align-items:stretch;">' +
         '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>' +
+        (isNew ? '<span class="announcement-new-badge">Neu</span>' : '') +
         '<span class="doc-meta">'+(a.properties?VeraDashboard.escapeHtml(a.properties.label)+' · ':'')+VeraDashboard.formatDateTime(a.created_at)+'</span></div>' +
         '<p style="margin:6px 0 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(a.body)+'</p>' +
       '</div>';
     }).join('');
+
+    var unreadIds = rows.map(function(a){ return a.id; }).filter(function(id){ return !readIds.has(id); });
+    if(unreadIds.length){
+      await client.from('property_announcement_reads').insert(
+        unreadIds.map(function(id){ return { announcement_id: id, profile_id: profile.id }; })
+      );
+    }
   }
 
   var PROPERTY_DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };

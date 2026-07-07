@@ -32,6 +32,10 @@
   background:var(--color-gold);color:var(--color-white);font-size:.68rem;font-weight:700;
   line-height:1;padding:3px 8px;border-radius:50px;flex-shrink:0;
 }
+.announcement-new-badge{
+  background:var(--color-gold);color:var(--color-white);font-size:.68rem;font-weight:700;
+  line-height:1;padding:3px 8px;border-radius:50px;margin-left:8px;vertical-align:2px;
+}
 .dash-nav-section-label{
   display:block;margin:18px 28px 6px;color:rgba(255,255,255,.4);font-size:.7rem;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
