@@ -81,7 +81,14 @@
           <p class="form-status" id="loginStatus"></p>
         </form>
 
-        <div class="auth-links">
+        <form class="auth-form" id="mfaForm" style="display:none;">
+          <p class="auth-lead">Bitte geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.</p>
+          <input type="text" id="mfa_code" placeholder="6-stelliger Code" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+          <button type="submit" class="btn btn-primary" id="mfaSubmit">Bestätigen</button>
+          <p class="form-status" id="mfaStatus"></p>
+        </form>
+
+        <div class="auth-links" id="loginLinks">
           <p><a href="/portal/reset-password.html">Passwort vergessen?</a></p>
           <p>Noch kein Konto? Zugänge werden ausschliesslich von Vera Home Immobilien vergeben — <a href="/index.html#kontakt">bitte kontaktieren Sie uns</a>.</p>
         </div>
@@ -125,12 +132,39 @@
   var passwordInput = document.getElementById('l_password');
   var passwordToggle = document.getElementById('toggleLoginPassword');
 
+  var mfaFactorId = null;
+
   passwordToggle.addEventListener('click', function(){
     var shouldShow = passwordInput.type === 'password';
     passwordInput.type = shouldShow ? 'text' : 'password';
     passwordToggle.classList.toggle('is-visible', shouldShow);
     passwordToggle.setAttribute('aria-pressed', shouldShow ? 'true' : 'false');
     passwordToggle.setAttribute('aria-label', shouldShow ? 'Passwort verbergen' : 'Passwort anzeigen');
+  });
+
+  document.getElementById('mfaForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var codeInput = document.getElementById('mfa_code');
+    var mfaStatusEl = document.getElementById('mfaStatus');
+    var mfaSubmitBtn = document.getElementById('mfaSubmit');
+    if(!/^\d{6}$/.test(codeInput.value.trim())){
+      mfaStatusEl.textContent = 'Bitte den 6-stelligen Code eingeben.';
+      mfaStatusEl.classList.add('show');
+      return;
+    }
+    mfaSubmitBtn.disabled = true;
+    mfaSubmitBtn.textContent = 'Wird geprüft …';
+    var verifyRes = await VeraPortal.mfaChallengeAndVerify(mfaFactorId, codeInput.value.trim());
+    if(verifyRes.error){
+      mfaStatusEl.textContent = 'Code war falsch oder abgelaufen. Bitte erneut versuchen.';
+      mfaStatusEl.classList.add('show');
+      mfaSubmitBtn.disabled = false;
+      mfaSubmitBtn.textContent = 'Bestätigen';
+      codeInput.value = '';
+      codeInput.focus();
+      return;
+    }
+    window.location.href = '/portal/dashboard.html';
   });
 
   form.addEventListener('submit', function(e){
@@ -158,7 +192,7 @@
     VeraPortal.signIn({
       email: email.value.trim(),
       password: password.value
-    }).then(function(res){
+    }).then(async function(res){
       if(res.error){
         statusEl.textContent = 'Login fehlgeschlagen: E-Mail oder Passwort ist falsch, oder Ihre E-Mail-Adresse ist noch nicht bestätigt.';
         statusEl.classList.add('show');
@@ -166,6 +200,21 @@
         submitBtn.textContent = 'Einloggen';
         return;
       }
+
+      var level = await VeraPortal.mfaGetAssuranceLevel();
+      if(level.currentLevel === 'aal1' && level.nextLevel === 'aal2'){
+        var factors = await VeraPortal.mfaListFactors();
+        var verified = factors.filter(function(f){ return f.status === 'verified'; })[0];
+        if(verified){
+          mfaFactorId = verified.id;
+          form.style.display = 'none';
+          document.getElementById('loginLinks').style.display = 'none';
+          document.getElementById('mfaForm').style.display = 'flex';
+          document.getElementById('mfa_code').focus();
+          return;
+        }
+      }
+
       window.location.href = '/portal/dashboard.html';
     }).catch(function(err){
       statusEl.textContent = 'Unerwarteter Fehler: ' + err.message;

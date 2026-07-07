@@ -101,6 +101,28 @@
             Ihr Zugang wurde vorübergehend deaktiviert. Bitte kontaktieren Sie uns direkt, falls Sie Fragen dazu haben.
           </div>
         </div>
+
+        <div class="dash-card">
+          <h2>Sicherheit</h2>
+          <div class="status-row">
+            <span class="label">Zwei-Faktor-Authentifizierung</span>
+            <span class="value" id="mfaStatusLabel">Wird geprüft …</span>
+          </div>
+          <div class="dash-btn-row" style="margin-top:10px;">
+            <button type="button" class="dash-btn-sm" id="mfaSetupBtn" hidden>Einrichten</button>
+            <button type="button" class="dash-btn-sm danger" id="mfaDisableBtn" hidden>Deaktivieren</button>
+          </div>
+          <div id="mfaEnrollPanel" hidden style="margin-top:14px;">
+            <p class="dash-lead" style="margin-bottom:10px;">Scannen Sie den Code mit einer Authenticator-App (z.B. Google Authenticator, Authy) und geben Sie den 6-stelligen Code ein, um die Einrichtung zu bestätigen.</p>
+            <div id="mfaQrHolder" style="margin-bottom:10px;"></div>
+            <p class="dash-lead" style="font-size:.82rem;">Manuell einrichten? Schlüssel: <code id="mfaSecretText"></code></p>
+            <div class="auth-form-row">
+              <div><input type="text" id="mfaCodeInput" placeholder="6-stelliger Code" maxlength="6" inputmode="numeric"></div>
+              <div><button type="button" class="dash-btn-sm" id="mfaConfirmBtn">Bestätigen</button></div>
+            </div>
+            <p class="form-status" id="mfaSetupStatus"></p>
+          </div>
+        </div>
       </div>
 
       <div id="dashError" style="display:none;">
@@ -156,6 +178,8 @@
 
       if(profile.status === 'pending') document.getElementById('dashNoticePending').style.display = 'block';
       if(profile.status === 'suspended') document.getElementById('dashNoticeSuspended').style.display = 'block';
+
+      initMfaSection();
 
       var stats = [];
       if(profile.category === 'admin'){
@@ -225,6 +249,78 @@
   });
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  async function initMfaSection(){
+    var statusLabel = document.getElementById('mfaStatusLabel');
+    var setupBtn = document.getElementById('mfaSetupBtn');
+    var disableBtn = document.getElementById('mfaDisableBtn');
+    var enrollPanel = document.getElementById('mfaEnrollPanel');
+    var pendingFactorId = null;
+
+    async function refreshMfaStatus(){
+      var factors = await VeraPortal.mfaListFactors();
+      var verified = factors.filter(function(f){ return f.status === 'verified'; })[0];
+      enrollPanel.hidden = true;
+      if(verified){
+        statusLabel.textContent = 'Aktiviert';
+        setupBtn.hidden = true;
+        disableBtn.hidden = false;
+        disableBtn.setAttribute('data-factor-id', verified.id);
+      } else {
+        statusLabel.textContent = 'Nicht aktiviert';
+        setupBtn.hidden = false;
+        disableBtn.hidden = true;
+      }
+    }
+
+    setupBtn.addEventListener('click', async function(){
+      // Ein vorheriger, nie bestätigter Enrollment-Versuch muss erst
+      // entfernt werden -- Supabase lässt pro Nutzer nur einen
+      // "unverified" TOTP-Faktor gleichzeitig zu.
+      var factors = await VeraPortal.mfaListFactors();
+      var stale = factors.filter(function(f){ return f.status === 'unverified'; });
+      for(var i = 0; i < stale.length; i++){ await VeraPortal.mfaUnenroll(stale[i].id); }
+
+      var res = await VeraPortal.mfaEnroll();
+      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      pendingFactorId = res.data.id;
+      var qr = res.data.totp.qr_code;
+      document.getElementById('mfaQrHolder').innerHTML = qr.indexOf('<svg') === 0 ? qr : '<img src="'+qr+'" alt="QR-Code" width="180" height="180">';
+      document.getElementById('mfaSecretText').textContent = res.data.totp.secret;
+      document.getElementById('mfaCodeInput').value = '';
+      document.getElementById('mfaSetupStatus').textContent = '';
+      document.getElementById('mfaSetupStatus').classList.remove('show');
+      enrollPanel.hidden = false;
+    });
+
+    document.getElementById('mfaConfirmBtn').addEventListener('click', async function(){
+      var code = document.getElementById('mfaCodeInput').value.trim();
+      var statusEl = document.getElementById('mfaSetupStatus');
+      if(!pendingFactorId || !/^\d{6}$/.test(code)){
+        statusEl.textContent = 'Bitte den 6-stelligen Code aus der App eingeben.';
+        statusEl.classList.add('show');
+        return;
+      }
+      var res = await VeraPortal.mfaChallengeAndVerify(pendingFactorId, code);
+      if(res.error){
+        statusEl.textContent = 'Code war falsch oder abgelaufen. Bitte erneut versuchen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      pendingFactorId = null;
+      refreshMfaStatus();
+    });
+
+    disableBtn.addEventListener('click', async function(){
+      if(!window.confirm('Zwei-Faktor-Authentifizierung wirklich deaktivieren?')) return;
+      var factorId = disableBtn.getAttribute('data-factor-id');
+      var res = await VeraPortal.mfaUnenroll(factorId);
+      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      refreshMfaStatus();
+    });
+
+    refreshMfaStatus();
+  }
 
   function renderOverdueInvoices(rows){
     var table = document.getElementById('overdueInvoicesTable');

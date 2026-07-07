@@ -103,6 +103,34 @@ window.VeraPortal = (function () {
     return getClient().rpc("mark_message_read", { p_message_id: messageId });
   }
 
+  /* Zwei-Faktor-Authentifizierung (TOTP) — optionale, pro Nutzer
+     einrichtbare Absicherung des Logins. Enrollment/Verifizierung laeuft
+     komplett ueber die eingebaute Supabase-Auth-MFA-API, keine eigene
+     Tabelle noetig. */
+  function mfaEnroll() {
+    return getClient().auth.mfa.enroll({ factorType: "totp" });
+  }
+
+  async function mfaListFactors() {
+    var res = await getClient().auth.mfa.listFactors();
+    if (res.error) throw res.error;
+    return res.data.totp || [];
+  }
+
+  function mfaUnenroll(factorId) {
+    return getClient().auth.mfa.unenroll({ factorId: factorId });
+  }
+
+  function mfaChallengeAndVerify(factorId, code) {
+    return getClient().auth.mfa.challengeAndVerify({ factorId: factorId, code: code });
+  }
+
+  async function mfaGetAssuranceLevel() {
+    var res = await getClient().auth.mfa.getAuthenticatorAssuranceLevel();
+    if (res.error) throw res.error;
+    return res.data; // { currentLevel, nextLevel }
+  }
+
   function requestPasswordReset(email) {
     return getClient().auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + "/portal/update-password.html"
@@ -191,6 +219,11 @@ window.VeraPortal = (function () {
     getUnreadCounts: getUnreadCounts,
     markSectionSeen: markSectionSeen,
     requestPasswordReset: requestPasswordReset,
-    updatePassword: updatePassword
+    updatePassword: updatePassword,
+    mfaEnroll: mfaEnroll,
+    mfaListFactors: mfaListFactors,
+    mfaUnenroll: mfaUnenroll,
+    mfaChallengeAndVerify: mfaChallengeAndVerify,
+    mfaGetAssuranceLevel: mfaGetAssuranceLevel
   };
 })();
