@@ -4565,3 +4565,85 @@ begin
   return new;
 end;
 $$;
+
+-- ---------------------------------------------------------------------
+-- Mehrfach-Kategorien pro Kontakt: eine Person kann z.B. gleichzeitig
+-- Mieter UND Eigentuemer sein. profiles.category bleibt als "primaere"
+-- Kategorie bestehen (Mitgliedsnummer-Praefix, is_admin()-Check,
+-- Rechnungssteller-Default) -- profile_role_assignments ist die neue,
+-- vollstaendige Quelle fuer "welchen Kategorien gehoert dieser Kontakt
+-- an", genutzt von der Kontakte-Liste (mehrere Spalten pro Kontakt
+-- moeglich). "admin" bleibt bewusst nie Teil dieser Zuordnung -- die
+-- einzige Rolle, die nicht als Zusatzrolle vergeben wird.
+-- Zusaetzlich zwei weitere Kontakt-E-Mails (email2/email3) neben der
+-- bestehenden Login-Adresse profiles.email -- Supabase Auth kennt nur
+-- eine Login-Mail pro Konto, darum bleiben das reine Kontaktfelder.
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists email2 text;
+alter table public.profiles add column if not exists email3 text;
+
+create table if not exists public.profile_role_assignments (
+  profile_id  uuid not null references public.profiles(id) on delete cascade,
+  category    public.profile_category not null,
+  primary key (profile_id, category)
+);
+
+alter table public.profile_role_assignments enable row level security;
+alter table public.profile_role_assignments force row level security;
+
+create policy profile_role_assignments_select on public.profile_role_assignments
+  for select using (public.is_admin() or profile_id = auth.uid());
+
+create policy profile_role_assignments_admin_write on public.profile_role_assignments
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Einmaliges Backfill: jeder bestehende Kontakt behaelt seine bisherige
+-- (einzige) Kategorie als erste Rollen-Zuordnung, damit die Kontakte-
+-- Liste nach dem Update nahtlos weiter funktioniert.
+insert into public.profile_role_assignments (profile_id, category)
+select id, category from public.profiles
+where category <> 'admin'
+on conflict do nothing;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_category text;
+  safe_category public.profile_category;
+begin
+  requested_category := new.raw_user_meta_data->>'category';
+
+  if requested_category in ('mieter','eigentuemer','partner','handwerker','hauswart','firma','aemter') then
+    safe_category := requested_category::public.profile_category;
+  else
+    safe_category := 'mieter';
+  end if;
+
+  insert into public.profiles (
+    id, member_number, category, status, email, email2, email3, phone, phone2, phone3,
+    first_name, last_name, company_name, address_street, address_zip, address_city
+  ) values (
+    new.id,
+    public.generate_member_number(safe_category),
+    safe_category,
+    'active',
+    new.email,
+    new.raw_user_meta_data->>'email2',
+    new.raw_user_meta_data->>'email3',
+    new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'phone2',
+    new.raw_user_meta_data->>'phone3',
+    coalesce(new.raw_user_meta_data->>'first_name', ''),
+    coalesce(new.raw_user_meta_data->>'last_name', ''),
+    new.raw_user_meta_data->>'company_name',
+    new.raw_user_meta_data->>'address_street',
+    new.raw_user_meta_data->>'address_zip',
+    new.raw_user_meta_data->>'address_city'
+  );
+  return new;
+end;
+$$;

@@ -446,6 +446,11 @@
 .cal-event-detail-actions button.cal-delete-appt-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
 .cal-checkbox-label{display:flex;align-items:center;gap:8px;font-size:.78rem;color:rgba(255,255,255,.9);}
 .cal-checkbox-label input{width:auto;}
+.obj-category-checks{
+  display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;
+  background:var(--color-bg);border-radius:8px;margin-bottom:4px;
+}
+.obj-category-checks .cal-checkbox-label{color:var(--color-gray-text);font-size:.85rem;}
 .cal-picker-label{font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px;}
 .cal-participant-picker{
   max-height:150px;overflow-y:auto;border:1px solid rgba(255,255,255,.25);border-radius:8px;

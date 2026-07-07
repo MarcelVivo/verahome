@@ -32,13 +32,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, first_name, last_name, category, phone, phone2, phone3, company_name, address_street, address_zip, address_city } = await req.json();
-    if (!email || !first_name || !last_name || !VALID_CATEGORIES.includes(category)) {
-      return new Response(JSON.stringify({ error: "E-Mail, Vor-/Nachname und eine gültige Kategorie sind erforderlich." }), {
+    const { email, email2, email3, first_name, last_name, categories, phone, phone2, phone3, company_name, address_street, address_zip, address_city } = await req.json();
+    const categoryList: string[] = Array.isArray(categories) ? categories.filter((c) => VALID_CATEGORIES.includes(c)) : [];
+    if (!email || !first_name || !last_name || categoryList.length === 0) {
+      return new Response(JSON.stringify({ error: "E-Mail, Vor-/Nachname und mindestens eine gültige Kategorie sind erforderlich." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const category = categoryList[0]; // primaere Kategorie: Mitgliedsnummer-Praefix, is_admin()-Check
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const callerClient = createClient(
@@ -76,6 +78,8 @@ Deno.serve(async (req) => {
         category,
         first_name,
         last_name,
+        email2: email2 || null,
+        email3: email3 || null,
         phone: phone || null,
         phone2: phone2 || null,
         phone3: phone3 || null,
@@ -100,6 +104,17 @@ Deno.serve(async (req) => {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // handle_new_user() legt das profiles-Datensatz mit der primaeren
+    // Kategorie an; alle (ggf. weiteren) Kategorien landen zusaetzlich
+    // hier -- service role umgeht RLS, kein Insert-Recht auf Client-Seite
+    // noetig.
+    const { error: rolesErr } = await adminClient
+      .from("profile_role_assignments")
+      .insert(categoryList.map((c) => ({ profile_id: invited.user.id, category: c })));
+    if (rolesErr) {
+      console.error("profile_role_assignments insert failed:", rolesErr.message);
     }
 
     return new Response(JSON.stringify({ ok: true, profileId: invited.user.id }), {

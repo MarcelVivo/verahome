@@ -78,18 +78,27 @@
     <button type="button" class="obj-modal-close" id="newContactModalClose" aria-label="Schliessen">✕</button>
     <h3>Neuer Kontakt</h3>
     <form class="auth-form modal-scroll-body" id="newContactForm">
-      <select id="nc_category"></select>
+      <span class="obj-modal-section-label">Kategorien (mehrere möglich)</span>
+      <div class="obj-category-checks" id="nc_categories"></div>
       <input id="nc_company_name" placeholder="Firmenname *" hidden>
+      <span class="obj-modal-section-label">Person</span>
       <div class="auth-form-row">
         <div><input id="nc_first_name" placeholder="Vorname *" required></div>
         <div><input id="nc_last_name" placeholder="Nachname *" required></div>
       </div>
-      <input type="email" id="nc_email" placeholder="E-Mail *" required>
+      <span class="obj-modal-section-label">E-Mail</span>
+      <input type="email" id="nc_email" placeholder="E-Mail 1 (Login) *" required>
+      <div class="auth-form-row">
+        <div><input type="email" id="nc_email2" placeholder="E-Mail 2"></div>
+        <div><input type="email" id="nc_email3" placeholder="E-Mail 3"></div>
+      </div>
+      <span class="obj-modal-section-label">Telefon</span>
       <div class="auth-form-row">
         <div><input id="nc_phone" placeholder="Telefon 1"></div>
         <div><input id="nc_phone2" placeholder="Telefon 2"></div>
       </div>
       <input id="nc_phone3" placeholder="Telefon 3">
+      <span class="obj-modal-section-label">Adresse</span>
       <div class="auth-form-row">
         <div><input id="nc_street" placeholder="Strasse, Nr."></div>
         <div><input id="nc_zip" placeholder="PLZ"></div>
@@ -180,28 +189,43 @@
     lastNameEl.placeholder = isFirma ? 'Nachname (Kontaktperson) *' : 'Nachname *';
   }
 
-  function init(){
-    document.getElementById('nc_category').innerHTML = CATEGORY_ORDER.map(function(c){
-      return '<option value="'+c+'">'+VeraDashboard.categoryLabel(c)+'</option>';
+  /* Kategorien sind seit der Mehrfach-Rollen-Umstellung eine
+     Checkbox-Gruppe statt eines Dropdowns -- eine Person kann z.B.
+     gleichzeitig Mieter UND Eigentümer sein. Gemeinsame Helfer fuer
+     Neu-Anlegen- und Bearbeiten-Formular. */
+  function categoryChecksHtml(idPrefix, checked){
+    checked = checked || [];
+    return CATEGORY_ORDER.map(function(c){
+      return '<label class="cal-checkbox-label"><input type="checkbox" class="cat-check" id="'+idPrefix+'_cat_'+c+'" value="'+c+'"'+(checked.indexOf(c)>-1?' checked':'')+'> '+VeraDashboard.categoryLabel(c)+'</label>';
     }).join('');
+  }
+  function getCheckedCategories(containerEl){
+    return Array.prototype.slice.call(containerEl.querySelectorAll('.cat-check:checked')).map(function(cb){ return cb.value; });
+  }
 
-    document.getElementById('nc_category').addEventListener('change', function(){
+  function init(){
+    document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
+
+    document.getElementById('nc_categories').addEventListener('change', function(){
       applyContactCategoryUI(
         document.getElementById('nc_company_name'),
         document.getElementById('nc_first_name'),
         document.getElementById('nc_last_name'),
-        this.value === 'firma'
+        getCheckedCategories(document.getElementById('nc_categories')).indexOf('firma') > -1
       );
     });
 
     document.getElementById('newContactForm').addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('newContactStatus');
+      var categories = getCheckedCategories(document.getElementById('nc_categories'));
       var payload = {
         email: document.getElementById('nc_email').value.trim(),
+        email2: document.getElementById('nc_email2').value.trim() || null,
+        email3: document.getElementById('nc_email3').value.trim() || null,
         first_name: document.getElementById('nc_first_name').value.trim(),
         last_name: document.getElementById('nc_last_name').value.trim(),
-        category: document.getElementById('nc_category').value,
+        categories: categories,
         phone: document.getElementById('nc_phone').value.trim() || null,
         phone2: document.getElementById('nc_phone2').value.trim() || null,
         phone3: document.getElementById('nc_phone3').value.trim() || null,
@@ -215,7 +239,12 @@
         statusEl.classList.add('show');
         return;
       }
-      if(payload.category === 'firma' && !payload.company_name){
+      if(!categories.length){
+        statusEl.textContent = 'Bitte mindestens eine Kategorie auswählen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      if(categories.indexOf('firma') > -1 && !payload.company_name){
         statusEl.textContent = 'Bitte den Firmennamen angeben.';
         statusEl.classList.add('show');
         return;
@@ -230,11 +259,12 @@
         }
         statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
         document.getElementById('newContactForm').reset();
+        document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
         applyContactCategoryUI(
           document.getElementById('nc_company_name'),
           document.getElementById('nc_first_name'),
           document.getElementById('nc_last_name'),
-          document.getElementById('nc_category').value === 'firma'
+          false
         );
         await loadAll();
         renderAllColumns();
@@ -278,11 +308,12 @@
   function closeNewContactModal(){
     document.getElementById('newContactModalBackdrop').hidden = true;
     document.getElementById('newContactForm').reset();
+    document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
     applyContactCategoryUI(
       document.getElementById('nc_company_name'),
       document.getElementById('nc_first_name'),
       document.getElementById('nc_last_name'),
-      document.getElementById('nc_category').value === 'firma'
+      false
     );
     var statusEl = document.getElementById('newContactStatus');
     statusEl.textContent = '';
@@ -290,7 +321,7 @@
   }
 
   function openCreateModal(category){
-    document.getElementById('nc_category').value = category;
+    document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', [category]);
     applyContactCategoryUI(
       document.getElementById('nc_company_name'),
       document.getElementById('nc_first_name'),
@@ -300,9 +331,23 @@
     document.getElementById('newContactModalBackdrop').hidden = false;
   }
 
+  var rolesByProfile = {};
+
+  function contactCategories(c){
+    var roles = rolesByProfile[c.id];
+    return (roles && roles.length) ? roles : [c.category];
+  }
+
   async function loadAll(){
     var res = await client.from('profiles').select('*').neq('category', 'admin').order('last_name');
     allContacts = res.data || [];
+
+    var rolesRes = await client.from('profile_role_assignments').select('profile_id, category');
+    rolesByProfile = {};
+    (rolesRes.data || []).forEach(function(r){
+      if(!rolesByProfile[r.profile_id]) rolesByProfile[r.profile_id] = [];
+      rolesByProfile[r.profile_id].push(r.category);
+    });
   }
 
   /* ============================================================
@@ -330,9 +375,11 @@
 
   /* Firma-Kontakte zeigen den Firmennamen als Haupttitel, mit der
      Kontaktperson als Zusatzangabe -- alle anderen Kategorien bleiben
-     bei "Nachname Vorname" wie bisher. */
+     bei "Nachname Vorname" wie bisher. Seit der Mehrfach-Rollen-
+     Umstellung gilt "isFirma", sobald die Kategorie "firma" unter den
+     Zuordnungen des Kontakts ist -- unabhaengig von den anderen. */
   function contactDisplayName(c){
-    return (c.category === 'firma' && c.company_name) ? c.company_name : (c.last_name + ' ' + c.first_name);
+    return (contactCategories(c).indexOf('firma') > -1 && c.company_name) ? c.company_name : (c.last_name + ' ' + c.first_name);
   }
   function contactPersonName(c){
     return c.last_name + ' ' + c.first_name;
@@ -343,14 +390,14 @@
     var countEl = document.getElementById('objColumnCount-'+key);
     if(!listEl) return;
     var q = (columnSearchState[key] || '').trim();
-    var contactsOfType = allContacts.filter(function(c){ return c.category === key; });
+    var contactsOfType = allContacts.filter(function(c){ return contactCategories(c).indexOf(key) > -1; });
     var filtered = contactsOfType.filter(function(c){
       return VeraDashboard.matchesSearch([c.member_number, c.last_name, c.first_name, c.company_name, c.email, c.status], q);
     });
 
     countEl.textContent = String(filtered.length);
     listEl.innerHTML = filtered.map(function(c){
-      var isFirma = c.category === 'firma' && c.company_name;
+      var isFirma = contactCategories(c).indexOf('firma') > -1 && c.company_name;
       return '<button type="button" class="obj-row" data-open-contact="'+c.id+'">' +
         '<strong>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</strong>' +
         '<span class="obj-row-meta">'+(isFirma ? VeraDashboard.escapeHtml(contactPersonName(c))+' · ' : '')+VeraDashboard.escapeHtml(c.email)+'</span>' +
@@ -383,24 +430,32 @@
     if(c.status !== 'suspended'){
       statusActions += '<button type="button" class="dash-btn-sm danger status-btn" data-id="'+id+'" data-status="suspended">Sperren</button>';
     }
-    var isFirma = c.category === 'firma';
+    var cats = contactCategories(c);
+    var isFirma = cats.indexOf('firma') > -1;
     return '<h3>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</h3>' +
       '<p class="doc-meta" style="margin-bottom:12px;">Mitgliedsnr. '+VeraDashboard.escapeHtml(c.member_number)+' · <span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></p>' +
       '<form class="auth-form" id="contactEditForm-'+id+'">' +
+        '<span class="obj-modal-section-label">Kategorien (mehrere möglich)</span>' +
+        '<div class="obj-category-checks" id="contactCategories-'+id+'">'+categoryChecksHtml('contact'+id, cats)+'</div>' +
         '<input id="contactCompanyName-'+id+'" placeholder="Firmenname *" value="'+VeraDashboard.escapeHtml(c.company_name||'')+'"'+(isFirma?'':' hidden')+'>' +
+        '<span class="obj-modal-section-label">Person</span>' +
         '<div class="auth-form-row">' +
           '<div><input id="contactFirstName-'+id+'" placeholder="'+(isFirma?'Vorname (Kontaktperson) *':'Vorname *')+'" required value="'+VeraDashboard.escapeHtml(c.first_name)+'"></div>' +
           '<div><input id="contactLastName-'+id+'" placeholder="'+(isFirma?'Nachname (Kontaktperson) *':'Nachname *')+'" required value="'+VeraDashboard.escapeHtml(c.last_name)+'"></div>' +
         '</div>' +
+        '<span class="obj-modal-section-label">E-Mail</span>' +
         '<input type="email" value="'+VeraDashboard.escapeHtml(c.email)+'" disabled title="Login-Adresse, nur manuell in Supabase änderbar">' +
-        '<select id="contactCategory-'+id+'">'+CATEGORY_ORDER.map(function(cat){
-          return '<option value="'+cat+'"'+(cat===c.category?' selected':'')+'>'+VeraDashboard.categoryLabel(cat)+'</option>';
-        }).join('')+'</select>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="email" id="contactEmail2-'+id+'" placeholder="E-Mail 2" value="'+VeraDashboard.escapeHtml(c.email2||'')+'"></div>' +
+          '<div><input type="email" id="contactEmail3-'+id+'" placeholder="E-Mail 3" value="'+VeraDashboard.escapeHtml(c.email3||'')+'"></div>' +
+        '</div>' +
+        '<span class="obj-modal-section-label">Telefon</span>' +
         '<div class="auth-form-row">' +
           '<div><input id="contactPhone-'+id+'" placeholder="Telefon 1" value="'+VeraDashboard.escapeHtml(c.phone||'')+'"></div>' +
           '<div><input id="contactPhone2-'+id+'" placeholder="Telefon 2" value="'+VeraDashboard.escapeHtml(c.phone2||'')+'"></div>' +
         '</div>' +
         '<input id="contactPhone3-'+id+'" placeholder="Telefon 3" value="'+VeraDashboard.escapeHtml(c.phone3||'')+'">' +
+        '<span class="obj-modal-section-label">Adresse</span>' +
         '<div class="auth-form-row">' +
           '<div><input id="contactStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address_street||'')+'"></div>' +
           '<div><input id="contactZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address_zip||'')+'"></div>' +
@@ -441,24 +496,31 @@
   function wireContactModal(contact){
     var id = contact.id;
     var modalBody = document.getElementById('contactModalBody');
+    var categoriesEl = document.getElementById('contactCategories-'+id);
 
-    document.getElementById('contactCompanyName-'+id).required = contact.category === 'firma';
+    document.getElementById('contactCompanyName-'+id).required = contactCategories(contact).indexOf('firma') > -1;
 
-    document.getElementById('contactCategory-'+id).addEventListener('change', function(){
+    categoriesEl.addEventListener('change', function(){
       applyContactCategoryUI(
         document.getElementById('contactCompanyName-'+id),
         document.getElementById('contactFirstName-'+id),
         document.getElementById('contactLastName-'+id),
-        this.value === 'firma'
+        getCheckedCategories(categoriesEl).indexOf('firma') > -1
       );
     });
 
     document.getElementById('contactEditForm-'+id).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('contactEditStatus-'+id);
-      var category = document.getElementById('contactCategory-'+id).value;
+      var categories = getCheckedCategories(categoriesEl);
       var companyName = document.getElementById('contactCompanyName-'+id).value.trim();
-      if(category === 'firma' && !companyName){
+      if(!categories.length){
+        statusEl.textContent = 'Bitte mindestens eine Kategorie auswählen.';
+        statusEl.classList.add('show');
+        return;
+      }
+      var isFirma = categories.indexOf('firma') > -1;
+      if(isFirma && !companyName){
         statusEl.textContent = 'Bitte den Firmennamen angeben.';
         statusEl.classList.add('show');
         return;
@@ -466,8 +528,10 @@
       var res = await client.from('profiles').update({
         first_name: document.getElementById('contactFirstName-'+id).value.trim(),
         last_name: document.getElementById('contactLastName-'+id).value.trim(),
-        category: category,
-        company_name: category === 'firma' ? companyName : null,
+        category: categories[0],
+        company_name: isFirma ? companyName : null,
+        email2: document.getElementById('contactEmail2-'+id).value.trim() || null,
+        email3: document.getElementById('contactEmail3-'+id).value.trim() || null,
         phone: document.getElementById('contactPhone-'+id).value.trim() || null,
         phone2: document.getElementById('contactPhone2-'+id).value.trim() || null,
         phone3: document.getElementById('contactPhone3-'+id).value.trim() || null,
@@ -475,6 +539,16 @@
         address_zip: document.getElementById('contactZip-'+id).value.trim() || null,
         address_city: document.getElementById('contactCity-'+id).value.trim() || null
       }).eq('id', id);
+      if(!res.error){
+        // Rollen-Zuordnungen komplett ersetzen -- einfacher und bei der
+        // ueberschaubaren Anzahl Kategorien pro Kontakt guenstig genug,
+        // statt die Differenz zu berechnen.
+        await client.from('profile_role_assignments').delete().eq('profile_id', id);
+        var rolesRes = await client.from('profile_role_assignments').insert(
+          categories.map(function(cat){ return { profile_id: id, category: cat }; })
+        );
+        if(rolesRes.error) res = rolesRes;
+      }
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Kontakt gespeichert.';
       statusEl.classList.add('show');
       if(!res.error){
