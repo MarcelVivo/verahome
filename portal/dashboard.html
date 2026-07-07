@@ -86,7 +86,7 @@
             <span class="value member-number" id="dashMemberNumber">–</span>
           </div>
           <div class="status-row">
-            <span class="label">Kategorie</span>
+            <span class="label">Ihre Rollen</span>
             <span class="value" id="dashCategory">–</span>
           </div>
           <div class="status-row">
@@ -173,7 +173,9 @@
     try{
       document.getElementById('dashGreeting').textContent = 'Willkommen, ' + profile.first_name;
       document.getElementById('dashMemberNumber').textContent = profile.member_number || '–';
-      document.getElementById('dashCategory').textContent = VeraDashboard.categoryLabel(profile.category);
+      document.getElementById('dashCategory').innerHTML = (ctx.roles || [profile.category]).map(function(r){
+        return '<span class="role-badge">'+VeraDashboard.escapeHtml(VeraDashboard.categoryLabel(r))+'</span>';
+      }).join('');
       document.getElementById('dashEmail').textContent = profile.email;
 
       if(profile.status === 'pending') document.getElementById('dashNoticePending').style.display = 'block';

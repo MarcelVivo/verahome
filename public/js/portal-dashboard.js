@@ -151,9 +151,13 @@ window.VeraDashboard = (function () {
     return INVOICE_ISSUER_CATEGORIES.indexOf(profile.category) > -1;
   }
 
-  function renderNavGroup(group, activeKey, category) {
+  function rolesOverlap(itemRoles, roles) {
+    return itemRoles.some(function (r) { return roles.indexOf(r) > -1; });
+  }
+
+  function renderNavGroup(group, activeKey, roles) {
     var itemsHtml = group.items.filter(function (item) {
-      return !item.roles || item.roles.indexOf(category) > -1;
+      return !item.roles || rolesOverlap(item.roles, roles);
     }).map(function (item) {
       var inner = item.label;
       if (BADGE_SECTIONS.indexOf(item.key) > -1) {
@@ -351,18 +355,19 @@ window.VeraDashboard = (function () {
      ein Umweg. Einfache Text-Pills wie frueher der horizontale
      Sidebar-Streifen, keine Icons -- bei bis zu 14 Eintraegen (Admin)
      waere ein Icon-Satz ohnehin kaum noch unterscheidbar. */
-  function renderBottomTabBar(activeKey, profile) {
+  function renderBottomTabBar(activeKey, profile, roles) {
+    roles = roles || [profile.category];
     var existing = document.getElementById("dashTabbar");
     if (existing) existing.remove();
 
     var items = NAV_GROUPS[0].items.filter(function (item) {
-      return !item.roles || item.roles.indexOf(profile.category) > -1;
+      return !item.roles || rolesOverlap(item.roles, roles);
     });
     if (profile.category === "admin") {
       items = items.concat(ADMIN_NAV_GROUP.items);
     }
     items = items.concat(SERVICES_NAV_GROUP.items.filter(function (item) {
-      return !item.roles || item.roles.indexOf(profile.category) > -1;
+      return !item.roles || rolesOverlap(item.roles, roles);
     }));
 
     var bar = document.createElement("nav");
@@ -422,24 +427,27 @@ window.VeraDashboard = (function () {
     input.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
-  function renderSidebar(activeKey, profile) {
+  function renderSidebar(activeKey, profile, roles) {
     var el = document.getElementById("dashSidebar");
     if (!el) return;
+    roles = roles || [profile.category];
 
     var linksHtml = NAV_GROUPS.map(function (group) {
-      return renderNavGroup(group, activeKey, profile.category);
+      return renderNavGroup(group, activeKey, roles);
     }).join("");
 
     if (profile.category === "admin") {
-      linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, profile.category);
+      linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, roles);
     }
 
-    linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, profile.category);
+    linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, roles);
+
+    var roleLabel = roles.map(categoryLabel).join(", ");
 
     el.innerHTML =
       '<div class="dash-sidebar-header">' +
       '<p class="dash-sidebar-name">' + escapeHtml(profile.first_name) + "</p>" +
-      '<span class="status-badge ' + profile.status + '">' + escapeHtml(categoryLabel(profile.category)) + "</span>" +
+      '<span class="status-badge ' + profile.status + '">' + escapeHtml(roleLabel) + "</span>" +
       "</div>" +
       '<nav class="dash-nav">' + linksHtml + "</nav>" +
       '<button type="button" class="dash-logout-btn" id="dashLogoutBtn">Ausloggen</button>';
@@ -452,7 +460,7 @@ window.VeraDashboard = (function () {
 
     refreshBadges(activeKey);
     renderAdminQuickbar(profile);
-    renderBottomTabBar(activeKey, profile);
+    renderBottomTabBar(activeKey, profile, roles);
     renderTopLogoutButton();
   }
 
@@ -488,8 +496,24 @@ window.VeraDashboard = (function () {
     if (!session) return null;
     var profile = await VeraPortal.getProfile();
     if (!profile) return null;
-    renderSidebar(activeKey, profile);
-    return { session: session, profile: profile };
+    var roles = await fetchOwnRoles(profile);
+    renderSidebar(activeKey, profile, roles);
+    return { session: session, profile: profile, roles: roles };
+  }
+
+  /* Eine Person kann mehreren Kategorien gleichzeitig angehoeren (z.B.
+     Mieter UND Eigentuemer) -- profile_role_assignments ist dafuer die
+     vollstaendige Quelle (siehe admin/users.html). Faellt bei jedem
+     Fehler oder wenn noch keine Zuordnung existiert auf die einzelne
+     profiles.category zurueck, damit die Navigation nie leer bleibt. */
+  async function fetchOwnRoles(profile) {
+    try {
+      var res = await VeraPortal.getClient().from("profile_role_assignments").select("category").eq("profile_id", profile.id);
+      var roles = (res.data || []).map(function (r) { return r.category; });
+      return roles.length ? roles : [profile.category];
+    } catch (e) {
+      return [profile.category];
+    }
   }
 
   return {
@@ -503,6 +527,7 @@ window.VeraDashboard = (function () {
     canIssueInvoices: canIssueInvoices,
     applyQueryParamSearch: applyQueryParamSearch,
     downloadIcs: downloadIcs,
-    downloadCsv: downloadCsv
+    downloadCsv: downloadCsv,
+    fetchOwnRoles: fetchOwnRoles
   };
 })();

@@ -77,6 +77,16 @@
 .dash-card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;}
 .dash-card-head h2{margin-bottom:0;}
 
+/* "Ihre Rollen" auf der Portal-Uebersicht: eine Person kann mehreren
+   Kategorien gleichzeitig angehoeren (z.B. Mieter UND Eigentuemer),
+   darum mehrere kleine Pillen statt eines einzelnen Werts -- der
+   Status-Row-Wert wird dafuer selbst zum wrap-faehigen Flex-Container. */
+.status-row .value#dashCategory{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+.role-badge{
+  display:inline-block;padding:3px 12px;border-radius:50px;font-size:.78rem;font-weight:600;
+  background:var(--color-blue-light);color:var(--color-navy);white-space:nowrap;
+}
+
 .dash-stat-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:32px;}
 .dash-stat{
   flex:1;min-width:180px;background:var(--color-white);border:1px solid var(--color-blue-light);
