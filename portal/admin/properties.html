@@ -118,6 +118,16 @@
         <option value="private" selected>Nicht veröffentlichen</option>
         <option value="public">Als Inserat veröffentlichen</option>
       </select>
+
+      <div id="u_checklist"></div>
+
+      <span class="obj-modal-section-label">Bilder</span>
+      <label class="doc-meta" for="u_cover_image">Titelbild (empfohlen, 1 Bild)</label>
+      <input type="file" id="u_cover_image" accept="image/*">
+      <label class="doc-meta" for="u_detail_images">Weitere Bilder (empfohlen, max. 10 Bilder)</label>
+      <input type="file" id="u_detail_images" accept="image/*" multiple>
+
+      <span class="obj-modal-section-label">Preis &amp; Verfügbarkeit</span>
       <div class="auth-form-row">
         <div>
           <select id="u_offer_type">
@@ -127,24 +137,25 @@
             <option value="Auf Anfrage">Auf Anfrage</option>
           </select>
         </div>
-        <div id="u_area_wrap"><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
-      </div>
-      <div class="auth-form-row">
-        <div id="u_rooms_wrap"><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
-        <div><input id="u_floor" placeholder="Etage / Lage im Haus"></div>
-      </div>
-      <div class="auth-form-row">
         <div><input type="number" step="0.01" min="0" id="u_rent" placeholder="Mietzins / Preis CHF"></div>
-        <div id="u_extra_costs_wrap"><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
       </div>
-      <input id="u_available" placeholder="Verfügbar ab">
-      <input id="u_teaser" placeholder="Kurztext für Übersicht">
+      <div class="auth-form-row">
+        <div id="u_extra_costs_wrap"><input type="number" step="0.01" min="0" id="u_extra_costs" placeholder="Nebenkosten CHF"></div>
+        <div><input id="u_available" placeholder="Verfügbar ab"></div>
+      </div>
+
+      <span class="obj-modal-section-label">Grösse &amp; Lage</span>
+      <div class="auth-form-row">
+        <div id="u_area_wrap"><input type="number" step="0.01" min="0" id="u_area" placeholder="Wohnfläche m²"></div>
+        <div id="u_rooms_wrap"><input type="number" step="0.5" min="0" id="u_rooms" placeholder="Zimmer"></div>
+      </div>
+      <input id="u_floor" placeholder="Etage / Lage im Haus">
+
+      <span class="obj-modal-section-label">Präsentation für die Website</span>
+      <input id="u_teaser" placeholder="Kurztext für Übersicht (empfohlen)">
       <textarea id="u_description" placeholder="Beschreibung für Detailseite"></textarea>
       <textarea id="u_features" placeholder="Merkmale, je Zeile ein Punkt"></textarea>
-      <label class="doc-meta" for="u_cover_image">Titelbild (optional, 1 Bild)</label>
-      <input type="file" id="u_cover_image" accept="image/*">
-      <label class="doc-meta" for="u_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
-      <input type="file" id="u_detail_images" accept="image/*" multiple>
+
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary">Einheit anlegen</button>
         <button type="button" class="dash-btn-sm" id="newUnitCancelBtn">Abbrechen</button>
@@ -201,6 +212,29 @@
 
   var columnSearchState = {};
 
+  /* Live-Checkliste "Inserat-Qualität" -- zeigt auf einen Blick, was
+     für ein gutes Inserat noch fehlt (Titelbild, Preis, Zimmer/Fläche,
+     Kurztext, weitere Bilder, Beschreibung/Merkmale), statt dass der
+     Admin das aus dem Kopf wissen muss. Rein informativ, blockiert
+     nichts -- ein Entwurf ohne Bild soll z.B. weiterhin speicherbar
+     bleiben. */
+  function listingChecklistHtml(state){
+    var items = [
+      { ok: state.hasImage, label: 'Titelbild' },
+      { ok: state.hasPrice, label: 'Preis' },
+      { ok: state.hasSize, label: 'Zimmer/Fläche' },
+      { ok: state.hasTeaser, label: 'Kurztext' },
+      { ok: state.hasMoreImages, label: 'Weitere Bilder' },
+      { ok: state.hasDescription, label: 'Beschreibung/Merkmale' }
+    ];
+    return '<div class="obj-listing-checklist">' +
+      '<span class="obj-listing-checklist-title">Inserat-Qualität</span>' +
+      items.map(function(it){
+        return '<span class="obj-listing-check-item'+(it.ok?' ok':'')+'">'+(it.ok?'✓':'○')+' '+it.label+'</span>';
+      }).join('') +
+    '</div>';
+  }
+
   /* Titel wird beim Anlegen automatisch aus den übrigen Feldern
      zusammengesetzt, damit er immer einheitlich aufgebaut ist (z.B.
      "Hauptstrasse 39, Frick" bzw. "4.5-Zimmer-Wohnung 2. OG links") --
@@ -227,6 +261,17 @@
     var floor = document.getElementById('u_floor').value.trim();
     var main = rooms ? (rooms + '-Zimmer-' + typeName) : typeName;
     document.getElementById('u_label').value = [main, floor].filter(Boolean).join(' ');
+  }
+
+  function updateNewUnitChecklist(){
+    document.getElementById('u_checklist').innerHTML = listingChecklistHtml({
+      hasImage: document.getElementById('u_cover_image').files.length > 0,
+      hasPrice: !!document.getElementById('u_rent').value,
+      hasSize: !!(document.getElementById('u_area').value || document.getElementById('u_rooms').value),
+      hasTeaser: !!document.getElementById('u_teaser').value.trim(),
+      hasMoreImages: document.getElementById('u_detail_images').files.length > 0,
+      hasDescription: !!(document.getElementById('u_description').value.trim() || document.getElementById('u_features').value.trim())
+    });
   }
 
   /* Wohnfläche/Zimmer/Nebenkosten ergeben bei Garage/Parkplatz keinen
@@ -363,6 +408,8 @@
     document.getElementById('newPropertyCancelBtn').addEventListener('click', closeNewPropertyModal);
     document.getElementById('newUnitModalClose').addEventListener('click', closeNewUnitModal);
     document.getElementById('newUnitCancelBtn').addEventListener('click', closeNewUnitModal);
+    document.getElementById('newUnitForm').addEventListener('input', updateNewUnitChecklist);
+    document.getElementById('newUnitForm').addEventListener('change', updateNewUnitChecklist);
 
     ['p_street','p_city'].forEach(function(id){
       document.getElementById(id).addEventListener('input', updatePropertyLabelAuto);
@@ -407,6 +454,7 @@
     document.getElementById('newUnitModalBackdrop').hidden = true;
     document.getElementById('newUnitForm').reset();
     unitLabelManualOverride = false;
+    updateNewUnitChecklist();
     var statusEl = document.getElementById('newUnitStatus');
     statusEl.textContent = '';
     statusEl.classList.remove('show');
@@ -608,6 +656,7 @@
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(key);
     updateUnitLabelAuto();
     applyUnitTypeFieldVisibility(key);
+    updateNewUnitChecklist();
     document.getElementById('newUnitModalBackdrop').hidden = false;
   }
 
@@ -852,6 +901,16 @@
           '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
           '<option value="public"'+(unit.visibility === 'public' ? ' selected' : '')+'>Als Inserat veröffentlichen</option>' +
         '</select>' +
+
+        '<div id="unitChecklist-'+unitId+'"></div>' +
+
+        '<span class="obj-modal-section-label">Bilder dieser Einheit</span>' +
+        '<div class="prop-thumb-grid" id="unitThumbs-'+unitId+'"></div>' +
+        '<input type="file" id="unitImgInput-'+unitId+'" accept="image/*" multiple>' +
+        '<button type="button" class="dash-btn-sm unit-img-upload-btn" data-unit-id="'+unitId+'" style="margin-top:8px;">Einheitsbilder hochladen</button>' +
+        '<p class="form-status" id="unitImgStatus-'+unitId+'"></p>' +
+
+        '<span class="obj-modal-section-label">Preis &amp; Verfügbarkeit</span>' +
         '<div class="auth-form-row">' +
           '<div><select id="unitOfferType-'+unitId+'">' +
             '<option value="">Art des Angebots</option>' +
@@ -859,25 +918,25 @@
             '<option value="Kauf"'+(unit.offer_type === 'Kauf' ? ' selected' : '')+'>Kauf</option>' +
             '<option value="Auf Anfrage"'+(unit.offer_type === 'Auf Anfrage' ? ' selected' : '')+'>Auf Anfrage</option>' +
           '</select></div>' +
-          '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
-        '</div>' +
-        '<div class="auth-form-row">' +
-          '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
-          '<div><input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'"></div>' +
-        '</div>' +
-        '<div class="auth-form-row">' +
           '<div><input type="number" step="0.01" min="0" id="unitRent-'+unitId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(unit.rent_chf || '')+'"></div>' +
-          '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
         '</div>' +
-        '<input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'">' +
-        '<input id="unitTeaser-'+unitId+'" placeholder="Kurztext für Übersicht" value="'+VeraDashboard.escapeHtml(unit.teaser || '')+'">' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
+          '<div><input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'"></div>' +
+        '</div>' +
+
+        '<span class="obj-modal-section-label">Grösse &amp; Lage</span>' +
+        '<div class="auth-form-row">' +
+          '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
+          '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
+        '</div>' +
+        '<input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'">' +
+
+        '<span class="obj-modal-section-label">Präsentation für die Website</span>' +
+        '<input id="unitTeaser-'+unitId+'" placeholder="Kurztext für Übersicht (empfohlen)" value="'+VeraDashboard.escapeHtml(unit.teaser || '')+'">' +
         '<textarea id="unitDescription-'+unitId+'" placeholder="Beschreibung für Detailseite">'+VeraDashboard.escapeHtml(unit.description || '')+'</textarea>' +
         '<textarea id="unitFeatures-'+unitId+'" placeholder="Merkmale, je Zeile ein Punkt">'+VeraDashboard.escapeHtml(unit.features || '')+'</textarea>' +
-        '<h4 style="font-size:.9rem;margin:10px 0 8px;">Bilder dieser Einheit</h4>' +
-        '<div class="prop-thumb-grid" id="unitThumbs-'+unitId+'"></div>' +
-        '<input type="file" id="unitImgInput-'+unitId+'" accept="image/*" multiple>' +
-        '<button type="button" class="dash-btn-sm unit-img-upload-btn" data-unit-id="'+unitId+'" style="margin-top:8px;">Einheitsbilder hochladen</button>' +
-        '<p class="form-status" id="unitImgStatus-'+unitId+'"></p>' +
+
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Einheit speichern</button>' +
           '<button type="button" class="dash-btn-sm danger delete-unit-btn" data-id="'+unitId+'" data-label="'+VeraDashboard.escapeHtml(unit.label)+'">Einheit löschen</button>' +
@@ -887,10 +946,27 @@
       sendPanelHtml();
   }
 
+  function updateUnitChecklist(unitId){
+    var checklistEl = document.getElementById('unitChecklist-'+unitId);
+    if(!checklistEl) return;
+    var thumbCount = document.querySelectorAll('#unitThumbs-'+unitId+' .prop-thumb').length;
+    checklistEl.innerHTML = listingChecklistHtml({
+      hasImage: thumbCount > 0,
+      hasMoreImages: thumbCount > 1,
+      hasPrice: !!document.getElementById('unitRent-'+unitId).value,
+      hasSize: !!(document.getElementById('unitArea-'+unitId).value || document.getElementById('unitRooms-'+unitId).value),
+      hasTeaser: !!document.getElementById('unitTeaser-'+unitId).value.trim(),
+      hasDescription: !!(document.getElementById('unitDescription-'+unitId).value.trim() || document.getElementById('unitFeatures-'+unitId).value.trim())
+    });
+  }
+
   function wireUnitModal(unit){
     var unitId = unit.id;
     var modalBody = document.getElementById('unitModalBody');
     loadUnitThumbs(unitId);
+    updateUnitChecklist(unitId);
+    document.getElementById('unitListingForm-'+unitId).addEventListener('input', function(){ updateUnitChecklist(unitId); });
+    document.getElementById('unitListingForm-'+unitId).addEventListener('change', function(){ updateUnitChecklist(unitId); });
     document.getElementById('unitListingForm-'+unitId).addEventListener('submit', function(e){
       saveUnitListingDetails(e, unitId);
     });
@@ -1254,7 +1330,7 @@
     var images = res.data || [];
     var el = document.getElementById('unitThumbs-'+unitId);
     if(!el) return;
-    if(!images.length){ el.innerHTML = '<p class="dash-empty">Noch keine Bilder für diese Einheit.</p>'; return; }
+    if(!images.length){ el.innerHTML = '<p class="dash-empty">Noch keine Bilder für diese Einheit.</p>'; updateUnitChecklist(unitId); return; }
     el.innerHTML = images.map(function(img, idx){
       var url = client.storage.from('property-images').getPublicUrl(img.file_path).data.publicUrl;
       return '<div class="prop-thumb'+(img.is_cover?' is-cover':'')+'">' +
@@ -1292,6 +1368,7 @@
         loadUnitThumbs(unitId);
       });
     });
+    updateUnitChecklist(unitId);
   }
 
   async function uploadUnitImages(unitId){
