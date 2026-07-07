@@ -379,6 +379,7 @@
 
   function calParticipantCategories(){
     var seen = {};
+    PROFILE_CATEGORY_ORDER.forEach(function(cat){ seen[cat] = true; });
     calApptFormProfiles.forEach(function(p){
       calProfileCategories(p).forEach(function(cat){ seen[cat] = true; });
     });
@@ -394,12 +395,17 @@
     }).join('');
   }
 
+  function calParticipantContactsForCategory(category){
+    if(!category) return [];
+    return calApptFormProfiles.filter(function(p){ return calProfileCategories(p).indexOf(category) > -1; })
+      .sort(function(a,b){ return calProfileSortName(a).localeCompare(calProfileSortName(b), 'de-CH'); });
+  }
+
   function calParticipantContactOptions(category, selectedId){
     if(!category) return '<option value="">Zuerst Kategorie wählen</option>';
-    var rows = calApptFormProfiles.filter(function(p){ return calProfileCategories(p).indexOf(category) > -1; })
-      .sort(function(a,b){ return calProfileSortName(a).localeCompare(calProfileSortName(b), 'de-CH'); });
+    var rows = calParticipantContactsForCategory(category);
     var foundSelected = false;
-    var options = '<option value="">Kontakt wählen</option>' + rows.map(function(p){
+    var options = '<option value="">' + (rows.length ? 'Kontakt wählen' : 'Keine Kontakte in dieser Kategorie') + '</option>' + rows.map(function(p){
       if(p.id === selectedId) foundSelected = true;
       return '<option value="' + VeraDashboard.escapeHtml(p.id) + '"' + (p.id === selectedId ? ' selected' : '') + '>' +
         VeraDashboard.escapeHtml(calProfileDisplayName(p)) + '</option>';
@@ -422,9 +428,10 @@
 
   function calParticipantRowHtml(selectedCategory, selectedId){
     calParticipantRowSeq += 1;
+    var contactSelectDisabled = !selectedCategory || (!selectedId && !calParticipantContactsForCategory(selectedCategory).length);
     return '<div class="cal-participant-row" data-participant-row="' + calParticipantRowSeq + '">' +
       '<select class="na-participant-category" aria-label="Kontakt-Kategorie">' + calParticipantCategoryOptions(selectedCategory) + '</select>' +
-      '<select class="na-participant-select" aria-label="Kontakt auswählen"' + (selectedCategory ? '' : ' disabled') + '>' + calParticipantContactOptions(selectedCategory, selectedId) + '</select>' +
+      '<select class="na-participant-select" aria-label="Kontakt auswählen"' + (contactSelectDisabled ? ' disabled' : '') + '>' + calParticipantContactOptions(selectedCategory, selectedId) + '</select>' +
       '<button type="button" class="cal-remove-participant-btn" aria-label="Teilnehmer entfernen">Entfernen</button>' +
     '</div>';
   }
@@ -844,7 +851,7 @@
         '</div>' +
         '<select id="na_duration" aria-label="Dauer">' + durationOptions + '</select>' +
         '<label class="cal-checkbox-label"><input type="checkbox" id="na_admin_participates"' + (!isEdit || appointment.admin_participates ? ' checked' : '') + '> Ich nehme selbst teil</label>' +
-        '<span class="cal-picker-label">Teilnehmer einladen (optional, Kategorie wählen, dann Kontakt auswählen)</span>' +
+        '<span class="cal-picker-label">Teilnehmer einladen (optional)</span>' +
         participantsHtml +
         '<textarea id="na_note" placeholder="Notiz (optional)">' + VeraDashboard.escapeHtml(isEdit ? (appointment.note || '') : '') + '</textarea>' +
         (isEdit ? '<input type="hidden" id="na_appointment_id" value="' + appointment.id + '">' : '') +
@@ -919,7 +926,7 @@
   }
   function calPositionPopover(targetEl){
     var rect = targetEl.getBoundingClientRect();
-    var popW = 250; // muss mit .cal-event-detail{width:250px} in portal-dashboard.css übereinstimmen
+    var popW = Math.min(380, window.innerWidth - 24); // muss mit .cal-event-detail{width:380px} in portal-dashboard.css übereinstimmen
     var left = Math.min(rect.right + 8, window.innerWidth - popW - 12);
     if(left < 8) left = 8;
     calPopover.style.left = left + 'px';
@@ -957,7 +964,7 @@
           var row = e.target.closest('.cal-participant-row');
           var selectEl = row.querySelector('.na-participant-select');
           selectEl.innerHTML = calParticipantContactOptions(e.target.value, '');
-          selectEl.disabled = !e.target.value;
+          selectEl.disabled = !e.target.value || !calParticipantContactsForCategory(e.target.value).length;
           calRefreshParticipantDuplicates();
         }
         if(e.target.classList.contains('na-participant-select')){

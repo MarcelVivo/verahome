@@ -446,14 +446,14 @@
    overflow-x is non-visible, clipping the popover's own vertical
    overflow. A single fixed-position element sidesteps that entirely. */
 .cal-event-detail{
-  position:fixed;width:250px;z-index:2000;max-height:calc(100vh - 32px);overflow-y:auto;
-  background:var(--color-navy-deep);color:var(--color-white);border-radius:10px;padding:14px 16px;
-  box-shadow:0 12px 28px rgba(13,36,64,.35);font-size:.8rem;line-height:1.5;
+  position:fixed;width:380px;z-index:2000;max-height:calc(100vh - 32px);overflow-y:auto;
+  background:var(--color-navy-deep);color:var(--color-white);border-radius:10px;padding:14px 18px;
+  box-shadow:0 12px 28px rgba(13,36,64,.35);font-size:.8rem;line-height:1.38;
   opacity:0;visibility:hidden;transform:translateY(4px);pointer-events:none;
   transition:opacity .15s var(--ease),transform .15s var(--ease),visibility .15s;
 }
 .cal-event-detail.show{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
-.cal-event-detail p{margin:0 0 8px;color:rgba(255,255,255,.92);}
+.cal-event-detail p{margin:0 0 6px;color:rgba(255,255,255,.92);}
 .cal-event-detail p:last-of-type{margin-bottom:0;}
 .cal-event-detail strong{color:var(--color-gold-light);}
 .cal-event-detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
@@ -491,13 +491,17 @@
 }
 .obj-address-type-checks .cal-checkbox-label input{margin-top:2px;flex-shrink:0;}
 .cal-picker-label{font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px;}
-.cal-participant-rows{display:flex;flex-direction:column;gap:8px;}
+.cal-participant-rows{display:flex;flex-direction:column;gap:7px;}
 .cal-participant-row{
-  display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr) auto;gap:8px;align-items:center;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:center;
+  padding:8px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.035);
 }
 .cal-participant-row select{min-width:0;}
+.cal-participant-row .na-participant-category{grid-column:1;grid-row:1;}
+.cal-participant-row .na-participant-select{grid-column:1;grid-row:2;}
+.cal-participant-row .cal-remove-participant-btn{grid-column:2;grid-row:1 / span 2;align-self:center;}
 .cal-add-participant-btn,.cal-remove-participant-btn{
-  min-height:40px;padding:8px 12px;border-radius:50px;font-size:.72rem;font-weight:600;
+  min-height:38px;padding:7px 12px;border-radius:50px;font-size:.72rem;font-weight:600;
   border:1px solid rgba(255,255,255,.28);color:var(--color-white);background:rgba(255,255,255,.04);
   transition:border-color .2s,background .2s;touch-action:manipulation;
 }
@@ -518,15 +522,15 @@
 .cal-new-appt-form button.cal-delete-appt-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
 .cal-new-appt-form button.cal-delete-appt-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
 .cal-new-appt-form button.cal-cancel-appt-edit-btn:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
-.cal-new-appt-form{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.cal-new-appt-form{display:flex;flex-direction:column;gap:7px;margin-top:6px;}
 .cal-new-appt-time-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{
-  min-height:40px;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  min-height:38px;padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
   background:rgba(255,255,255,.08);color:var(--color-white);font-family:inherit;font-size:.78rem;
 }
 .cal-new-appt-form input::placeholder,.cal-new-appt-form textarea::placeholder{color:rgba(255,255,255,.55);}
 .cal-new-appt-form select option{color:#000;}
-.cal-new-appt-form textarea{resize:vertical;min-height:46px;}
+.cal-new-appt-form textarea{resize:vertical;min-height:42px;}
 .cal-new-appt-form .cal-confirm-btn{align-self:flex-start;margin-top:2px;}
 .cal-new-appt-status{font-size:.72rem;color:var(--color-gold-light);margin:2px 0 0;}
 .cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
@@ -802,6 +806,9 @@
   .cal-remove-participant-btn{min-height:42px;}
   .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{font-size:16px;}
   .cal-participant-row{grid-template-columns:1fr;}
+  .cal-participant-row .na-participant-category,
+  .cal-participant-row .na-participant-select,
+  .cal-participant-row .cal-remove-participant-btn{grid-column:1;grid-row:auto;}
   .cal-add-participant-btn,.cal-remove-participant-btn{width:100%;justify-content:center;}
 }
 
