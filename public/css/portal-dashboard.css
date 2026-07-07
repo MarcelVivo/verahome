@@ -102,6 +102,7 @@
 .dash-stat.danger .num{color:#A32E22;}
 
 .dash-table-wrap{overflow-x:auto;}
+.dash-table-wrap{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
 .dash-table{width:100%;border-collapse:collapse;}
 
 /* Karten-Ansicht für #receivedTable ("meine offenen Rechnungen") auf
@@ -143,8 +144,9 @@
 
 .dash-btn-row{display:flex;gap:8px;flex-wrap:wrap;}
 .dash-btn-sm{
-  padding:7px 16px;border-radius:50px;font-size:.8rem;font-weight:600;border:1.5px solid var(--color-blue-light);
+  min-height:38px;padding:7px 16px;border-radius:50px;font-size:.8rem;font-weight:600;border:1.5px solid var(--color-blue-light);
   color:var(--color-navy);transition:border-color .2s,color .2s;
+  touch-action:manipulation;
 }
 .dash-btn-sm:hover{border-color:var(--color-gold);color:var(--color-gold);}
 .dash-btn-sm.danger{border-color:#F0C6C0;color:#A32E22;}
@@ -153,7 +155,7 @@
 .dash-empty{color:var(--color-gray-text);opacity:.7;font-size:.92rem;padding:16px 0;}
 
 .dash-search-input{
-  display:block;width:100%;max-width:340px;margin-bottom:14px;padding:10px 14px;
+  display:block;width:100%;max-width:340px;min-height:42px;margin-bottom:14px;padding:10px 14px;
   border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
   font-family:inherit;font-size:.9rem;transition:border-color .2s;
 }
@@ -246,8 +248,11 @@
 @media (max-width:640px){
   .share-modal-backdrop{padding:0;}
   .share-modal,.obj-modal{
-    max-width:100%;width:100%;height:100%;max-height:100%;border-radius:0;padding:20px;padding-top:24px;
+    max-width:100%;width:100%;height:100vh;height:100dvh;max-height:100%;border-radius:0;
+    padding:calc(22px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom));
   }
+  .obj-modal-close{top:calc(14px + env(safe-area-inset-top));right:14px;width:40px;height:40px;}
+  .modal-scroll-body{padding-bottom:env(safe-area-inset-bottom);}
 }
 
 /* Fingerfreundlichere Tap-Ziele + iOS-Zoom-Fix: Safari zoomt beim
@@ -255,8 +260,10 @@
    — das betrifft nur diese vier Stellen (alle übrigen Formulare sind
    bereits bei 1rem/16px, siehe .auth-form input,select,textarea). */
 @media (max-width:640px){
-  .dash-btn-sm{min-height:40px;display:inline-flex;align-items:center;}
+  .dash-btn-sm{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
   .dash-btn-sm[hidden]{display:none;}
+  .dash-btn-row{gap:10px;}
+  .dash-btn-row .dash-btn-sm,.dash-btn-row .btn{flex:1 1 150px;}
   .cal-jump-search input,
   .admin-quickbar-search input,
   .obj-send-tab-panel input,.obj-send-tab-panel select,
@@ -291,7 +298,7 @@
   padding:2px 8px;border-radius:20px;
 }
 .obj-add-btn{
-  width:22px;height:22px;border-radius:50%;border:1px solid var(--color-blue-light);background:none;
+  width:28px;height:28px;border-radius:50%;border:1px solid var(--color-blue-light);background:none;
   color:var(--color-navy);cursor:pointer;font-size:.85rem;line-height:1;flex-shrink:0;
 }
 .obj-add-btn:hover{border-color:var(--color-gold);color:var(--color-gold);}
@@ -347,7 +354,7 @@
 .cal-week-label{font-weight:600;color:var(--color-navy);flex-grow:1;text-align:center;font-size:.95rem;}
 .cal-jump-search{position:relative;margin-left:auto;}
 .cal-jump-search input{
-  width:240px;padding:8px 14px;border:1px solid var(--color-blue-light);border-radius:50px;
+  width:240px;min-height:40px;padding:8px 14px;border:1px solid var(--color-blue-light);border-radius:50px;
   font-size:.82rem;font-family:var(--font-body);background:var(--color-white);
 }
 .cal-jump-search input:focus{outline:none;border-color:var(--color-gold);}
@@ -371,6 +378,7 @@
 }
 .cal-jump-highlight{animation:calJumpHighlight 1s ease-in-out 3;z-index:5;}
 .cal-grid-wrap{overflow-x:auto;border:1px solid var(--color-blue-light);border-radius:var(--radius);}
+.cal-grid-wrap{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
 .cal-grid{display:flex;min-width:760px;}
 .cal-time-col{width:56px;flex-shrink:0;position:sticky;left:0;background:var(--color-white);z-index:2;border-right:1px solid var(--color-blue-light);}
 .cal-corner{height:52px;border-bottom:1px solid var(--color-blue-light);}
@@ -404,16 +412,17 @@
 .cal-hour-slot{height:48px;box-sizing:border-box;border-bottom:1px solid var(--color-blue-light);transition:background .15s;cursor:pointer;position:relative;}
 .cal-hour-slot:hover{background:rgba(201,168,76,.1);}
 .cal-hour-add-btn{
-  position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;padding:0;
+  position:absolute;top:2px;right:2px;width:24px;height:24px;line-height:20px;padding:0;
   border-radius:50%;border:1px solid var(--color-blue-light);background:var(--color-white);
   color:var(--color-blue-mid);font-size:.8rem;font-weight:700;cursor:pointer;z-index:3;
-  opacity:.4;transition:opacity .15s;
+  opacity:.58;transition:opacity .15s;
 }
 .cal-hour-slot:hover .cal-hour-add-btn, .cal-hour-add-btn:focus-visible{opacity:1;}
 .cal-hour-add-btn:hover{background:var(--color-gold);border-color:var(--color-gold);color:var(--color-navy-deep);}
 .cal-event{
   position:absolute;border-radius:6px;font-size:.72rem;line-height:1.25;
   overflow:hidden;padding:3px 6px;cursor:pointer;border:1px solid transparent;z-index:1;
+  touch-action:manipulation;
 }
 .cal-event.pending{background:rgba(201,168,76,.2);border-color:var(--color-gold);color:#7a5f16;}
 .cal-event.confirmed{background:rgba(46,109,164,.16);border-color:var(--color-blue-mid);color:var(--color-navy);}
@@ -449,8 +458,9 @@
 .cal-event-detail strong{color:var(--color-gold-light);}
 .cal-event-detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
 .cal-event-detail-actions button{
-  padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid rgba(255,255,255,.3);
+  min-height:36px;padding:6px 12px;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid rgba(255,255,255,.3);
   color:var(--color-white);transition:border-color .2s,background .2s;
+  touch-action:manipulation;
 }
 .cal-event-detail-actions button:hover{border-color:var(--color-gold);background:rgba(255,255,255,.08);}
 .cal-event-detail-actions button.cal-confirm-btn{background:var(--color-gold);color:var(--color-navy-deep);border-color:var(--color-gold);}
@@ -462,7 +472,7 @@
 .cal-event-detail-actions button.cal-delete-appt-btn{border-color:rgba(240,120,110,.6);color:#F5B8B2;}
 .cal-event-detail-actions button.cal-delete-appt-btn:hover{border-color:#F0786E;background:rgba(240,120,110,.12);}
 .cal-checkbox-label{display:flex;align-items:center;gap:8px;font-size:.78rem;color:rgba(255,255,255,.9);}
-.cal-checkbox-label input{width:auto;}
+.cal-checkbox-label input{width:auto;min-width:18px;min-height:18px;accent-color:var(--color-gold);}
 .obj-category-checks{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px 16px;padding:12px 14px;
   background:var(--color-bg);border-radius:8px;margin-bottom:4px;
@@ -504,7 +514,7 @@
 .cal-new-appt-form{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
 .cal-new-appt-time-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{
-  padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  min-height:40px;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
   background:rgba(255,255,255,.08);color:var(--color-white);font-family:inherit;font-size:.78rem;
 }
 .cal-new-appt-form input::placeholder,.cal-new-appt-form textarea::placeholder{color:rgba(255,255,255,.55);}
@@ -689,21 +699,30 @@
   background:var(--color-navy-deep);border-top:1px solid rgba(255,255,255,.12);
   padding:8px 10px calc(8px + env(safe-area-inset-bottom));
   box-shadow:0 -2px 12px rgba(20,30,45,.2);
-  align-items:stretch;overflow-x:auto;gap:4px;
+  align-items:stretch;overflow-x:auto;gap:4px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  scrollbar-width:none;
 }
+.dash-tabbar::-webkit-scrollbar{display:none;}
 .dash-tab{
   position:relative;flex:0 0 auto;display:flex;align-items:center;
   padding:0 16px;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:600;
   background:none;border:none;min-height:44px;white-space:nowrap;border-radius:8px;
+  touch-action:manipulation;
 }
 .dash-tab.active{color:var(--color-gold);background:rgba(255,255,255,.06);}
 .dash-tab-logout{color:var(--color-gold);border-left:1px solid rgba(255,255,255,.18);margin-left:4px;padding-left:20px;}
 .dash-tab .dash-nav-badge{position:relative;margin-left:6px;}
 
 @media (max-width:900px){
-  #dashAdminQuickbar{position:static;left:auto;transform:none;justify-content:flex-end;padding:10px 20px 0;}
+  #dashAdminQuickbar{
+    position:fixed;top:var(--nav-height);left:0;right:0;transform:none;justify-content:flex-end;
+    padding:10px 20px;background:rgba(247,249,251,.96);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--color-blue-light);z-index:850;
+  }
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
+  .admin-quickbar-results{left:0;right:0;width:100%;max-height:min(55vh,420px);}
+  .admin-quickbar-result-item{min-height:44px;}
   /* .dash-layout wechselt hier von row- auf column-flex (Sidebar
      wird ausgeblendet, Navigation läuft über .dash-tabbar). In einem
      column-flex-Container ist die Breite die Cross-Achse, auf der
@@ -720,6 +739,7 @@
   .dash-tabbar{display:flex;}
   .dash-sidebar{display:none;}
   .dash-content{padding:32px 20px calc(76px + env(safe-area-inset-bottom));}
+  body:has(#dashAdminQuickbar) .dash-content{padding-top:94px;}
   /* Popover darf nie hinter der fixen unteren Nav-Leiste enden --
      sonst sind der untere Teil des Formulars (z.B. "Termin speichern")
      unsichtbar/nicht antippbar, obwohl das Popover selbst noch
@@ -730,4 +750,60 @@
   .laundry-week-grid{grid-template-columns:repeat(2,1fr);}
   .invoice-sheet{padding:24px 20px;}
   .invoice-sheet-parties{flex-direction:column;gap:14px;}
+}
+
+@media (max-width:720px){
+  .dash-content{padding-left:16px;padding-right:16px;}
+  .dash-content h1{font-size:1.45rem;}
+  .dash-content > .dash-lead{font-size:.92rem;margin-bottom:22px;}
+  .dash-card{padding:20px 18px;margin-bottom:18px;border-radius:10px;}
+  .dash-card-head{align-items:stretch;flex-direction:column;}
+  .dash-search-input{max-width:none;font-size:16px;}
+  .dash-table th,.dash-table td{padding:11px 12px;font-size:.86rem;white-space:nowrap;}
+  .doc-row,.cal-event-row{padding:14px 16px;}
+  .doc-info,.filemgr-file-info{width:100%;}
+  .filemgr-folder-tile{width:calc(50% - 6px);}
+  .obj-columns-wrap{overflow:visible;padding-bottom:0;}
+  .obj-column{max-height:none;padding:12px;}
+  .obj-row{min-height:50px;padding:11px 12px;}
+  .obj-category-checks{grid-template-columns:1fr;padding:10px 12px;}
+  .obj-address-type-checks{grid-template-columns:1fr;}
+  .cal-week-nav{gap:8px;}
+  .cal-week-label{order:-1;flex-basis:100%;font-size:1rem;}
+  .cal-jump-search{order:2;flex-basis:100%;margin-left:0;}
+  .cal-jump-search input{width:100%;}
+  .cal-legend{gap:10px 14px;}
+  .msg-thread{padding:16px;max-height:55vh;}
+  .msg-bubble{max-width:86%;font-size:.86rem;}
+  .msg-compose{padding:14px;gap:10px;}
+  .msg-compose textarea{flex-basis:100%;font-size:16px;}
+  .msg-attach-preview{padding:0 14px;}
+  .laundry-week-grid{grid-template-columns:1fr;}
+}
+
+@media (max-width:640px){
+  .cal-event-detail{
+    left:12px!important;right:12px;top:auto!important;bottom:calc(78px + env(safe-area-inset-bottom));
+    width:auto;max-height:calc(100vh - var(--nav-height) - 102px - env(safe-area-inset-bottom));
+    border-radius:12px;padding:16px;
+  }
+  .cal-event-detail-actions button,
+  .cal-new-appt-form button.cal-save-appt-btn,
+  .cal-new-appt-form button.cal-delete-appt-btn,
+  .cal-new-appt-form button.cal-cancel-appt-edit-btn{min-height:42px;}
+  .cal-new-appt-form input,.cal-new-appt-form select,.cal-new-appt-form textarea{font-size:16px;}
+  .cal-participant-picker{max-height:190px;}
+  .cal-participant-picker label{min-height:34px;}
+}
+
+@media (max-width:480px){
+  #dashAdminQuickbar{padding:8px 12px;}
+  body:has(#dashAdminQuickbar) .dash-content{padding-top:86px;}
+  .dash-content{padding-left:12px;padding-right:12px;}
+  .dash-card{padding:18px 14px;}
+  .dash-tab{min-height:48px;padding:0 14px;font-size:.82rem;}
+  .filemgr-folder-tile{width:100%;}
+  .cal-day-col{min-width:calc(100vw - 82px);}
+  .cal-time-col{width:52px;}
+  .cal-new-appt-time-row{grid-template-columns:1fr;}
 }
