@@ -98,12 +98,34 @@
         <div><input id="nc_phone2" placeholder="Telefon 2"></div>
       </div>
       <input id="nc_phone3" placeholder="Telefon 3">
-      <span class="obj-modal-section-label">Adresse</span>
-      <div class="auth-form-row">
-        <div><input id="nc_street" placeholder="Strasse, Nr."></div>
-        <div><input id="nc_zip" placeholder="PLZ"></div>
+      <span class="obj-modal-section-label">Adressen</span>
+      <div class="obj-address-block">
+        <span class="obj-address-title">Adresse 1</span>
+        <div id="ncAddressType"></div>
+        <div class="auth-form-row">
+          <div><input id="nc_street" placeholder="Strasse, Nr."></div>
+          <div><input id="nc_zip" placeholder="PLZ"></div>
+        </div>
+        <input id="nc_city" placeholder="Ort">
       </div>
-      <input id="nc_city" placeholder="Ort">
+      <div class="obj-address-block">
+        <span class="obj-address-title">Adresse 2</span>
+        <div id="ncAddress2Type"></div>
+        <div class="auth-form-row">
+          <div><input id="nc_address2_street" placeholder="Strasse, Nr."></div>
+          <div><input id="nc_address2_zip" placeholder="PLZ"></div>
+        </div>
+        <input id="nc_address2_city" placeholder="Ort">
+      </div>
+      <div class="obj-address-block">
+        <span class="obj-address-title">Adresse 3</span>
+        <div id="ncAddress3Type"></div>
+        <div class="auth-form-row">
+          <div><input id="nc_address3_street" placeholder="Strasse, Nr."></div>
+          <div><input id="nc_address3_zip" placeholder="PLZ"></div>
+        </div>
+        <input id="nc_address3_city" placeholder="Ort">
+      </div>
       <p class="doc-meta">Der Kontakt erhält eine E-Mail von Supabase mit einem Link, um sein Passwort zu setzen.</p>
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary">Kontakt anlegen</button>
@@ -148,6 +170,12 @@
 
   var STATUS_LABEL = { pending: 'Ausstehend', active: 'Aktiv', suspended: 'Gesperrt' };
   var CATEGORY_ORDER = ['mieter', 'eigentuemer', 'partner', 'handwerker', 'hauswart', 'firma', 'aemter'];
+  var ADDRESS_TYPE_ORDER = ['wohnadresse', 'eigentuemer_immobilie', 'firmenadresse'];
+  var ADDRESS_TYPE_LABEL = {
+    wohnadresse: 'Wohnadresse',
+    eigentuemer_immobilie: 'Adresse von der Immobilie als Eigentümer',
+    firmenadresse: 'Firmenadresse'
+  };
 
   var allContacts = [];
   var columnSearchState = {};
@@ -202,9 +230,42 @@
   function getCheckedCategories(containerEl){
     return Array.prototype.slice.call(containerEl.querySelectorAll('.cat-check:checked')).map(function(cb){ return cb.value; });
   }
+  function addressTypeChecksHtml(id, checked){
+    checked = checked || '';
+    return '<div class="obj-address-type-checks" id="'+id+'">' + ADDRESS_TYPE_ORDER.map(function(t){
+      return '<label class="cal-checkbox-label"><input type="checkbox" class="address-type-check" value="'+t+'"'+(checked === t ? ' checked' : '')+'> '+ADDRESS_TYPE_LABEL[t]+'</label>';
+    }).join('') + '</div>';
+  }
+  function wireAddressTypeGroups(scopeEl){
+    Array.prototype.slice.call(scopeEl.querySelectorAll('.obj-address-type-checks')).forEach(function(group){
+      group.addEventListener('change', function(e){
+        if(!e.target.classList.contains('address-type-check') || !e.target.checked) return;
+        Array.prototype.slice.call(group.querySelectorAll('.address-type-check')).forEach(function(cb){
+          if(cb !== e.target) cb.checked = false;
+        });
+      });
+    });
+  }
+  function selectedAddressType(groupId){
+    var group = document.getElementById(groupId);
+    var checked = group ? group.querySelector('.address-type-check:checked') : null;
+    return checked ? checked.value : null;
+  }
+  function readAddressFields(typeGroupId, streetId, zipId, cityId){
+    return {
+      type: selectedAddressType(typeGroupId),
+      street: document.getElementById(streetId).value.trim() || null,
+      zip: document.getElementById(zipId).value.trim() || null,
+      city: document.getElementById(cityId).value.trim() || null
+    };
+  }
 
   function init(){
     document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
+    document.getElementById('ncAddressType').outerHTML = addressTypeChecksHtml('ncAddressType', '');
+    document.getElementById('ncAddress2Type').outerHTML = addressTypeChecksHtml('ncAddress2Type', '');
+    document.getElementById('ncAddress3Type').outerHTML = addressTypeChecksHtml('ncAddress3Type', '');
+    wireAddressTypeGroups(document.getElementById('newContactForm'));
 
     document.getElementById('nc_categories').addEventListener('change', function(){
       applyContactCategoryUI(
@@ -219,6 +280,9 @@
       e.preventDefault();
       var statusEl = document.getElementById('newContactStatus');
       var categories = getCheckedCategories(document.getElementById('nc_categories'));
+      var address = readAddressFields('ncAddressType', 'nc_street', 'nc_zip', 'nc_city');
+      var address2 = readAddressFields('ncAddress2Type', 'nc_address2_street', 'nc_address2_zip', 'nc_address2_city');
+      var address3 = readAddressFields('ncAddress3Type', 'nc_address3_street', 'nc_address3_zip', 'nc_address3_city');
       var payload = {
         email: document.getElementById('nc_email').value.trim(),
         email2: document.getElementById('nc_email2').value.trim() || null,
@@ -230,9 +294,18 @@
         phone2: document.getElementById('nc_phone2').value.trim() || null,
         phone3: document.getElementById('nc_phone3').value.trim() || null,
         company_name: document.getElementById('nc_company_name').value.trim() || null,
-        address_street: document.getElementById('nc_street').value.trim() || null,
-        address_zip: document.getElementById('nc_zip').value.trim() || null,
-        address_city: document.getElementById('nc_city').value.trim() || null
+        address_type: address.type,
+        address_street: address.street,
+        address_zip: address.zip,
+        address_city: address.city,
+        address2_type: address2.type,
+        address2_street: address2.street,
+        address2_zip: address2.zip,
+        address2_city: address2.city,
+        address3_type: address3.type,
+        address3_street: address3.street,
+        address3_zip: address3.zip,
+        address3_city: address3.city
       };
       if(!payload.email || !payload.first_name || !payload.last_name){
         statusEl.textContent = 'Bitte Vorname, Nachname und E-Mail angeben.';
@@ -392,7 +465,12 @@
     var q = (columnSearchState[key] || '').trim();
     var contactsOfType = allContacts.filter(function(c){ return contactCategories(c).indexOf(key) > -1; });
     var filtered = contactsOfType.filter(function(c){
-      return VeraDashboard.matchesSearch([c.member_number, c.last_name, c.first_name, c.company_name, c.email, c.status], q);
+      return VeraDashboard.matchesSearch([
+        c.member_number, c.last_name, c.first_name, c.company_name, c.email, c.status,
+        c.address_street, c.address_zip, c.address_city,
+        c.address2_street, c.address2_zip, c.address2_city,
+        c.address3_street, c.address3_zip, c.address3_city
+      ], q);
     });
 
     countEl.textContent = String(filtered.length);
@@ -455,12 +533,34 @@
           '<div><input id="contactPhone2-'+id+'" placeholder="Telefon 2" value="'+VeraDashboard.escapeHtml(c.phone2||'')+'"></div>' +
         '</div>' +
         '<input id="contactPhone3-'+id+'" placeholder="Telefon 3" value="'+VeraDashboard.escapeHtml(c.phone3||'')+'">' +
-        '<span class="obj-modal-section-label">Adresse</span>' +
-        '<div class="auth-form-row">' +
-          '<div><input id="contactStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address_street||'')+'"></div>' +
-          '<div><input id="contactZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address_zip||'')+'"></div>' +
+        '<span class="obj-modal-section-label">Adressen</span>' +
+        '<div class="obj-address-block">' +
+          '<span class="obj-address-title">Adresse 1</span>' +
+          addressTypeChecksHtml('contactAddressType-'+id, c.address_type) +
+          '<div class="auth-form-row">' +
+            '<div><input id="contactStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address_street||'')+'"></div>' +
+            '<div><input id="contactZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address_zip||'')+'"></div>' +
+          '</div>' +
+          '<input id="contactCity-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(c.address_city||'')+'">' +
         '</div>' +
-        '<input id="contactCity-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(c.address_city||'')+'">' +
+        '<div class="obj-address-block">' +
+          '<span class="obj-address-title">Adresse 2</span>' +
+          addressTypeChecksHtml('contactAddress2Type-'+id, c.address2_type) +
+          '<div class="auth-form-row">' +
+            '<div><input id="contactAddress2Street-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address2_street||'')+'"></div>' +
+            '<div><input id="contactAddress2Zip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address2_zip||'')+'"></div>' +
+          '</div>' +
+          '<input id="contactAddress2City-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(c.address2_city||'')+'">' +
+        '</div>' +
+        '<div class="obj-address-block">' +
+          '<span class="obj-address-title">Adresse 3</span>' +
+          addressTypeChecksHtml('contactAddress3Type-'+id, c.address3_type) +
+          '<div class="auth-form-row">' +
+            '<div><input id="contactAddress3Street-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(c.address3_street||'')+'"></div>' +
+            '<div><input id="contactAddress3Zip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(c.address3_zip||'')+'"></div>' +
+          '</div>' +
+          '<input id="contactAddress3City-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(c.address3_city||'')+'">' +
+        '</div>' +
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Kontakt speichern</button>' +
           statusActions +
@@ -497,6 +597,7 @@
     var id = contact.id;
     var modalBody = document.getElementById('contactModalBody');
     var categoriesEl = document.getElementById('contactCategories-'+id);
+    wireAddressTypeGroups(modalBody);
 
     document.getElementById('contactCompanyName-'+id).required = contactCategories(contact).indexOf('firma') > -1;
 
@@ -525,6 +626,9 @@
         statusEl.classList.add('show');
         return;
       }
+      var address = readAddressFields('contactAddressType-'+id, 'contactStreet-'+id, 'contactZip-'+id, 'contactCity-'+id);
+      var address2 = readAddressFields('contactAddress2Type-'+id, 'contactAddress2Street-'+id, 'contactAddress2Zip-'+id, 'contactAddress2City-'+id);
+      var address3 = readAddressFields('contactAddress3Type-'+id, 'contactAddress3Street-'+id, 'contactAddress3Zip-'+id, 'contactAddress3City-'+id);
       var res = await client.from('profiles').update({
         first_name: document.getElementById('contactFirstName-'+id).value.trim(),
         last_name: document.getElementById('contactLastName-'+id).value.trim(),
@@ -535,9 +639,18 @@
         phone: document.getElementById('contactPhone-'+id).value.trim() || null,
         phone2: document.getElementById('contactPhone2-'+id).value.trim() || null,
         phone3: document.getElementById('contactPhone3-'+id).value.trim() || null,
-        address_street: document.getElementById('contactStreet-'+id).value.trim() || null,
-        address_zip: document.getElementById('contactZip-'+id).value.trim() || null,
-        address_city: document.getElementById('contactCity-'+id).value.trim() || null
+        address_type: address.type,
+        address_street: address.street,
+        address_zip: address.zip,
+        address_city: address.city,
+        address2_type: address2.type,
+        address2_street: address2.street,
+        address2_zip: address2.zip,
+        address2_city: address2.city,
+        address3_type: address3.type,
+        address3_street: address3.street,
+        address3_zip: address3.zip,
+        address3_city: address3.city
       }).eq('id', id);
       if(!res.error){
         // Rollen-Zuordnungen komplett ersetzen -- einfacher und bei der

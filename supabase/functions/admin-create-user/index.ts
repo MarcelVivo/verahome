@@ -32,7 +32,30 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, email2, email3, first_name, last_name, categories, phone, phone2, phone3, company_name, address_street, address_zip, address_city } = await req.json();
+    const {
+      email,
+      email2,
+      email3,
+      first_name,
+      last_name,
+      categories,
+      phone,
+      phone2,
+      phone3,
+      company_name,
+      address_type,
+      address_street,
+      address_zip,
+      address_city,
+      address2_type,
+      address2_street,
+      address2_zip,
+      address2_city,
+      address3_type,
+      address3_street,
+      address3_zip,
+      address3_city,
+    } = await req.json();
     const categoryList: string[] = Array.isArray(categories) ? categories.filter((c) => VALID_CATEGORIES.includes(c)) : [];
     if (!email || !first_name || !last_name || categoryList.length === 0) {
       return new Response(JSON.stringify({ error: "E-Mail, Vor-/Nachname und mindestens eine gültige Kategorie sind erforderlich." }), {
@@ -84,9 +107,18 @@ Deno.serve(async (req) => {
         phone2: phone2 || null,
         phone3: phone3 || null,
         company_name: company_name || null,
+        address_type: address_type || null,
         address_street: address_street || null,
         address_zip: address_zip || null,
         address_city: address_city || null,
+        address2_type: address2_type || null,
+        address2_street: address2_street || null,
+        address2_zip: address2_zip || null,
+        address2_city: address2_city || null,
+        address3_type: address3_type || null,
+        address3_street: address3_street || null,
+        address3_zip: address3_zip || null,
+        address3_city: address3_city || null,
       },
       // update-password.html, nicht login.html: der Einladungs-Link
       // liefert per Hash-Fragment ein access_token, aus dem

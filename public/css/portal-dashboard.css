@@ -468,6 +468,18 @@
   background:var(--color-bg);border-radius:8px;margin-bottom:4px;
 }
 .obj-category-checks .cal-checkbox-label{color:var(--color-gray-text);font-size:.85rem;}
+.obj-address-block{
+  display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--color-blue-light);
+  border-radius:8px;background:rgba(255,255,255,.55);
+}
+.obj-address-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--color-navy);}
+.obj-address-type-checks{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 14px;
+}
+.obj-address-type-checks .cal-checkbox-label{
+  align-items:flex-start;color:var(--color-gray-text);font-size:.82rem;line-height:1.35;
+}
+.obj-address-type-checks .cal-checkbox-label input{margin-top:2px;flex-shrink:0;}
 .cal-picker-label{font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px;}
 .cal-participant-picker{
   max-height:150px;overflow-y:auto;border:1px solid rgba(255,255,255,.25);border-radius:8px;

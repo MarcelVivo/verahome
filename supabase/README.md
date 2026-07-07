@@ -93,6 +93,14 @@ Danach ist alles über die Oberfläche nutzbar — kein Table Editor mehr nötig
   Änderungen (insbesondere Admin-Rechte vergeben) bleiben bewusst ausserhalb
   der Oberfläche — das geht weiterhin nur manuell im Table Editor.
 
+## 8. Kontakt-Adressen-Erweiterung einspielen
+
+Falls die bestehende Datenbank bereits läuft, zusätzlich
+[`contact-addresses-migration.sql`](./contact-addresses-migration.sql) im
+Supabase SQL Editor ausführen. Das ergänzt zwei weitere Adressen pro Kontakt
+und aktualisiert den Signup-Trigger, damit neu eingeladene Kontakte diese
+Adressfelder direkt mitbekommen.
+
 ## Testen
 
 Registrieren → E-Mail bestätigen → einloggen → Status "aktiv" sehen (kein

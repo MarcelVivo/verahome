@@ -75,9 +75,18 @@ create table public.profiles (
   phone            text,
   first_name       text not null,
   last_name        text not null,
+  address_type     text,
   address_street   text,
   address_zip      text,
   address_city     text,
+  address2_type    text,
+  address2_street  text,
+  address2_zip     text,
+  address2_city    text,
+  address3_type    text,
+  address3_street  text,
+  address3_zip     text,
+  address3_city    text,
   created_at       timestamptz not null default now(),
   approved_at      timestamptz,
   approved_by      uuid references public.profiles(id)
@@ -4582,6 +4591,19 @@ $$;
 alter table public.profiles add column if not exists email2 text;
 alter table public.profiles add column if not exists email3 text;
 
+-- Bis zu drei Adressen pro Kontakt. Die erste Adresse nutzt weiterhin
+-- die bestehenden address_street/zip/city-Felder, damit bestehende
+-- Rechnungs- und Anzeige-Logik unveraendert funktioniert.
+alter table public.profiles add column if not exists address_type text;
+alter table public.profiles add column if not exists address2_type text;
+alter table public.profiles add column if not exists address2_street text;
+alter table public.profiles add column if not exists address2_zip text;
+alter table public.profiles add column if not exists address2_city text;
+alter table public.profiles add column if not exists address3_type text;
+alter table public.profiles add column if not exists address3_street text;
+alter table public.profiles add column if not exists address3_zip text;
+alter table public.profiles add column if not exists address3_city text;
+
 create table if not exists public.profile_role_assignments (
   profile_id  uuid not null references public.profiles(id) on delete cascade,
   category    public.profile_category not null,
@@ -4625,7 +4647,10 @@ begin
 
   insert into public.profiles (
     id, member_number, category, status, email, email2, email3, phone, phone2, phone3,
-    first_name, last_name, company_name, address_street, address_zip, address_city
+    first_name, last_name, company_name,
+    address_type, address_street, address_zip, address_city,
+    address2_type, address2_street, address2_zip, address2_city,
+    address3_type, address3_street, address3_zip, address3_city
   ) values (
     new.id,
     public.generate_member_number(safe_category),
@@ -4640,9 +4665,18 @@ begin
     coalesce(new.raw_user_meta_data->>'first_name', ''),
     coalesce(new.raw_user_meta_data->>'last_name', ''),
     new.raw_user_meta_data->>'company_name',
+    new.raw_user_meta_data->>'address_type',
     new.raw_user_meta_data->>'address_street',
     new.raw_user_meta_data->>'address_zip',
-    new.raw_user_meta_data->>'address_city'
+    new.raw_user_meta_data->>'address_city',
+    new.raw_user_meta_data->>'address2_type',
+    new.raw_user_meta_data->>'address2_street',
+    new.raw_user_meta_data->>'address2_zip',
+    new.raw_user_meta_data->>'address2_city',
+    new.raw_user_meta_data->>'address3_type',
+    new.raw_user_meta_data->>'address3_street',
+    new.raw_user_meta_data->>'address3_zip',
+    new.raw_user_meta_data->>'address3_city'
   );
   return new;
 end;
