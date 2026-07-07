@@ -21,6 +21,7 @@ window.VeraDashboard = (function () {
       { key: "termine", href: "/portal/admin/termine.html", label: "Termine", roles: ["admin"] },
       { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] },
       { key: "calendar", href: "/portal/calendar.html", label: "Kalender", roles: ["mieter", "eigentuemer", "partner", "firma", "aemter"] },
+      { key: "owner-report", href: "/portal/owner-report.html", label: "Objekt-Ertrag", roles: ["eigentuemer"] },
       { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
       { key: "messages", href: "/portal/messages.html", label: "Nachrichten" }
     ]}
