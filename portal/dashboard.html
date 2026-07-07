@@ -184,15 +184,15 @@
         var expiringTenancies = expiringRes.data || [];
 
         stats = [
-          { num: activeUsers.count || 0, label: 'Aktive Nutzer' },
-          { num: pendingDocs.count || 0, label: 'Ausstehende Dokumente' },
-          { num: openJobs.count || 0, label: 'Offene Job-Zuweisungen' },
-          { num: openInvoices.count || 0, label: 'Offene Rechnungen' },
-          { num: overdueInvoices.length, label: 'Überfällige Rechnungen', danger: overdueInvoices.length > 0 },
-          { num: openMeldungen.count || 0, label: 'Offene Meldungen' },
-          { num: openTickets.count || 0, label: 'Offene Tickets' },
-          { num: openRapporte.count || 0, label: 'Offene Rapporte' },
-          { num: vacantUnits.length, label: 'Leerstehende Einheiten' }
+          { num: activeUsers.count || 0, label: 'Aktive Nutzer', href: '/portal/admin/users.html' },
+          { num: pendingDocs.count || 0, label: 'Ausstehende Dokumente', href: '/portal/documents.html' },
+          { num: openJobs.count || 0, label: 'Offene Job-Zuweisungen', href: '/portal/admin/jobs.html' },
+          { num: openInvoices.count || 0, label: 'Offene Rechnungen', href: '/portal/invoices.html' },
+          { num: overdueInvoices.length, label: 'Überfällige Rechnungen', danger: overdueInvoices.length > 0, href: '/portal/invoices.html' },
+          { num: openMeldungen.count || 0, label: 'Offene Meldungen', href: '/portal/meldungen.html' },
+          { num: openTickets.count || 0, label: 'Offene Tickets', href: '/portal/admin/tickets.html' },
+          { num: openRapporte.count || 0, label: 'Offene Rapporte', href: '/portal/rapporte.html' },
+          { num: vacantUnits.length, label: 'Leerstehende Einheiten', href: '/portal/admin/properties.html' }
         ];
 
         document.getElementById('dashAdminPanels').style.display = 'block';
@@ -204,14 +204,16 @@
         var nextEvent = await client.from('calendar_events').select('title,starts_at').gte('starts_at', new Date().toISOString()).order('starts_at').limit(1);
         var unreadMsgs = await client.from('messages').select('*', { count:'exact', head:true }).eq('recipient_profile_id', profile.id).is('read_at', null);
         stats = [
-          { num: myPendingDocs.count || 0, label: 'Offene Dokumente' },
-          { num: (nextEvent.data && nextEvent.data[0]) ? VeraDashboard.formatDate(nextEvent.data[0].starts_at) : '–', label: 'Nächster Termin' },
-          { num: unreadMsgs.count || 0, label: 'Ungelesene Nachrichten' }
+          { num: myPendingDocs.count || 0, label: 'Offene Dokumente', href: '/portal/documents.html' },
+          { num: (nextEvent.data && nextEvent.data[0]) ? VeraDashboard.formatDate(nextEvent.data[0].starts_at) : '–', label: 'Nächster Termin', href: '/portal/my-appointments.html' },
+          { num: unreadMsgs.count || 0, label: 'Ungelesene Nachrichten', href: '/portal/messages.html' }
         ];
       }
 
       document.getElementById('dashStats').innerHTML = stats.map(function(s){
-        return '<div class="dash-stat'+(s.danger?' danger':'')+'"><div class="num">'+VeraDashboard.escapeHtml(s.num)+'</div><div class="label">'+VeraDashboard.escapeHtml(s.label)+'</div></div>';
+        var tag = s.href ? 'a' : 'div';
+        var hrefAttr = s.href ? ' href="'+s.href+'"' : '';
+        return '<'+tag+' class="dash-stat'+(s.danger?' danger':'')+(s.href?' is-link':'')+'"'+hrefAttr+'><div class="num">'+VeraDashboard.escapeHtml(s.num)+'</div><div class="label">'+VeraDashboard.escapeHtml(s.label)+'</div></'+tag+'>';
       }).join('');
 
       document.getElementById('dashLoading').style.display = 'none';
