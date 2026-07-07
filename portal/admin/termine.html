@@ -646,9 +646,19 @@
     var categoryOptions = Object.keys(APPT_CATEGORY_LABEL).map(function(key){
       return '<option value="' + key + '">' + APPT_CATEGORY_LABEL[key] + '</option>';
     }).join('');
+    var participantCats = calAllProfiles.reduce(function(acc, p){
+      if(acc.indexOf(p.category) === -1) acc.push(p.category);
+      return acc;
+    }, []);
+    var participantFilterHtml = participantCats.length
+      ? '<select id="na_participant_filter" class="cal-participant-filter" aria-label="Teilnehmer nach Rolle filtern">' +
+          '<option value="">Alle Rollen</option>' +
+          participantCats.map(function(c){ return '<option value="' + c + '">' + VeraDashboard.categoryLabel(c) + '</option>'; }).join('') +
+        '</select>'
+      : '';
     var participantsHtml = calAllProfiles.length
-      ? '<div class="cal-participant-picker" id="na_participants">' + calAllProfiles.map(function(p){
-          return '<label><input type="checkbox" value="' + p.id + '"> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
+      ? participantFilterHtml + '<div class="cal-participant-picker" id="na_participants">' + calAllProfiles.map(function(p){
+          return '<label data-participant-cat="' + p.category + '"><input type="checkbox" value="' + p.id + '"> ' + VeraDashboard.escapeHtml(p.first_name + ' ' + p.last_name) +
             ' <span class="cal-participant-cat">(' + VeraDashboard.categoryLabel(p.category) + ')</span></label>';
         }).join('') + '</div>'
       : '<p class="cal-new-appt-status">Keine registrierten Nutzer gefunden.</p>';
@@ -841,6 +851,15 @@
       document.getElementById('na_duration').addEventListener('change', function(){
         document.getElementById('na_time_label').textContent = calSlotTimeLabel(naDate, naHour, parseInt(this.value, 10));
       });
+      var naFilterEl = document.getElementById('na_participant_filter');
+      if(naFilterEl){
+        naFilterEl.addEventListener('change', function(){
+          var cat = this.value;
+          document.querySelectorAll('#na_participants label').forEach(function(label){
+            label.style.display = (!cat || label.getAttribute('data-participant-cat') === cat) ? '' : 'none';
+          });
+        });
+      }
     }
   });
   calPopover.addEventListener('submit', async function(e){
