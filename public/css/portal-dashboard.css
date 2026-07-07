@@ -255,6 +255,13 @@
 
 /* Objekte — Spalten-Ansicht */
 .obj-modal{max-width:720px;}
+/* Breitere Variante fuer Formulare mit vielen Feldern (z.B. Kontakt
+   anlegen/bearbeiten mit Kategorien, 3 Telefon-/E-Mail-Feldern usw.) --
+   width:100% des gepolsterten Flex-Backdrops sorgt dafuer, dass sie auf
+   Tablet-Breite trotzdem nie ueber den Viewport hinausragt, ganz ohne
+   eigene Breakpoints. Auf Mobile greift wie bei allen .obj-modal-
+   Dialogen die Vollbild-Regel weiter unten. */
+.obj-modal-wide{max-width:860px;}
 .obj-modal-close{
   position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;border:1px solid var(--color-blue-light);
   background:var(--color-white);cursor:pointer;font-size:.9rem;color:var(--color-gray-text);flex-shrink:0;z-index:1;
@@ -447,7 +454,7 @@
 .cal-checkbox-label{display:flex;align-items:center;gap:8px;font-size:.78rem;color:rgba(255,255,255,.9);}
 .cal-checkbox-label input{width:auto;}
 .obj-category-checks{
-  display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px 16px;padding:12px 14px;
   background:var(--color-bg);border-radius:8px;margin-bottom:4px;
 }
 .obj-category-checks .cal-checkbox-label{color:var(--color-gray-text);font-size:.85rem;}
