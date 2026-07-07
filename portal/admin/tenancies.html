@@ -92,6 +92,28 @@
         <option value="active">Aktiv</option>
         <option value="ended">Beendet</option>
       </select>
+
+      <span class="obj-modal-section-label">Mietzins &amp; Kaution</span>
+      <div class="auth-form-row">
+        <div><input type="number" step="0.01" min="0" id="t_rent" placeholder="Mietzins CHF/Monat"></div>
+        <div><input type="number" step="0.01" min="0" id="t_deposit" placeholder="Kaution CHF"></div>
+      </div>
+      <div class="auth-form-row">
+        <div><input type="text" id="t_deposit_ref" placeholder="Kautionskonto/-versicherung (Referenz)"></div>
+        <div><input type="date" id="t_deposit_returned" placeholder="Kaution zurückerstattet am"></div>
+      </div>
+
+      <div id="rentHistorySection" hidden>
+        <span class="obj-modal-section-label">Mietzins-Verlauf</span>
+        <div id="rentHistoryList"></div>
+        <div class="auth-form-row">
+          <div><input type="number" step="0.01" min="0" id="rc_amount" placeholder="Neuer Mietzins CHF"></div>
+          <div><input type="date" id="rc_date" placeholder="Gültig ab"></div>
+        </div>
+        <input type="text" id="rc_note" placeholder="Grund (z.B. Indexanpassung, optional)">
+        <button type="button" class="dash-btn-sm" id="addRentChangeBtn">+ Anpassung erfassen</button>
+      </div>
+
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary" id="tenancySaveBtn">Anlegen</button>
         <button type="button" class="dash-btn-sm" id="tenancyCancelBtn">Abbrechen</button>
@@ -168,6 +190,22 @@
       document.getElementById('t_end').disabled = this.checked;
       if(this.checked) document.getElementById('t_end').value = '';
     });
+    document.getElementById('addRentChangeBtn').addEventListener('click', async function(){
+      if(!editingTenancyId) return;
+      var amount = document.getElementById('rc_amount').value;
+      var date = document.getElementById('rc_date').value;
+      if(!amount || !date){ window.alert('Bitte neuen Mietzins und Gültigkeitsdatum angeben.'); return; }
+      var res = await client.from('tenancy_rent_changes').insert({
+        tenancy_id: editingTenancyId, rent_chf: Number(amount), effective_date: date,
+        note: document.getElementById('rc_note').value.trim() || null
+      });
+      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      document.getElementById('rc_amount').value = '';
+      document.getElementById('rc_date').value = '';
+      document.getElementById('rc_note').value = '';
+      document.getElementById('t_rent').value = amount;
+      loadRentHistory(editingTenancyId);
+    });
 
     document.getElementById('tenanciesTable').addEventListener('click', function(e){
       var row = e.target.closest('[data-tenancy-id]');
@@ -199,6 +237,12 @@
     document.getElementById('t_unbefristet').checked = unbefristet;
     document.getElementById('t_end').disabled = unbefristet;
     document.getElementById('t_status').value = tenancy ? tenancy.status : 'active';
+    document.getElementById('t_rent').value = tenancy && tenancy.rent_chf != null ? tenancy.rent_chf : '';
+    document.getElementById('t_deposit').value = tenancy && tenancy.deposit_chf != null ? tenancy.deposit_chf : '';
+    document.getElementById('t_deposit_ref').value = tenancy && tenancy.deposit_reference ? tenancy.deposit_reference : '';
+    document.getElementById('t_deposit_returned').value = tenancy && tenancy.deposit_returned_at ? tenancy.deposit_returned_at : '';
+    document.getElementById('rentHistorySection').hidden = !tenancy;
+    if(tenancy) loadRentHistory(tenancy.id);
     var statusEl = document.getElementById('tenancyFormStatus');
     statusEl.textContent = ''; statusEl.classList.remove('show');
     document.getElementById('tenancyModalBackdrop').hidden = false;
@@ -219,7 +263,11 @@
     var payload = {
       tenant_profile_id: tenant, unit_id: unit, start_date: start,
       end_date: document.getElementById('t_unbefristet').checked ? null : (document.getElementById('t_end').value || null),
-      status: document.getElementById('t_status').value
+      status: document.getElementById('t_status').value,
+      rent_chf: document.getElementById('t_rent').value ? Number(document.getElementById('t_rent').value) : null,
+      deposit_chf: document.getElementById('t_deposit').value ? Number(document.getElementById('t_deposit').value) : null,
+      deposit_reference: document.getElementById('t_deposit_ref').value.trim() || null,
+      deposit_returned_at: document.getElementById('t_deposit_returned').value || null
     };
     var res = editingTenancyId
       ? await client.from('tenancies').update(payload).eq('id', editingTenancyId)
@@ -231,6 +279,20 @@
       closeTenancyModal();
     }
   }
+
+  async function loadRentHistory(tenancyId){
+    var res = await client.from('tenancy_rent_changes').select('*').eq('tenancy_id', tenancyId).order('effective_date', { ascending:false });
+    var rows = res.data || [];
+    var el = document.getElementById('rentHistoryList');
+    el.innerHTML = rows.length
+      ? rows.map(function(r){
+          return '<p style="margin:4px 0;font-size:.88rem;">' + fmtCHF(r.rent_chf) + ' ab ' + VeraDashboard.formatDate(r.effective_date) +
+            (r.note ? ' — ' + VeraDashboard.escapeHtml(r.note) : '') + '</p>';
+        }).join('')
+      : '<p class="dash-empty">Noch keine Anpassungen erfasst.</p>';
+  }
+
+  function fmtCHF(v){ return v == null ? '–' : 'CHF ' + Number(v).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
 
   async function deleteTenancy(){
     if(!editingTenancyId) return;
@@ -260,24 +322,29 @@
     var table = document.getElementById('tenanciesTable');
     document.getElementById('exportTenanciesBtn').disabled = !rows.length;
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allTenancies.length?'Keine Treffer.':'Noch keine Mietverhältnisse.')+'</td></tr>'; return; }
-    table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Beginn</th><th>Ende</th><th>Status</th></tr>' +
+    table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Mietzins</th><th>Beginn</th><th>Ende</th><th>Status</th></tr>' +
       rows.map(function(t){
         return '<tr class="dash-row-clickable" data-tenancy-id="'+t.id+'"><td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(tenancyUnitLabel(t))+'</td>' +
+          '<td>'+fmtCHF(t.rent_chf)+'</td>' +
           '<td>'+VeraDashboard.formatDate(t.start_date)+'</td><td>'+VeraDashboard.formatDate(t.end_date)+'</td>' +
           '<td>'+(STATUS_LABEL[t.status]||t.status)+'</td></tr>';
       }).join('');
 
     document.getElementById('exportTenanciesBtn').onclick = function(){
       VeraDashboard.downloadCsv('mietverhaeltnisse.csv',
-        ['Mieter', 'Einheit', 'Beginn', 'Ende', 'Status'],
+        ['Mieter', 'Einheit', 'Mietzins CHF', 'Beginn', 'Ende', 'Status', 'Kaution CHF', 'Kautionsreferenz', 'Kaution zurückerstattet am'],
         rows.map(function(t){
           return [
             t.tenant ? t.tenant.last_name+' '+t.tenant.first_name : '–',
             tenancyUnitLabel(t),
+            t.rent_chf != null ? t.rent_chf : '',
             VeraDashboard.formatDate(t.start_date),
             VeraDashboard.formatDate(t.end_date),
-            STATUS_LABEL[t.status] || t.status
+            STATUS_LABEL[t.status] || t.status,
+            t.deposit_chf != null ? t.deposit_chf : '',
+            t.deposit_reference || '',
+            t.deposit_returned_at ? VeraDashboard.formatDate(t.deposit_returned_at) : ''
           ];
         })
       );

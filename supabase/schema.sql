@@ -4415,3 +4415,41 @@ create policy property_announcement_reads_select on public.property_announcement
 
 create policy property_announcement_reads_insert on public.property_announcement_reads
   for insert with check (profile_id = auth.uid());
+
+-- ---------------------------------------------------------------------
+-- Mietzins & Kaution direkt am Mietverhaeltnis (bisher stand der
+-- Mietzins nur an der Einheit, was bei Mieterwechsel/-erhoehung keine
+-- Historie zulaesst). tenancy_rent_changes haelt spaetere Anpassungen
+-- (Index-/Staffelmiete) fest, damit die urspruengliche Miete beim
+-- Einzug nachvollziehbar bleibt.
+-- ---------------------------------------------------------------------
+alter table public.tenancies add column if not exists rent_chf numeric(10,2);
+alter table public.tenancies add column if not exists deposit_chf numeric(10,2);
+alter table public.tenancies add column if not exists deposit_reference text;
+alter table public.tenancies add column if not exists deposit_returned_at date;
+
+create table public.tenancy_rent_changes (
+  id              uuid primary key default gen_random_uuid(),
+  tenancy_id      uuid not null references public.tenancies(id) on delete cascade,
+  rent_chf        numeric(10,2) not null,
+  effective_date  date not null,
+  note            text,
+  created_at      timestamptz not null default now(),
+  created_by      uuid references public.profiles(id)
+);
+
+alter table public.tenancy_rent_changes enable row level security;
+alter table public.tenancy_rent_changes force row level security;
+
+create policy tenancy_rent_changes_select on public.tenancy_rent_changes
+  for select using (
+    public.is_admin()
+    or exists (
+      select 1 from public.tenancies t
+      where t.id = tenancy_rent_changes.tenancy_id
+        and t.tenant_profile_id = auth.uid() and public.is_approved()
+    )
+  );
+
+create policy tenancy_rent_changes_admin_write on public.tenancy_rent_changes
+  for all using (public.is_admin()) with check (public.is_admin());
