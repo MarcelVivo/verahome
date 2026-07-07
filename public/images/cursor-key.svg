@@ -7,8 +7,8 @@
       <stop offset="100%" stop-color="#B4872E"/>
     </linearGradient>
   </defs>
-  <!-- house-shaped bow, tip of the shaft pointing up-right -->
-  <g transform="rotate(-90 150 150)">
+  <!-- house-shaped bow, tip of the shaft pointing up-left (matches a classic mouse pointer's tip position) -->
+  <g transform="rotate(180 150 150)">
     <path fill="url(#keyGold)" stroke="#8A6C1F" stroke-width="3" d="M287.305,243.005c-0.136-1.772-0.928-3.476-2.227-4.747L172.835,126.015c4.416-10.403,6.747-21.669,6.747-33.312
 	c0-22.754-8.875-44.163-24.938-60.266C138.558,16.366,117.164,7.5,94.397,7.5c-22.778,0-44.135,8.869-60.247,24.95
 	C0.907,65.675,0.9,119.716,34.145,152.938c16.111,16.115,37.475,24.99,60.241,24.99c11.646,0,22.884-2.35,33.312-6.772
