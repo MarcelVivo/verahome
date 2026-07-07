@@ -147,7 +147,7 @@
           return VeraDashboard.matchesSearch(
             [r.title, r.description, r.reporter?r.reporter.last_name+' '+r.reporter.first_name:'', scope, STATUS_TEXT[r.status]], q
           );
-        }));
+        }), lastJobsByReport, lastInvoicesByReport);
       });
     } else {
       document.getElementById('meldungenLead').textContent = 'Melden Sie einen Schaden oder eine Reklamation.';
@@ -238,6 +238,7 @@
   }
 
   var allReports = [];
+  var lastJobsByReport = {}, lastInvoicesByReport = {};
   var reportPartners = [];
 
   async function loadAdminReports(){
@@ -249,10 +250,46 @@
     var partnersRes = await client.from('profiles').select('id, first_name, last_name, member_number').in('category', ['partner','handwerker']).order('last_name');
     reportPartners = partnersRes.data || [];
 
-    renderAdminReports(allReports);
+    var reportIds = allReports.map(function(r){ return r.id; });
+    var jobsByReport = {}, invoicesByReport = {};
+    if(reportIds.length){
+      var jobsRes = await client.from('job_assignments')
+        .select('id, title, status, source_issue_report_id, assignee:profiles!profile_id(first_name,last_name)')
+        .in('source_issue_report_id', reportIds);
+      (jobsRes.data || []).forEach(function(j){ jobsByReport[j.source_issue_report_id] = j; });
+
+      var invRes = await client.from('invoices')
+        .select('id, invoice_number, total, status, source_issue_report_id')
+        .in('source_issue_report_id', reportIds);
+      (invRes.data || []).forEach(function(i){ invoicesByReport[i.source_issue_report_id] = i; });
+    }
+
+    lastJobsByReport = jobsByReport;
+    lastInvoicesByReport = invoicesByReport;
+    renderAdminReports(allReports, jobsByReport, invoicesByReport);
   }
 
-  function renderAdminReports(reports){
+  function fallVerlaufHtml(job, invoice){
+    if(!job && !invoice) return '';
+    var parts = [];
+    if(job){
+      parts.push('<a href="/portal/admin/jobs.html?q='+encodeURIComponent(job.title)+'">→ Auftrag: '+VeraDashboard.escapeHtml(job.title)+
+        (job.assignee ? ' · '+VeraDashboard.escapeHtml(job.assignee.last_name+' '+job.assignee.first_name) : '')+
+        ' · '+(JOB_STATUS_LABEL[job.status]||job.status)+'</a>');
+    }
+    if(invoice){
+      parts.push('<a href="/portal/invoice-detail.html?id='+invoice.id+'">→ Rechnung '+VeraDashboard.escapeHtml(invoice.invoice_number||'')+
+        ' · CHF '+Number(invoice.total).toFixed(2)+' · '+(INVOICE_STATUS_LABEL[invoice.status]||invoice.status)+'</a>');
+    }
+    return '<div class="fall-verlauf">'+parts.join('')+'</div>';
+  }
+
+  var JOB_STATUS_LABEL = { open: 'Offen', in_progress: 'In Bearbeitung', done: 'Erledigt' };
+  var INVOICE_STATUS_LABEL = { entwurf: 'Entwurf', offen: 'Offen', bezahlt: 'Bezahlt', storniert: 'Storniert' };
+
+  function renderAdminReports(reports, jobsByReport, invoicesByReport){
+    jobsByReport = jobsByReport || {};
+    invoicesByReport = invoicesByReport || {};
     var partners = reportPartners;
     var list = document.getElementById('adminReportsList');
     if(!reports.length){ list.innerHTML = '<p class="dash-empty">'+(allReports.length?'Keine Treffer.':'Noch keine Meldungen.')+'</p>'; return; }
@@ -266,6 +303,7 @@
           '<span class="status-badge '+STATUS_BADGE_CLASS[r.status]+'">'+STATUS_TEXT[r.status]+'</span>' +
         '</div>' +
         '<p style="margin:10px 0;font-size:.9rem;color:var(--color-gray-text);">'+VeraDashboard.escapeHtml(r.description)+'</p>' +
+        fallVerlaufHtml(jobsByReport[r.id], invoicesByReport[r.id]) +
         '<div class="prop-thumb-grid" id="photos-'+r.id+'"></div>' +
         '<div class="dash-btn-row" style="margin-top:10px;">' +
           '<select class="status-select" data-id="'+r.id+'">' +

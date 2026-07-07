@@ -68,6 +68,7 @@
         <p class="dash-lead" id="issueCardLead" style="display:none;">Entwurf korrigieren. Erst über "Senden" auf der Rechnungsseite wird sie tatsächlich verschickt.</p>
         <form class="auth-form" id="newInvoiceForm">
           <select id="inv_recipient" required></select>
+          <select id="inv_source_job"><option value="">Zugehöriger Auftrag/Meldung (optional)</option></select>
           <select id="inv_category">
             <option value="miete">Miete</option>
             <option value="nebenkosten">Nebenkosten</option>
@@ -349,7 +350,22 @@
       recipientSel.disabled = true;
     }
 
+    var jobsQuery = client.from('job_assignments')
+      .select('id, title, property_id, unit_id, source_issue_report_id, issue_reports(title)')
+      .not('source_issue_report_id', 'is', null)
+      .order('created_at', { ascending:false });
+    if(profile.category !== 'admin') jobsQuery = jobsQuery.eq('profile_id', profile.id);
+    var jobsRes = await jobsQuery;
+    var sourceJobs = jobsRes.data || [];
+    var sourceJobSel = document.getElementById('inv_source_job');
+    sourceJobSel.innerHTML = '<option value="">Zugehöriger Auftrag/Meldung (optional)</option>' +
+      sourceJobs.map(function(j){
+        return '<option value="'+j.id+'">'+VeraDashboard.escapeHtml(j.title)+(j.issue_reports?' — Meldung: '+VeraDashboard.escapeHtml(j.issue_reports.title):'')+'</option>';
+      }).join('');
+
     if(editingInvoice){
+      var matchingJob = sourceJobs.filter(function(j){ return j.source_issue_report_id === editingInvoice.source_issue_report_id; })[0];
+      if(editingInvoice.source_issue_report_id && matchingJob) sourceJobSel.value = matchingJob.id;
       document.getElementById('inv_category').value = editingInvoice.category;
       document.getElementById('inv_due').value = editingInvoice.due_date || '';
       document.getElementById('inv_note').value = editingInvoice.note || '';
@@ -460,7 +476,10 @@
     statusEl.textContent = 'Wird gespeichert …';
     statusEl.classList.add('show');
 
-    var insRes = await client.from('invoices').insert({
+    var sourceJobId = document.getElementById('inv_source_job').value;
+    var sourceLink = sourceJobId ? await client.from('job_assignments').select('property_id, unit_id, source_issue_report_id').eq('id', sourceJobId).single() : null;
+
+    var insRes = await client.from('invoices').insert(Object.assign({
       issuer_profile_id: profile.id,
       recipient_profile_id: recipientId,
       category: document.getElementById('inv_category').value,
@@ -468,7 +487,11 @@
       due_date: document.getElementById('inv_due').value || null,
       note: document.getElementById('inv_note').value.trim() || null,
       created_by: profile.id
-    }).select().single();
+    }, sourceLink && sourceLink.data ? {
+      property_id: sourceLink.data.property_id,
+      unit_id: sourceLink.data.unit_id,
+      source_issue_report_id: sourceLink.data.source_issue_report_id
+    } : {})).select().single();
 
     if(insRes.error){
       statusEl.textContent = 'Fehler: ' + insRes.error.message;
@@ -547,12 +570,19 @@
     statusEl.textContent = 'Wird gespeichert …';
     statusEl.classList.add('show');
 
-    var updRes = await client.from('invoices').update({
+    var sourceJobId = document.getElementById('inv_source_job').value;
+    var sourceLink = sourceJobId ? await client.from('job_assignments').select('property_id, unit_id, source_issue_report_id').eq('id', sourceJobId).single() : null;
+
+    var updRes = await client.from('invoices').update(Object.assign({
       recipient_profile_id: recipientId,
       category: document.getElementById('inv_category').value,
       due_date: document.getElementById('inv_due').value || null,
       note: document.getElementById('inv_note').value.trim() || null
-    }).eq('id', invoiceId);
+    }, sourceLink && sourceLink.data ? {
+      property_id: sourceLink.data.property_id,
+      unit_id: sourceLink.data.unit_id,
+      source_issue_report_id: sourceLink.data.source_issue_report_id
+    } : { property_id: null, unit_id: null, source_issue_report_id: null })).eq('id', invoiceId);
 
     if(updRes.error){
       statusEl.textContent = 'Fehler: ' + updRes.error.message;

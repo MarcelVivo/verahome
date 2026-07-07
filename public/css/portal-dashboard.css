@@ -159,6 +159,12 @@
 .doc-info{display:flex;flex-direction:column;gap:4px;}
 .doc-info strong{color:var(--color-navy);}
 .doc-meta{font-size:.8rem;color:var(--color-gray-text);opacity:.75;}
+.fall-verlauf{
+  display:flex;flex-direction:column;gap:4px;margin:0 0 10px;padding:10px 12px;
+  background:var(--color-bg);border-radius:8px;border-left:3px solid var(--color-gold);
+}
+.fall-verlauf a{font-size:.84rem;color:var(--color-navy);text-decoration:none;}
+.fall-verlauf a:hover{color:var(--color-gold);text-decoration:underline;}
 .fill-form{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
 .fill-form textarea{
   min-width:220px;flex:1;padding:10px 12px;border:1px solid var(--color-blue-light);border-radius:8px;
