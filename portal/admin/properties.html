@@ -198,9 +198,27 @@
   var client, profile;
 
   var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
-  var UNIT_TYPE_LABELS = { wohnung: 'Wohnungen', haus: 'Häuser', garage: 'Garagen', parkplatz: 'Parkplätze', studio: 'Studios', lager: 'Lager', gewerbe: 'Gewerbe', gastronomie: 'Gastronomie', sonstiges: 'Sonstiges' };
-  var UNIT_TYPE_ORDER = ['wohnung', 'haus', 'garage', 'parkplatz', 'studio', 'lager', 'gewerbe', 'gastronomie', 'sonstiges'];
-  var UNIT_TYPE_SINGULAR = { wohnung: 'Wohnung', haus: 'Haus', garage: 'Garage', parkplatz: 'Parkplatz', studio: 'Studio', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', gastronomie: 'Gastronomiefläche', sonstiges: 'Einheit' };
+  var UNIT_TYPE_LABELS = {
+    wohnung: 'Wohnungen', einfamilienhaus: 'Einfamilienhäuser', reihenhaus: 'Reihenhäuser', doppelhaushaelfte: 'Doppelhaushälften',
+    villa: 'Villen', maisonette: 'Maisonettewohnungen', attika: 'Attikawohnungen', penthouse: 'Penthouses', triplex: 'Triplexwohnungen',
+    dachwohnung: 'Dachwohnungen', etagenwohnung: 'Etagenwohnungen', loft: 'Lofts', einliegerwohnung: 'Einliegerwohnungen',
+    zimmer_moebliert: 'Möblierte Zimmer', wohnung_moebliert: 'Möblierte Wohnungen', studio: 'Studios',
+    garage: 'Garagen', tiefgaragenplatz: 'Tiefgaragenplätze', aussenparkplatz: 'Aussenparkplätze',
+    hobbyraum: 'Hobbyräume', lager: 'Lager', gewerbe: 'Gewerbe', gastronomie: 'Gastronomie', sonstiges: 'Sonstiges'
+  };
+  var UNIT_TYPE_ORDER = [
+    'wohnung', 'einfamilienhaus', 'reihenhaus', 'doppelhaushaelfte', 'villa', 'maisonette', 'attika', 'penthouse', 'triplex',
+    'dachwohnung', 'etagenwohnung', 'loft', 'einliegerwohnung', 'zimmer_moebliert', 'wohnung_moebliert', 'studio',
+    'garage', 'tiefgaragenplatz', 'aussenparkplatz', 'hobbyraum', 'lager', 'gewerbe', 'gastronomie', 'sonstiges'
+  ];
+  var UNIT_TYPE_SINGULAR = {
+    wohnung: 'Wohnung', einfamilienhaus: 'Einfamilienhaus', reihenhaus: 'Reihenhaus', doppelhaushaelfte: 'Doppelhaushälfte',
+    villa: 'Villa', maisonette: 'Maisonettewohnung', attika: 'Attikawohnung', penthouse: 'Penthouse', triplex: 'Triplexwohnung',
+    dachwohnung: 'Dachwohnung', etagenwohnung: 'Etagenwohnung', loft: 'Loft', einliegerwohnung: 'Einliegerwohnung',
+    zimmer_moebliert: 'Möbliertes Zimmer', wohnung_moebliert: 'Möblierte Wohnung', studio: 'Studio',
+    garage: 'Garage', tiefgaragenplatz: 'Tiefgaragenplatz', aussenparkplatz: 'Aussenparkplatz',
+    hobbyraum: 'Hobbyraum', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', gastronomie: 'Gastronomiefläche', sonstiges: 'Einheit'
+  };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
@@ -281,9 +299,9 @@
      Fläche und Nebenkosten bleiben dort aber relevant -- nur die
      Fläche heisst dort "Fläche m²" statt "Wohnfläche m²", da
      "Wohnfläche" ausdrücklich Wohnraum meint. */
-  var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'parkplatz'];
-  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie', 'lager', 'sonstiges'];
-  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager', 'sonstiges'];
+  var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'tiefgaragenplatz', 'aussenparkplatz'];
+  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie', 'lager', 'sonstiges', 'hobbyraum'];
+  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager', 'sonstiges', 'hobbyraum'];
   function applyUnitTypeFieldVisibility(type){
     var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
     var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
