@@ -222,6 +222,7 @@
       '<p><strong>Status:</strong> ' + (status === 'bestaetigt' ? '✓ Bestätigt' : '⏳ Noch offen') + '</p>' +
       '<div class="cal-event-detail-actions">' +
         (status === 'eingeladen' ? '<button type="button" class="cal-confirm-appt-btn" data-confirm-appt-id="' + a.id + '">Termin bestätigen</button>' : '') +
+        '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml(a.title) + '" data-ics-start="' + a.starts_at + '" data-ics-end="' + a.ends_at + '" data-ics-location="' + (propertyLabel || '') + '" data-ics-desc="' + VeraDashboard.escapeHtml(a.note || '') + '">In Kalender speichern</button>' +
       '</div>';
   }
 
@@ -300,7 +301,16 @@
   calPopover.addEventListener('click', async function(e){
     e.stopPropagation();
     var confirmBtn = e.target.closest('.cal-confirm-appt-btn');
-    if(confirmBtn){
+    var icsBtn = e.target.closest('.cal-ics-btn');
+    if(icsBtn){
+      VeraDashboard.downloadIcs({
+        title: icsBtn.getAttribute('data-ics-title'),
+        startsAt: icsBtn.getAttribute('data-ics-start'),
+        endsAt: icsBtn.getAttribute('data-ics-end'),
+        location: icsBtn.getAttribute('data-ics-location'),
+        description: icsBtn.getAttribute('data-ics-desc')
+      });
+    } else if(confirmBtn){
       var aid = confirmBtn.getAttribute('data-confirm-appt-id');
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Wird bestätigt …';

@@ -569,6 +569,7 @@
         (b.status === 'angefragt' ? '<button type="button" class="cal-confirm-btn" data-confirm-id="' + b.id + '">Bestätigen</button>' : '') +
         '<button type="button" class="cal-reschedule-btn" data-reschedule-id="' + b.id + '">Verschieben</button>' +
         '<button type="button" class="cal-delete-btn" data-delete-id="' + b.id + '">Löschen</button>' +
+        '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml('Termin: ' + b.name) + '" data-ics-start="' + b.starts_at + '" data-ics-end="' + b.ends_at + '" data-ics-location="' + VeraDashboard.escapeHtml(propertyLabel) + '">In Kalender speichern</button>' +
       '</div>';
   }
 
@@ -607,6 +608,7 @@
       (a.note ? '<p><strong>Notiz:</strong> ' + VeraDashboard.escapeHtml(a.note) + '</p>' : '') +
       '<div class="cal-event-detail-actions">' +
         '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + a.id + '">Löschen</button>' +
+        '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml(a.title) + '" data-ics-start="' + a.starts_at + '" data-ics-end="' + a.ends_at + '" data-ics-location="' + (propertyLabel || '') + '" data-ics-desc="' + VeraDashboard.escapeHtml(a.note || '') + '">In Kalender speichern</button>' +
       '</div>';
   }
 
@@ -782,8 +784,17 @@
     var newApptBtn = e.target.closest('.cal-slot-new-btn');
     var deleteBtn = e.target.closest('.cal-delete-btn');
     var deleteApptBtn = e.target.closest('.cal-delete-appt-btn');
+    var icsBtn = e.target.closest('.cal-ics-btn');
 
-    if(confirmBtn){
+    if(icsBtn){
+      VeraDashboard.downloadIcs({
+        title: icsBtn.getAttribute('data-ics-title'),
+        startsAt: icsBtn.getAttribute('data-ics-start'),
+        endsAt: icsBtn.getAttribute('data-ics-end'),
+        location: icsBtn.getAttribute('data-ics-location'),
+        description: icsBtn.getAttribute('data-ics-desc')
+      });
+    } else if(confirmBtn){
       var cid = confirmBtn.getAttribute('data-confirm-id');
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Wird bestätigt …';

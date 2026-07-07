@@ -195,6 +195,7 @@
       return '<div class="cal-event-row">' +
         '<div class="cal-event-info"><strong>'+VeraDashboard.escapeHtml(ev.title)+'</strong>'+ownerLabel+'</div>' +
         '<span class="cal-event-time">'+VeraDashboard.formatDateTime(ev.starts_at)+(ev.ends_at ? ' – '+VeraDashboard.formatDateTime(ev.ends_at) : '')+'</span>' +
+        '<button type="button" class="dash-btn-sm cal-ics-btn" data-ics-title="'+VeraDashboard.escapeHtml(ev.title)+'" data-ics-start="'+ev.starts_at+'" data-ics-end="'+(ev.ends_at || ev.starts_at)+'">In Kalender speichern</button>' +
       '</div>';
     }).join('');
   }
@@ -233,11 +234,28 @@
         '</div>' +
         '<span class="cal-event-time">'+VeraDashboard.formatDateTime(a.starts_at)+'</span>' +
         statusHtml +
+        '<button type="button" class="dash-btn-sm cal-ics-btn" data-ics-title="'+VeraDashboard.escapeHtml(a.title)+'" data-ics-start="'+a.starts_at+'" data-ics-end="'+(a.ends_at || a.starts_at)+'" data-ics-location="'+(a.properties ? VeraDashboard.escapeHtml(a.properties.label) : '')+'" data-ics-desc="'+VeraDashboard.escapeHtml(a.note || '')+'">In Kalender speichern</button>' +
       '</div>';
     }).join('');
   }
 
+  function handleIcsClick(e){
+    var icsBtn = e.target.closest('.cal-ics-btn');
+    if(!icsBtn) return false;
+    VeraDashboard.downloadIcs({
+      title: icsBtn.getAttribute('data-ics-title'),
+      startsAt: icsBtn.getAttribute('data-ics-start'),
+      endsAt: icsBtn.getAttribute('data-ics-end'),
+      location: icsBtn.getAttribute('data-ics-location'),
+      description: icsBtn.getAttribute('data-ics-desc')
+    });
+    return true;
+  }
+
+  document.getElementById('calList').addEventListener('click', handleIcsClick);
+
   document.getElementById('apptList').addEventListener('click', async function(e){
+    if(handleIcsClick(e)) return;
     var btn = e.target.closest('.cal-confirm-appt-btn');
     if(!btn) return;
     var aid = btn.getAttribute('data-confirm-appt-id');

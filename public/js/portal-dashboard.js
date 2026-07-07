@@ -74,6 +74,42 @@ window.VeraDashboard = (function () {
     return haystack.indexOf(query.toLowerCase()) > -1;
   }
 
+  /* Baut eine minimale .ics-Datei fuer einen einzelnen Termin, damit er
+     sich mit einem Klick in Google/Apple/Outlook-Kalender uebernehmen
+     laesst. startsAt/endsAt sind ISO-Strings, alles andere optional. */
+  function icsEscape(s) {
+    return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  }
+
+  function icsDate(iso) {
+    return new Date(iso).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  }
+
+  function downloadIcs(event) {
+    var lines = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Vera Home//Vera Portal//DE",
+      "BEGIN:VEVENT",
+      "UID:" + (event.uid || (Math.random().toString(36).slice(2) + "@verahome.ch")),
+      "DTSTAMP:" + icsDate(new Date().toISOString()),
+      "DTSTART:" + icsDate(event.startsAt),
+      "DTEND:" + icsDate(event.endsAt),
+      "SUMMARY:" + icsEscape(event.title),
+    ];
+    if (event.location) lines.push("LOCATION:" + icsEscape(event.location));
+    if (event.description) lines.push("DESCRIPTION:" + icsEscape(event.description));
+    lines.push("END:VEVENT", "END:VCALENDAR");
+
+    var blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = (event.title || "Termin").replace(/[^a-z0-9äöüÄÖÜ _-]/gi, "") + ".ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function formatDate(iso) {
     return iso ? new Date(iso).toLocaleDateString("de-CH") : "–";
   }
@@ -440,6 +476,7 @@ window.VeraDashboard = (function () {
     formatDateTime: formatDateTime,
     categoryLabel: categoryLabel,
     canIssueInvoices: canIssueInvoices,
-    applyQueryParamSearch: applyQueryParamSearch
+    applyQueryParamSearch: applyQueryParamSearch,
+    downloadIcs: downloadIcs
   };
 })();
