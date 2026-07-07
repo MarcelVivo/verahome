@@ -74,6 +74,8 @@
   box-shadow:var(--shadow-card);padding:30px 32px;margin-bottom:32px;
 }
 .dash-card h2{font-size:1.1rem;margin-bottom:18px;}
+.dash-card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;}
+.dash-card-head h2{margin-bottom:0;}
 
 .dash-stat-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:32px;}
 .dash-stat{

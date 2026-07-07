@@ -110,6 +110,30 @@ window.VeraDashboard = (function () {
     URL.revokeObjectURL(url);
   }
 
+  /* Baut eine Excel-kompatible CSV-Datei (Semikolon als Trenner, da
+     Excel-DE Kommas als Dezimaltrennzeichen liest) und stoesst den
+     Download an. rows ist ein Array von Arrays, header die erste
+     Zeile. */
+  function csvEscape(v) {
+    var s = v == null ? "" : String(v);
+    return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function downloadCsv(filename, header, rows) {
+    var lines = [header].concat(rows).map(function (row) {
+      return row.map(csvEscape).join(";");
+    });
+    var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function formatDate(iso) {
     return iso ? new Date(iso).toLocaleDateString("de-CH") : "–";
   }
@@ -477,6 +501,7 @@ window.VeraDashboard = (function () {
     categoryLabel: categoryLabel,
     canIssueInvoices: canIssueInvoices,
     applyQueryParamSearch: applyQueryParamSearch,
-    downloadIcs: downloadIcs
+    downloadIcs: downloadIcs,
+    downloadCsv: downloadCsv
   };
 })();

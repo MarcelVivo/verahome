@@ -64,7 +64,7 @@
 
         <div id="dashAdminPanels" style="display:none;">
           <div class="dash-card">
-            <h2>Überfällige Rechnungen</h2>
+            <div class="dash-card-head"><h2>Überfällige Rechnungen</h2><button type="button" class="dash-btn-sm" id="exportOverdueBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="overdueInvoicesTable"></table></div>
           </div>
 
@@ -74,7 +74,7 @@
           </div>
 
           <div class="dash-card">
-            <h2>Leerstehende Einheiten</h2>
+            <div class="dash-card-head"><h2>Leerstehende Einheiten</h2><button type="button" class="dash-btn-sm" id="exportVacantBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="vacantUnitsTable"></table></div>
           </div>
         </div>
@@ -228,6 +228,7 @@
 
   function renderOverdueInvoices(rows){
     var table = document.getElementById('overdueInvoicesTable');
+    document.getElementById('exportOverdueBtn').disabled = !rows.length;
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine überfälligen Rechnungen.</td></tr>'; return; }
     table.innerHTML = '<tr><th>Empfänger</th><th>Nr.</th><th>Betrag</th><th>Fällig seit</th><th></th></tr>' +
       rows.map(function(inv){
@@ -243,6 +244,15 @@
       btn.addEventListener('click', function(e){ e.stopPropagation(); sendReminder(btn.getAttribute('data-id'), btn); });
     });
     wireRowLinks(table);
+
+    document.getElementById('exportOverdueBtn').onclick = function(){
+      VeraDashboard.downloadCsv('ueberfaellige-rechnungen.csv',
+        ['Empfänger', 'Rechnungsnummer', 'Betrag CHF', 'Fällig seit'],
+        rows.map(function(inv){
+          return [inv.recipient ? inv.recipient.last_name+' '+inv.recipient.first_name : '–', inv.invoice_number, inv.total, VeraDashboard.formatDate(inv.due_date)];
+        })
+      );
+    };
   }
 
   function wireRowLinks(table){
@@ -276,6 +286,7 @@
 
   function renderVacantUnits(rows){
     var table = document.getElementById('vacantUnitsTable');
+    document.getElementById('exportVacantBtn').disabled = !rows.length;
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">Keine leerstehenden Einheiten.</td></tr>'; return; }
     table.innerHTML = '<tr><th>Objekt</th><th>Einheit</th></tr>' +
       rows.map(function(u){
@@ -286,6 +297,13 @@
         '</tr>';
       }).join('');
     wireRowLinks(table);
+
+    document.getElementById('exportVacantBtn').onclick = function(){
+      VeraDashboard.downloadCsv('leerstehende-einheiten.csv',
+        ['Objekt', 'Einheit'],
+        rows.map(function(u){ return [u.properties ? u.properties.label : '–', u.label]; })
+      );
+    };
   }
 })();
 </script>

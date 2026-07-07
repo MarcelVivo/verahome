@@ -60,7 +60,10 @@
       <div class="dash-card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
           <h2 style="margin:0;">Mietverhältnisse</h2>
-          <button type="button" class="dash-btn-sm" id="newTenancyBtn">+ Neu</button>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="dash-btn-sm" id="exportTenanciesBtn">CSV exportieren</button>
+            <button type="button" class="dash-btn-sm" id="newTenancyBtn">+ Neu</button>
+          </div>
         </div>
         <input type="text" class="dash-search-input" id="tenancySearch" placeholder="Suchen nach Mieter, Einheit, Status …">
         <div class="dash-table-wrap"><table class="dash-table" id="tenanciesTable"></table></div>
@@ -249,17 +252,36 @@
     renderTenanciesTable(allTenancies);
   }
 
+  function tenancyUnitLabel(t){
+    return t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
+  }
+
   function renderTenanciesTable(rows){
     var table = document.getElementById('tenanciesTable');
+    document.getElementById('exportTenanciesBtn').disabled = !rows.length;
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allTenancies.length?'Keine Treffer.':'Noch keine Mietverhältnisse.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Mieter</th><th>Einheit</th><th>Beginn</th><th>Ende</th><th>Status</th></tr>' +
       rows.map(function(t){
-        var unitLabel = t.units ? ((t.units.properties?t.units.properties.label+' – ':'')+t.units.label) : '–';
         return '<tr class="dash-row-clickable" data-tenancy-id="'+t.id+'"><td>'+VeraDashboard.escapeHtml(t.tenant?t.tenant.last_name+' '+t.tenant.first_name:'–')+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(unitLabel)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(tenancyUnitLabel(t))+'</td>' +
           '<td>'+VeraDashboard.formatDate(t.start_date)+'</td><td>'+VeraDashboard.formatDate(t.end_date)+'</td>' +
           '<td>'+(STATUS_LABEL[t.status]||t.status)+'</td></tr>';
       }).join('');
+
+    document.getElementById('exportTenanciesBtn').onclick = function(){
+      VeraDashboard.downloadCsv('mietverhaeltnisse.csv',
+        ['Mieter', 'Einheit', 'Beginn', 'Ende', 'Status'],
+        rows.map(function(t){
+          return [
+            t.tenant ? t.tenant.last_name+' '+t.tenant.first_name : '–',
+            tenancyUnitLabel(t),
+            VeraDashboard.formatDate(t.start_date),
+            VeraDashboard.formatDate(t.end_date),
+            STATUS_LABEL[t.status] || t.status
+          ];
+        })
+      );
+    };
   }
 })();
 </script>
