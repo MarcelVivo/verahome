@@ -57,25 +57,6 @@
       <h1>Termine</h1>
       <p class="dash-lead">Verfügbarkeit für die öffentliche Terminbuchung festlegen und eingehende Buchungen verwalten.</p>
 
-      <div class="dash-card email-mode-card">
-        <div class="email-mode-head">
-          <div>
-            <h2>E-Mail-Modus</h2>
-            <p class="doc-meta">Globaler Schalter für Termin-, Rechnungs-, Dokumenten- und Ticket-E-Mails aus dem Vera Portal.</p>
-          </div>
-          <span class="status-badge info" id="emailModeBadge">Lädt …</span>
-        </div>
-        <label class="email-mode-toggle">
-          <input type="checkbox" id="emailTestModeToggle">
-          <span class="email-mode-toggle-ui" aria-hidden="true"></span>
-          <span>
-            <strong>Testmodus aktivieren</strong>
-            <small>Daten werden gespeichert, aber Portal-E-Mails werden serverseitig unterdrückt. Supabase Login-/Passwort-Mails sind davon nicht betroffen.</small>
-          </span>
-        </label>
-        <p class="form-status" id="emailModeStatus"></p>
-      </div>
-
       <div class="dash-card">
         <h2>Wochenübersicht</h2>
         <p class="doc-meta" style="margin-bottom:12px;">Alle Termine auf einen Blick. Klicken Sie auf ein Feld, um einen Termin zu bestätigen oder zu verschieben, oder auf eine freie Stunde, um sie zu sperren.</p>
@@ -232,67 +213,13 @@
     document.getElementById('calPrevWeek').addEventListener('click', function(){ calWeekOffset--; loadCalWeek(); });
     document.getElementById('calNextWeek').addEventListener('click', function(){ calWeekOffset++; loadCalWeek(); });
     document.getElementById('calTodayBtn').addEventListener('click', function(){ calWeekOffset = 0; loadCalWeek(); });
-    document.getElementById('emailTestModeToggle').addEventListener('change', saveEmailModeFromToggle);
     initCalJumpSearch();
 
-    loadEmailMode();
     Promise.all([computeCalHourRange(), loadCalProperties(), loadCalAllProfiles()]).then(loadCalWeek);
     loadAvailability();
     loadBlockedDates();
     loadBookings();
   });
-
-  function renderEmailMode(mode){
-    var isTest = mode === 'test';
-    var toggle = document.getElementById('emailTestModeToggle');
-    var badge = document.getElementById('emailModeBadge');
-    toggle.checked = isTest;
-    badge.textContent = isTest ? 'TESTMODUS' : 'LIVE';
-    badge.className = 'status-badge ' + (isTest ? 'pending' : 'active');
-  }
-
-  async function loadEmailMode(){
-    var statusEl = document.getElementById('emailModeStatus');
-    var toggle = document.getElementById('emailTestModeToggle');
-    try{
-      var res = await client.from('portal_settings').select('value').eq('key', 'outbound_email_mode').maybeSingle();
-      if(res.error) throw res.error;
-      var mode = res.data && res.data.value && res.data.value.mode === 'test' ? 'test' : 'live';
-      renderEmailMode(mode);
-      statusEl.textContent = '';
-      statusEl.classList.remove('show');
-    }catch(err){
-      toggle.disabled = true;
-      statusEl.textContent = 'E-Mail-Modus konnte nicht geladen werden. Bitte SQL-Migration ausführen.';
-      statusEl.classList.add('show');
-    }
-  }
-
-  async function saveEmailModeFromToggle(){
-    var toggle = document.getElementById('emailTestModeToggle');
-    var statusEl = document.getElementById('emailModeStatus');
-    var mode = toggle.checked ? 'test' : 'live';
-    toggle.disabled = true;
-    statusEl.textContent = mode === 'test' ? 'Testmodus wird aktiviert …' : 'Live-Modus wird aktiviert …';
-    statusEl.classList.add('show');
-    var res = await client.from('portal_settings').upsert({
-      key: 'outbound_email_mode',
-      value: { mode: mode },
-      updated_by: profile.id,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
-    toggle.disabled = false;
-    if(res.error){
-      toggle.checked = !toggle.checked;
-      statusEl.textContent = 'Fehler: ' + res.error.message;
-      renderEmailMode(toggle.checked ? 'test' : 'live');
-      return;
-    }
-    renderEmailMode(mode);
-    statusEl.textContent = mode === 'test'
-      ? 'Testmodus aktiv: automatische E-Mails werden serverseitig unterdrückt.'
-      : 'Live-Modus aktiv: automatische E-Mails werden wieder versendet.';
-  }
 
   async function loadAvailability(){
     var res = await client.from('booking_availability').select('*');

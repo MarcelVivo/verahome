@@ -471,6 +471,13 @@ window.VeraDashboard = (function () {
      -- anders als renderAdminQuickbar, das nur Admin sieht. */
   function renderTopLogoutButton() {
     if (document.getElementById("dashLogoutTop")) return;
+    var actions = document.getElementById("dashTopActions");
+    if (!actions) {
+      actions = document.createElement("div");
+      actions.id = "dashTopActions";
+      actions.className = "dash-top-actions";
+      document.body.appendChild(actions);
+    }
     var btn = document.createElement("button");
     btn.type = "button";
     btn.id = "dashLogoutTop";
@@ -481,7 +488,80 @@ window.VeraDashboard = (function () {
         window.location.href = "/portal/login.html";
       });
     });
-    document.body.appendChild(btn);
+    actions.appendChild(btn);
+  }
+
+  async function renderAdminEmailModeSwitch(profile) {
+    if (!profile || profile.category !== "admin" || document.getElementById("dashEmailModeTop")) return;
+    var actions = document.getElementById("dashTopActions");
+    if (!actions) {
+      renderTopLogoutButton();
+      actions = document.getElementById("dashTopActions");
+    }
+    if (!actions) return;
+
+    var wrap = document.createElement("div");
+    wrap.id = "dashEmailModeTop";
+    wrap.className = "dash-email-mode-top";
+    wrap.innerHTML =
+      '<label class="dash-email-mode-switch">' +
+      '<input type="checkbox" id="dashEmailModeToggle" aria-label="E-Mail Versand umschalten">' +
+      '<span class="dash-email-mode-track" aria-hidden="true"></span>' +
+      '<strong id="dashEmailModeLabel">Lädt …</strong>' +
+      '</label>' +
+      '<p id="dashEmailModeInfo">Aktueller Zustand wird geladen …</p>';
+    actions.insertBefore(wrap, document.getElementById("dashLogoutTop"));
+
+    var client = VeraPortal.getClient();
+    var toggle = document.getElementById("dashEmailModeToggle");
+    var label = document.getElementById("dashEmailModeLabel");
+    var info = document.getElementById("dashEmailModeInfo");
+
+    function applyMode(mode) {
+      var isLive = mode !== "test";
+      toggle.checked = isLive;
+      wrap.classList.toggle("is-live", isLive);
+      wrap.classList.toggle("is-test", !isLive);
+      label.textContent = isLive ? "E-Mail EIN" : "E-Mail AUS";
+      info.textContent = isLive
+        ? "Ist-Zustand: Live-Versand aktiv. Portal-E-Mails werden versendet."
+        : "Ist-Zustand: Testmodus aktiv. Portal-E-Mails werden unterdrückt.";
+    }
+
+    async function loadMode() {
+      try {
+        var res = await client.from("portal_settings").select("value").eq("key", "outbound_email_mode").maybeSingle();
+        if (res.error) throw res.error;
+        var mode = res.data && res.data.value && res.data.value.mode === "test" ? "test" : "live";
+        applyMode(mode);
+      } catch (err) {
+        toggle.disabled = true;
+        label.textContent = "Fehler";
+        info.textContent = "E-Mail-Schalter konnte nicht geladen werden. SQL-Migration prüfen.";
+      }
+    }
+
+    toggle.addEventListener("change", async function () {
+      var mode = toggle.checked ? "live" : "test";
+      toggle.disabled = true;
+      info.textContent = mode === "live" ? "Live-Versand wird aktiviert …" : "Testmodus wird aktiviert …";
+      var res = await client.from("portal_settings").upsert({
+        key: "outbound_email_mode",
+        value: { mode: mode },
+        updated_by: profile.id,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" });
+      toggle.disabled = false;
+      if (res.error) {
+        toggle.checked = !toggle.checked;
+        applyMode(toggle.checked ? "live" : "test");
+        info.textContent = "Fehler: " + res.error.message;
+        return;
+      }
+      applyMode(mode);
+    });
+
+    loadMode();
   }
 
   /* Call once at the top of every SHARED dashboard page's inline script
@@ -528,6 +608,7 @@ window.VeraDashboard = (function () {
     applyQueryParamSearch: applyQueryParamSearch,
     downloadIcs: downloadIcs,
     downloadCsv: downloadCsv,
-    fetchOwnRoles: fetchOwnRoles
+    fetchOwnRoles: fetchOwnRoles,
+    renderAdminEmailModeSwitch: renderAdminEmailModeSwitch
   };
 })();

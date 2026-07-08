@@ -169,6 +169,9 @@
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
+    if(profile.category === 'admin'){
+      VeraDashboard.renderAdminEmailModeSwitch(profile);
+    }
 
     try{
       document.getElementById('dashGreeting').textContent = 'Willkommen, ' + profile.first_name;
