@@ -395,11 +395,15 @@
         statusEl.classList.add('show');
         await uploadNewRecordImages('unit', res.data.id, uCoverFile, uDetailFiles);
       }
-      statusEl.textContent = 'Einheit angelegt.';
+      statusEl.textContent = 'Einheit angelegt. Zuweisungen werden geöffnet …';
       statusEl.classList.add('show');
       document.getElementById('newUnitForm').reset();
+      closeNewUnitModal();
+      selectedPropertyId = res.data.property_id;
+      selectedUnitId = res.data.id;
       await loadAll();
       renderAllColumns();
+      openUnitModal(res.data.id);
     });
 
     // "+"-Buttons, Zeilen-Klicks und Such-Eingaben laufen über
@@ -1135,7 +1139,13 @@
           '<section>' +
             '<h4>Dokumente / Verträge</h4>' +
             '<div id="unitLinkedDocs-'+unitId+'"></div>' +
-            '<a class="dash-btn-sm" href="/portal/documents.html">Dokumente verwalten</a>' +
+            '<div class="obj-private-doc-form">' +
+              '<input id="unitPrivateDocTitle-'+unitId+'" placeholder="Titel, z.B. Mietvertrag">' +
+              '<select id="unitPrivateDocRecipient-'+unitId+'"><option value="">Empfänger wählen …</option></select>' +
+              '<input type="file" id="unitPrivateDocFile-'+unitId+'" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">' +
+              '<button type="button" class="dash-btn-sm" id="unitPrivateDocUpload-'+unitId+'">Nur für diese Person hochladen</button>' +
+            '</div>' +
+            '<a class="dash-btn-sm" href="/portal/documents.html">Alle Dokumente verwalten</a>' +
           '</section>' +
         '</div>' +
         '<p class="form-status" id="unitAssignmentStatus-'+unitId+'"></p>' +
@@ -1183,6 +1193,7 @@
     document.getElementById('unitTenantAdd-'+unitId).addEventListener('click', function(){ addUnitTenant(unit); });
     document.getElementById('unitOwnerAdd-'+unitId).addEventListener('click', function(){ addUnitOwner(unit); });
     document.getElementById('unitHauswartAdd-'+unitId).addEventListener('click', function(){ addUnitHauswart(unit); });
+    document.getElementById('unitPrivateDocUpload-'+unitId).addEventListener('click', function(){ uploadUnitPrivateDocument(unit); });
     modalBody.querySelector('.unit-img-upload-btn').addEventListener('click', function(){
       uploadUnitImages(unitId);
     });
@@ -1205,6 +1216,24 @@
       loadUnitHauswarts(unit),
       loadUnitLinkedDocs(unit)
     ]);
+    refreshUnitPrivateDocRecipients(unit);
+  }
+
+  async function refreshUnitPrivateDocRecipients(unit){
+    var tenantRes = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unit.id).eq('status', 'active');
+    var ownerRes = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unit.id);
+    var ids = new Set();
+    (tenantRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
+    (ownerRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+    var select = document.getElementById('unitPrivateDocRecipient-'+unit.id);
+    if(!select) return;
+    var recipients = Array.from(ids).map(function(id){
+      var p = allProfilesForPicker.filter(function(row){ return row.id === id; })[0];
+      return p ? p : { id: id, first_name: '', last_name: 'Unbekannte Person', category: '' };
+    });
+    select.innerHTML = '<option value="">Empfänger wählen …</option>' + recipients.map(function(p){
+      return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml((p.last_name || '')+' '+(p.first_name || '')+' · '+VeraDashboard.categoryLabel(p.category))+'</option>';
+    }).join('');
   }
 
   async function loadUnitTenants(unit){
@@ -1234,7 +1263,7 @@
     var res = await client.from('tenancies').insert({ unit_id: unit.id, tenant_profile_id: profileId, start_date: startDate, status: 'active' });
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Mieter zugewiesen.';
     statusEl.classList.add('show');
-    if(!res.error){ document.getElementById('unitTenantSelect-'+unit.id).value = ''; loadUnitTenants(unit); }
+    if(!res.error){ document.getElementById('unitTenantSelect-'+unit.id).value = ''; loadUnitTenants(unit); refreshUnitPrivateDocRecipients(unit); }
   }
 
   async function loadUnitOwners(unit){
@@ -1264,7 +1293,7 @@
     var res = await client.from('ownerships').insert({ unit_id: unit.id, owner_profile_id: profileId, share_percent: share, start_date: new Date().toISOString().slice(0,10) });
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Eigentümer zugewiesen.';
     statusEl.classList.add('show');
-    if(!res.error){ document.getElementById('unitOwnerSelect-'+unit.id).value = ''; loadUnitOwners(unit); }
+    if(!res.error){ document.getElementById('unitOwnerSelect-'+unit.id).value = ''; loadUnitOwners(unit); refreshUnitPrivateDocRecipients(unit); }
   }
 
   async function loadUnitHauswarts(unit){
@@ -1312,6 +1341,71 @@
     el.querySelectorAll('[data-open-unit-doc]').forEach(function(btn){
       btn.addEventListener('click', function(){ openDocumentVaultFile(btn.getAttribute('data-open-unit-doc')); });
     });
+  }
+
+  async function uploadUnitPrivateDocument(unit){
+    var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
+    var titleInput = document.getElementById('unitPrivateDocTitle-'+unit.id);
+    var recipientSelect = document.getElementById('unitPrivateDocRecipient-'+unit.id);
+    var fileInput = document.getElementById('unitPrivateDocFile-'+unit.id);
+    var title = titleInput.value.trim();
+    var recipientId = recipientSelect.value;
+    var file = fileInput.files[0];
+    if(!title || !recipientId || !file){
+      statusEl.textContent = 'Bitte Titel, Empfänger und Datei wählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+
+    statusEl.textContent = 'Dokument wird hochgeladen und privat freigegeben …';
+    statusEl.classList.add('show');
+
+    var fileId = crypto.randomUUID();
+    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    var path = fileId + '-' + safeName;
+    var upRes = await client.storage.from('document-vault').upload(path, file);
+    if(upRes.error){
+      statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
+      return;
+    }
+
+    var insRes = await client.from('document_files').insert({
+      id: fileId,
+      folder_id: null,
+      property_id: unit.property_id,
+      unit_id: unit.id,
+      title: title,
+      file_path: path,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      created_by: profile.id
+    });
+    if(insRes.error){
+      await client.storage.from('document-vault').remove([path]);
+      statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
+      return;
+    }
+
+    var shareRes = await client.from('document_shares').upsert({
+      file_id: fileId,
+      profile_id: recipientId,
+      needs_confirmation: false,
+      created_by: profile.id
+    }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+    if(shareRes.error){
+      statusEl.textContent = 'Dokument gespeichert, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+      return;
+    }
+
+    try {
+      await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+    } catch(err) {}
+
+    titleInput.value = '';
+    recipientSelect.value = '';
+    fileInput.value = '';
+    statusEl.textContent = 'Dokument wurde nur für die ausgewählte Person freigegeben.';
+    loadUnitLinkedDocs(unit);
   }
 
   async function openDocumentVaultFile(path){

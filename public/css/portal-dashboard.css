@@ -606,6 +606,11 @@
 .obj-assignment-row span{min-width:0;}
 .obj-assignment-row strong{display:block;font-size:.82rem;color:var(--color-navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .obj-assignment-row small{display:block;font-size:.72rem;color:var(--color-gray-text);margin-top:2px;}
+.obj-private-doc-form{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
+.obj-private-doc-form input,.obj-private-doc-form select{
+  width:100%;min-width:0;border:1px solid var(--color-blue-light);border-radius:8px;
+  background:var(--color-bg);padding:9px 10px;font-family:inherit;font-size:.85rem;color:var(--color-navy);
+}
 .obj-column{
   min-width:0;background:var(--color-white);border:1px solid var(--color-blue-light);
   border-radius:var(--radius);box-shadow:var(--shadow-card);padding:14px;display:flex;flex-direction:column;
