@@ -313,12 +313,14 @@
     try{
       var res = await client.from('portal_settings').select('value').eq('key','portal_dashboard_modules').maybeSingle();
       var modules = mergeDashboardModules(res.data && res.data.value);
+      window.__veraDashboardModules = modules;
       var customModules = modules.filter(function(item){ return item.type === 'custom'; });
       renderCustomDashboardModules(customModules);
       modules.forEach(function(item){
         var el = document.querySelector('[data-dashboard-module="'+item.key+'"]');
         if(!el) return;
-        el.style.display = item.visible === false ? 'none' : '';
+        el.style.display = item.visible === false && !(new URLSearchParams(window.location.search).get('adminEdit') === '1') ? 'none' : '';
+        el.classList.toggle('portal-preview-hidden-item', item.visible === false);
         setModuleTitle(item.key, item.title);
       });
       var content = document.getElementById('dashContent');
@@ -326,8 +328,10 @@
         var el = document.querySelector('[data-dashboard-module="'+item.key+'"]');
         if(el && content) content.appendChild(el);
       });
+      if(VeraDashboard.initPortalPreviewEditMode) VeraDashboard.initPortalPreviewEditMode();
     } catch(e){
       /* Dashboard bleibt mit Standard-Modulen bedienbar. */
+      if(VeraDashboard.initPortalPreviewEditMode) VeraDashboard.initPortalPreviewEditMode();
     }
   }
 

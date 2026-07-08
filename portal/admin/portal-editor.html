@@ -38,42 +38,59 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Vera Portal bearbeiten</h1>
-      <p class="dash-lead">Sichere Portal-Anpassungen ohne Code: Menüpunkte umbenennen, ausblenden oder wieder aktivieren. Datenbank-Funktionen und Berechtigungen bleiben unverändert.</p>
+      <p class="dash-lead">Klicken Sie direkt in der Portal-Vorschau auf Navigation oder Übersicht-Kacheln. Rechts bearbeiten, löschen, kopieren oder speichern.</p>
 
-      <div class="dash-card">
-        <div class="dash-card-head">
-          <div>
-            <h2>Navigation</h2>
-            <p class="doc-meta">Ausblenden entfernt den Menüpunkt aus Sidebar und Mobile-Navigation. Löschen fragt zweimal nach und blendet den Punkt dauerhaft aus.</p>
+      <div class="homepage-editor-shell portal-preview-editor-shell">
+        <div class="homepage-preview-card">
+          <div class="homepage-preview-head">
+            <div>
+              <h2>Live-Vorschau Vera Portal</h2>
+              <p class="doc-meta">Die Übersicht wird 1:1 geladen. Änderungen an Navigation und Modulen werden nach dem Speichern in der Vorschau neu geladen.</p>
+            </div>
+            <div class="dash-btn-row">
+              <button type="button" class="dash-btn-sm" id="refreshPortalPreviewBtn">Vorschau neu laden</button>
+              <button type="button" class="dash-btn-sm" id="addTextModuleBtn">Textmodul hinzufügen</button>
+            </div>
           </div>
-          <div class="dash-btn-row">
-            <button type="button" class="dash-btn-sm" id="resetNavBtn">Standard wiederherstellen</button>
-            <button type="button" class="btn btn-primary" id="savePortalUiBtn">Speichern</button>
-          </div>
+          <iframe id="portalPreviewFrame" class="homepage-preview-frame portal-preview-frame" src="/portal/dashboard.html?adminEdit=1" title="Vera Portal Vorschau"></iframe>
         </div>
-        <div class="portal-ui-editor" id="portalNavEditor"></div>
-        <p class="form-status" id="portalUiStatus"></p>
-      </div>
 
-      <div class="dash-card">
-        <div class="dash-card-head">
-          <div>
-            <h2>Übersicht-Module</h2>
-            <p class="doc-meta">Module können per Drag-and-drop sortiert, umbenannt, kopiert, ausgeblendet oder gelöscht werden. Funktionsmodule behalten ihre Datenbank-Logik, Textmodule sind frei editierbar.</p>
-          </div>
-          <div class="dash-btn-row">
-            <button type="button" class="dash-btn-sm" id="addTextModuleBtn">Textmodul hinzufügen</button>
-            <button type="button" class="dash-btn-sm" id="resetModulesBtn">Module zurücksetzen</button>
-            <button type="button" class="btn btn-primary" id="saveModulesBtn">Module speichern</button>
-          </div>
-        </div>
-        <div class="portal-module-palette">
-          <button type="button" class="dash-btn-sm" data-template="notice">Hinweis kopieren</button>
-          <button type="button" class="dash-btn-sm" data-template="info">Infokachel kopieren</button>
-          <button type="button" class="dash-btn-sm" data-template="task">Aufgabe kopieren</button>
-        </div>
-        <div class="portal-ui-editor portal-module-editor" id="portalModuleEditor"></div>
-        <p class="form-status" id="portalModuleStatus"></p>
+        <aside class="homepage-edit-panel">
+          <h2>Auswahl bearbeiten</h2>
+          <p class="doc-meta" id="selectionHint">Noch nichts ausgewählt. Klicken Sie links in der Vorschau auf einen Menüpunkt oder ein Modul.</p>
+
+          <form id="navEditorForm" class="homepage-edit-form" hidden>
+            <label>Menü-Schlüssel<input type="text" id="navKeyInput" readonly></label>
+            <label class="site-service-toggle"><input type="checkbox" id="navVisibleInput"> Menüpunkt anzeigen</label>
+            <label>Menüname<input type="text" id="navLabelInput"></label>
+            <label>Zielseite<input type="text" id="navHrefInput" readonly></label>
+            <div class="dash-btn-row">
+              <button type="submit" class="btn btn-primary">Navigation speichern</button>
+              <button type="button" class="dash-btn-sm danger" id="deleteNavBtn">Menüpunkt löschen</button>
+              <button type="button" class="dash-btn-sm" id="resetNavBtn">Navigation zurücksetzen</button>
+            </div>
+          </form>
+
+          <form id="moduleEditorForm" class="homepage-edit-form" hidden>
+            <label>Modul-Schlüssel<input type="text" id="moduleKeyInput" readonly></label>
+            <label class="site-service-toggle"><input type="checkbox" id="moduleVisibleInput"> Modul anzeigen</label>
+            <label>Titel<input type="text" id="moduleTitleInput"></label>
+            <label>Beschreibung / Text<textarea id="moduleTextInput" rows="5"></textarea></label>
+            <div class="dash-btn-row">
+              <button type="submit" class="btn btn-primary">Modul speichern</button>
+              <button type="button" class="dash-btn-sm" id="copyModuleBtn">Modul kopieren</button>
+              <button type="button" class="dash-btn-sm danger" id="deleteModuleBtn">Modul löschen</button>
+              <button type="button" class="dash-btn-sm" id="resetModulesBtn">Module zurücksetzen</button>
+            </div>
+            <div class="portal-module-palette">
+              <button type="button" class="dash-btn-sm" data-template="notice">Hinweis kopieren</button>
+              <button type="button" class="dash-btn-sm" data-template="info">Infokachel kopieren</button>
+              <button type="button" class="dash-btn-sm" data-template="task">Aufgabe kopieren</button>
+            </div>
+          </form>
+
+          <p class="form-status" id="portalEditorStatus"></p>
+        </aside>
       </div>
     </section>
   </div>
@@ -87,32 +104,31 @@
 <script>
 (function(){
   "use strict";
-  var client, profile, currentItems = [], currentModules = [];
+  var client, profile, selected = null;
+  var currentItems = [], currentModules = [];
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar('admin-portal-editor', profile);
-    loadSettings();
-    loadModuleSettings();
+    loadAllSettings();
   });
 
-  function status(message){
-    var el = document.getElementById('portalUiStatus');
+  function setStatus(message){
+    var el = document.getElementById('portalEditorStatus');
     el.textContent = message || '';
     el.classList.toggle('show', !!message);
   }
   function confirmDelete(label){
     return window.confirm(label + ' wirklich löschen?') && window.confirm('Letzte Bestätigung: ' + label + ' endgültig löschen?');
   }
-  function defaults(){
-    return VeraDashboard.portalNavDefaults(profile).map(function(item){ return Object.assign({}, item); });
+  function reloadPreview(){
+    var frame = document.getElementById('portalPreviewFrame');
+    frame.src = '/portal/dashboard.html?adminEdit=1&t=' + Date.now();
   }
-  function moduleStatus(message){
-    var el = document.getElementById('portalModuleStatus');
-    el.textContent = message || '';
-    el.classList.toggle('show', !!message);
+  function navDefaults(){
+    return VeraDashboard.portalNavDefaults(profile).map(function(item){ return Object.assign({}, item); });
   }
   function moduleDefaults(){
     return [
@@ -123,6 +139,11 @@
       { key:'account', type:'system', visible:true, title:'Mein Konto', text:'Profil, Rollen und E-Mail-Adresse.' },
       { key:'security', type:'system', visible:true, title:'Sicherheit', text:'Zwei-Faktor-Authentifizierung verwalten.' }
     ];
+  }
+  function normalizeNav(saved){
+    var savedByKey = {};
+    ((saved && saved.navItems) || []).forEach(function(item){ savedByKey[item.key] = item; });
+    return navDefaults().map(function(base){ return Object.assign({}, base, savedByKey[base.key] || {}); }).filter(function(item){ return item.deleted !== true; });
   }
   function normalizeModules(saved){
     var savedByKey = {};
@@ -143,185 +164,149 @@
     var preset = labels[kind] || labels.text;
     return { key:'custom_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), type:'custom', visible:true, title:preset[0], text:preset[1] };
   }
-  function normalize(saved){
-    var savedByKey = {};
-    ((saved && saved.navItems) || []).forEach(function(item){ savedByKey[item.key] = item; });
-    return defaults().map(function(base){
-      return Object.assign({}, base, savedByKey[base.key] || {});
-    }).filter(function(item){ return item.deleted !== true; });
+  function navByKey(key){ return currentItems.filter(function(item){ return item.key === key; })[0]; }
+  function moduleByKey(key){ return currentModules.filter(function(item){ return item.key === key; })[0]; }
+  function showNavEditor(key){
+    var item = navByKey(key);
+    if(!item) return;
+    selected = { type:'nav', key:key };
+    document.getElementById('selectionHint').textContent = 'Menüpunkt ausgewählt: ' + (item.label || key);
+    document.getElementById('moduleEditorForm').hidden = true;
+    document.getElementById('navEditorForm').hidden = false;
+    document.getElementById('navKeyInput').value = item.key;
+    document.getElementById('navVisibleInput').checked = item.visible !== false;
+    document.getElementById('navLabelInput').value = item.label || '';
+    document.getElementById('navHrefInput').value = item.href || '';
   }
-  function render(items){
-    currentItems = items;
-    var editor = document.getElementById('portalNavEditor');
-    var lastGroup = null;
-    editor.innerHTML = items.map(function(item){
-      var group = item.group !== lastGroup ? '<h3 class="portal-ui-group">'+VeraDashboard.escapeHtml(item.group || 'Portal')+'</h3>' : '';
-      lastGroup = item.group;
-      return group + '<div class="portal-ui-row" data-key="'+item.key+'">' +
-        '<label class="site-service-toggle"><input type="checkbox" class="nav-visible" '+(item.visible !== false ? 'checked' : '')+'> Anzeigen</label>' +
-        '<div class="portal-ui-fields">' +
-          '<input type="text" class="nav-label" value="'+VeraDashboard.escapeHtml(item.label || '')+'" placeholder="Menüname">' +
-          '<input type="text" value="'+VeraDashboard.escapeHtml(item.href || '')+'" readonly title="Zielseite">' +
-        '</div>' +
-        '<button type="button" class="dash-btn-sm danger nav-delete">Löschen</button>' +
-      '</div>';
-    }).join('');
-    editor.querySelectorAll('.nav-delete').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var row = btn.closest('.portal-ui-row');
-        if(confirmDelete('Diesen Menüpunkt')) row.remove();
-      });
-    });
+  function showModuleEditor(key){
+    var item = moduleByKey(key);
+    if(!item) return;
+    selected = { type:'module', key:key };
+    document.getElementById('selectionHint').textContent = 'Modul ausgewählt: ' + (item.title || key);
+    document.getElementById('navEditorForm').hidden = true;
+    document.getElementById('moduleEditorForm').hidden = false;
+    document.getElementById('moduleKeyInput').value = item.key;
+    document.getElementById('moduleVisibleInput').checked = item.visible !== false;
+    document.getElementById('moduleTitleInput').value = item.title || '';
+    document.getElementById('moduleTextInput').value = item.text || '';
   }
-  async function loadSettings(){
-    status('Wird geladen …');
-    var res = await client.from('portal_settings').select('value').eq('key', 'portal_ui_settings').maybeSingle();
-    render(normalize(res.data && res.data.value));
-    status(res.error ? 'Fallback geladen. SQL-Policy prüfen, falls Speichern fehlschlägt.' : '');
+  async function loadAllSettings(){
+    setStatus('Einstellungen werden geladen …');
+    var navRes = await client.from('portal_settings').select('value').eq('key', 'portal_ui_settings').maybeSingle();
+    currentItems = normalizeNav(navRes.data && navRes.data.value);
+    var moduleRes = await client.from('portal_settings').select('value').eq('key', 'portal_dashboard_modules').maybeSingle();
+    currentModules = normalizeModules(moduleRes.data && moduleRes.data.value);
+    setStatus((navRes.error || moduleRes.error) ? 'Fallback geladen. SQL-Policy prüfen, falls Speichern fehlschlägt.' : '');
   }
-  async function loadModuleSettings(){
-    moduleStatus('Module werden geladen …');
-    var res = await client.from('portal_settings').select('value').eq('key', 'portal_dashboard_modules').maybeSingle();
-    renderModules(normalizeModules(res.data && res.data.value));
-    moduleStatus(res.error ? 'Fallback geladen. SQL-Policy prüfen, falls Speichern fehlschlägt.' : '');
+  function deletedNavPayload(){
+    var present = new Set(currentItems.map(function(item){ return item.key; }));
+    var hidden = [];
+    navDefaults().forEach(function(base){ if(!present.has(base.key)) hidden.push(Object.assign({}, base, { visible:false, deleted:true })); });
+    return currentItems.concat(hidden);
   }
-  function renderModules(modules){
-    currentModules = modules;
-    var editor = document.getElementById('portalModuleEditor');
-    editor.innerHTML = modules.map(function(item){
-      var lockedNote = item.type === 'system' ? '<span class="doc-meta">Funktionsmodul</span>' : '<span class="doc-meta">Freies Textmodul</span>';
-      return '<div class="portal-module-row" draggable="true" data-key="'+VeraDashboard.escapeHtml(item.key)+'">' +
-        '<div class="portal-module-handle" title="Ziehen zum Sortieren">☰</div>' +
-        '<label class="site-service-toggle"><input type="checkbox" class="module-visible" '+(item.visible !== false ? 'checked' : '')+'> Anzeigen</label>' +
-        '<div class="portal-module-fields">' +
-          '<div class="portal-module-meta">'+lockedNote+'<code>'+VeraDashboard.escapeHtml(item.key)+'</code></div>' +
-          '<input type="text" class="module-title" value="'+VeraDashboard.escapeHtml(item.title || '')+'" placeholder="Modultitel">' +
-          '<textarea class="module-text" rows="2" placeholder="Beschreibung / Text">'+VeraDashboard.escapeHtml(item.text || '')+'</textarea>' +
-        '</div>' +
-        '<div class="portal-module-actions">' +
-          '<button type="button" class="dash-btn-sm module-up">Hoch</button>' +
-          '<button type="button" class="dash-btn-sm module-down">Runter</button>' +
-          '<button type="button" class="dash-btn-sm module-copy">Kopieren</button>' +
-          '<button type="button" class="dash-btn-sm danger module-delete">Löschen</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-    wireModuleRows();
+  function deletedModulePayload(){
+    var present = new Set(currentModules.map(function(item){ return item.key; }));
+    var hidden = [];
+    moduleDefaults().forEach(function(base){ if(!present.has(base.key)) hidden.push(Object.assign({}, base, { visible:false, deleted:true })); });
+    return currentModules.concat(hidden);
   }
-  function wireModuleRows(){
-    var editor = document.getElementById('portalModuleEditor');
-    var dragged = null;
-    editor.querySelectorAll('.portal-module-row').forEach(function(row){
-      row.addEventListener('dragstart', function(){ dragged = row; row.classList.add('is-dragging'); });
-      row.addEventListener('dragend', function(){ row.classList.remove('is-dragging'); dragged = null; });
-      row.addEventListener('dragover', function(e){
-        e.preventDefault();
-        if(!dragged || dragged === row) return;
-        var rect = row.getBoundingClientRect();
-        editor.insertBefore(dragged, e.clientY < rect.top + rect.height / 2 ? row : row.nextSibling);
-      });
-    });
-    editor.querySelectorAll('.module-copy').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var row = btn.closest('.portal-module-row');
-        var item = collectModules().filter(function(module){ return module.key === row.getAttribute('data-key'); })[0];
-        item = Object.assign({}, item, { key:'custom_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), type:'custom', title:(item.title || 'Modul') + ' Kopie' });
-        var modules = collectModules();
-        var index = modules.findIndex(function(module){ return module.key === row.getAttribute('data-key'); });
-        modules.splice(index + 1, 0, item);
-        renderModules(modules);
-      });
-    });
-    editor.querySelectorAll('.module-up').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var row = btn.closest('.portal-module-row');
-        if(row && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
-      });
-    });
-    editor.querySelectorAll('.module-down').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var row = btn.closest('.portal-module-row');
-        if(row && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
-      });
-    });
-    editor.querySelectorAll('.module-delete').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        if(confirmDelete('Dieses Modul')) btn.closest('.portal-module-row').remove();
-      });
-    });
-  }
-  function collectModules(){
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#portalModuleEditor .portal-module-row'));
-    var modules = rows.map(function(row){
-      var base = currentModules.filter(function(item){ return item.key === row.getAttribute('data-key'); })[0] || {};
-      return Object.assign({}, base, {
-        key: row.getAttribute('data-key'),
-        visible: row.querySelector('.module-visible').checked,
-        title: row.querySelector('.module-title').value.trim(),
-        text: row.querySelector('.module-text').value.trim()
-      });
-    });
-    var present = new Set(modules.map(function(item){ return item.key; }));
-    moduleDefaults().forEach(function(base){
-      if(!present.has(base.key)) modules.push(Object.assign({}, base, { visible:false, deleted:true }));
-    });
-    return modules;
-  }
-  function collect(){
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#portalNavEditor .portal-ui-row'));
-    var items = rows.map(function(row){
-      var base = currentItems.filter(function(item){ return item.key === row.getAttribute('data-key'); })[0] || {};
-      return Object.assign({}, base, {
-        key: row.getAttribute('data-key'),
-        visible: row.querySelector('.nav-visible').checked,
-        label: row.querySelector('.nav-label').value.trim()
-      });
-    });
-    var present = new Set(items.map(function(item){ return item.key; }));
-    defaults().forEach(function(base){
-      if(!present.has(base.key)) items.push(Object.assign({}, base, { visible:false, deleted:true }));
-    });
-    return items;
-  }
-  document.getElementById('savePortalUiBtn').addEventListener('click', async function(){
-    status('Wird gespeichert …');
+  async function saveNav(){
+    setStatus('Navigation wird gespeichert …');
     var res = await client.from('portal_settings').upsert({
-      key: 'portal_ui_settings',
-      value: { navItems: collect() },
-      updated_by: profile.id,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
-    status(res.error ? 'Fehler: ' + res.error.message : 'Portal-Navigation gespeichert.');
+      key:'portal_ui_settings',
+      value:{ navItems: deletedNavPayload() },
+      updated_by:profile.id,
+      updated_at:new Date().toISOString()
+    }, { onConflict:'key' });
+    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Navigation gespeichert.');
+    if(!res.error) reloadPreview();
+  }
+  async function saveModules(){
+    setStatus('Module werden gespeichert …');
+    var res = await client.from('portal_settings').upsert({
+      key:'portal_dashboard_modules',
+      value:{ modules: deletedModulePayload() },
+      updated_by:profile.id,
+      updated_at:new Date().toISOString()
+    }, { onConflict:'key' });
+    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Module gespeichert.');
+    if(!res.error) reloadPreview();
+  }
+
+  window.addEventListener('message', function(event){
+    if(event.origin !== window.location.origin || !event.data || event.data.type !== 'vera-portal-edit-select') return;
+    if(event.data.target === 'nav') showNavEditor(event.data.key);
+    if(event.data.target === 'module') showModuleEditor(event.data.key);
+  });
+  document.getElementById('refreshPortalPreviewBtn').addEventListener('click', reloadPreview);
+  document.getElementById('navEditorForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!selected || selected.type !== 'nav') return;
+    var item = navByKey(selected.key);
+    item.visible = document.getElementById('navVisibleInput').checked;
+    item.label = document.getElementById('navLabelInput').value.trim();
+    saveNav();
+  });
+  document.getElementById('deleteNavBtn').addEventListener('click', function(){
+    if(!selected || selected.type !== 'nav' || !confirmDelete('Diesen Menüpunkt')) return;
+    currentItems = currentItems.filter(function(item){ return item.key !== selected.key; });
+    document.getElementById('navEditorForm').hidden = true;
+    document.getElementById('selectionHint').textContent = 'Menüpunkt gelöscht. Speichern lädt die Vorschau neu.';
+    saveNav();
   });
   document.getElementById('resetNavBtn').addEventListener('click', function(){
     if(!window.confirm('Navigation wirklich auf Standard zurücksetzen?')) return;
-    render(defaults());
+    currentItems = navDefaults();
+    saveNav();
   });
-  document.getElementById('addTextModuleBtn').addEventListener('click', function(){
-    var modules = collectModules();
-    modules.push(newCustomModule('text'));
-    renderModules(modules);
+  document.getElementById('moduleEditorForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!selected || selected.type !== 'module') return;
+    var item = moduleByKey(selected.key);
+    item.visible = document.getElementById('moduleVisibleInput').checked;
+    item.title = document.getElementById('moduleTitleInput').value.trim();
+    item.text = document.getElementById('moduleTextInput').value.trim();
+    saveModules();
   });
-  document.querySelectorAll('.portal-module-palette [data-template]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var modules = collectModules();
-      modules.push(newCustomModule(btn.getAttribute('data-template')));
-      renderModules(modules);
-    });
+  document.getElementById('copyModuleBtn').addEventListener('click', function(){
+    if(!selected || selected.type !== 'module') return;
+    var item = Object.assign({}, moduleByKey(selected.key));
+    item.key = 'custom_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    item.type = 'custom';
+    item.title = (item.title || 'Modul') + ' Kopie';
+    var index = currentModules.findIndex(function(module){ return module.key === selected.key; });
+    currentModules.splice(index + 1, 0, item);
+    selected = { type:'module', key:item.key };
+    showModuleEditor(item.key);
+    saveModules();
+  });
+  document.getElementById('deleteModuleBtn').addEventListener('click', function(){
+    if(!selected || selected.type !== 'module' || !confirmDelete('Dieses Modul')) return;
+    currentModules = currentModules.filter(function(item){ return item.key !== selected.key; });
+    document.getElementById('moduleEditorForm').hidden = true;
+    document.getElementById('selectionHint').textContent = 'Modul gelöscht. Speichern lädt die Vorschau neu.';
+    saveModules();
   });
   document.getElementById('resetModulesBtn').addEventListener('click', function(){
     if(!window.confirm('Module wirklich auf Standard zurücksetzen?')) return;
-    renderModules(moduleDefaults());
+    currentModules = moduleDefaults();
+    saveModules();
   });
-  document.getElementById('saveModulesBtn').addEventListener('click', async function(){
-    moduleStatus('Module werden gespeichert …');
-    var res = await client.from('portal_settings').upsert({
-      key: 'portal_dashboard_modules',
-      value: { modules: collectModules() },
-      updated_by: profile.id,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
-    moduleStatus(res.error ? 'Fehler: ' + res.error.message : 'Dashboard-Module gespeichert.');
+  document.getElementById('addTextModuleBtn').addEventListener('click', function(){
+    var item = newCustomModule('text');
+    currentModules.push(item);
+    selected = { type:'module', key:item.key };
+    showModuleEditor(item.key);
+    saveModules();
+  });
+  document.querySelectorAll('.portal-module-palette [data-template]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = newCustomModule(btn.getAttribute('data-template'));
+      currentModules.push(item);
+      selected = { type:'module', key:item.key };
+      showModuleEditor(item.key);
+      saveModules();
+    });
   });
 })();
 </script>

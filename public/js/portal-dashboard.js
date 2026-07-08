@@ -198,10 +198,12 @@ window.VeraDashboard = (function () {
   function applyPortalUiSettingsToDom(settings) {
     var byKey = {};
     ((settings && settings.navItems) || []).forEach(function (item) { byKey[item.key] = item; });
+    window.__veraPortalNavItems = byKey;
     document.querySelectorAll("[data-nav-key]").forEach(function (el) {
       var item = byKey[el.getAttribute("data-nav-key")];
       if (!item) return;
-      el.hidden = item.visible === false;
+      el.hidden = item.visible === false && !isPortalPreviewEditMode();
+      el.classList.toggle("portal-preview-hidden-item", item.visible === false);
       var labelEl = el.querySelector(".dash-nav-label") || el.querySelector("span") || el;
       if (item.label && labelEl) labelEl.textContent = item.label;
     });
@@ -212,9 +214,44 @@ window.VeraDashboard = (function () {
       var client = VeraPortal.getClient();
       var res = await client.from("portal_settings").select("value").eq("key", "portal_ui_settings").maybeSingle();
       if (!res.error && res.data && res.data.value) applyPortalUiSettingsToDom(res.data.value);
+      initPortalPreviewEditMode();
     } catch (e) {
       /* Portal bleibt mit Defaults bedienbar. */
+      initPortalPreviewEditMode();
     }
+  }
+
+  function isPortalPreviewEditMode() {
+    return new URLSearchParams(window.location.search).get("adminEdit") === "1";
+  }
+
+  function initPortalPreviewEditMode() {
+    if (!isPortalPreviewEditMode() || window.__veraPortalPreviewEditReady) return;
+    window.__veraPortalPreviewEditReady = true;
+    document.documentElement.classList.add("portal-preview-edit-mode");
+    document.addEventListener("click", function (e) {
+      var nav = e.target.closest("[data-nav-key]");
+      if (nav) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.parent.postMessage({
+          type: "vera-portal-edit-select",
+          target: "nav",
+          key: nav.getAttribute("data-nav-key")
+        }, window.location.origin);
+        return;
+      }
+      var module = e.target.closest("[data-dashboard-module]");
+      if (module) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.parent.postMessage({
+          type: "vera-portal-edit-select",
+          target: "module",
+          key: module.getAttribute("data-dashboard-module")
+        }, window.location.origin);
+      }
+    }, true);
   }
 
   var badgePollTimerId = null;
@@ -690,6 +727,7 @@ window.VeraDashboard = (function () {
     renderAdminEmailModeSwitch: renderAdminEmailModeSwitch,
     renderAdminContentEditorButton: renderAdminContentEditorButton,
     renderAdminPortalEditorButton: renderAdminPortalEditorButton,
-    portalNavDefaults: portalNavDefaults
+    portalNavDefaults: portalNavDefaults,
+    initPortalPreviewEditMode: initPortalPreviewEditMode
   };
 })();
