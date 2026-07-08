@@ -133,7 +133,7 @@ window.VeraPortal = (function () {
 
   function requestPasswordReset(email) {
     return getClient().auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/portal/update-password.html"
+      redirectTo: "https://www.verahome.ch/portal/update-password.html"
     });
   }
 
