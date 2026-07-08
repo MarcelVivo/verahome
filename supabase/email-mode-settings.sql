@@ -25,7 +25,7 @@ create policy portal_settings_public_homepage_select on public.portal_settings
   for select using (key in ('homepage_services', 'homepage_content'));
 
 create policy portal_settings_authenticated_portal_ui_select on public.portal_settings
-  for select using (auth.role() = 'authenticated' and key = 'portal_ui_settings');
+  for select using (auth.role() = 'authenticated' and key in ('portal_ui_settings', 'portal_dashboard_modules'));
 
 create policy portal_settings_admin_write on public.portal_settings
   for all using (public.is_admin()) with check (public.is_admin());
@@ -40,6 +40,10 @@ on conflict (key) do nothing;
 
 insert into public.portal_settings (key, value)
 values ('portal_ui_settings', '{"navItems":[]}'::jsonb)
+on conflict (key) do nothing;
+
+insert into public.portal_settings (key, value)
+values ('portal_dashboard_modules', '{"modules":[]}'::jsonb)
 on conflict (key) do nothing;
 
 insert into public.portal_settings (key, value)

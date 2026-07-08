@@ -60,26 +60,30 @@
       <p class="dash-empty" id="dashLoading">Wird geladen …</p>
 
       <div id="dashContent" style="display:none;">
-        <div class="dash-stat-row" id="dashStats"></div>
+        <div class="dash-module" data-dashboard-module="stats">
+          <div class="dash-stat-row" id="dashStats"></div>
+        </div>
 
         <div id="dashAdminPanels" style="display:none;">
-          <div class="dash-card">
+          <div class="dash-card dash-module" data-dashboard-module="overdue_invoices">
             <div class="dash-card-head"><h2>Überfällige Rechnungen</h2><button type="button" class="dash-btn-sm" id="exportOverdueBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="overdueInvoicesTable"></table></div>
           </div>
 
-          <div class="dash-card">
+          <div class="dash-card dash-module" data-dashboard-module="expiring_tenancies">
             <h2>Mietverträge laufen bald aus</h2>
             <div class="dash-table-wrap"><table class="dash-table" id="expiringTenanciesTable"></table></div>
           </div>
 
-          <div class="dash-card">
+          <div class="dash-card dash-module" data-dashboard-module="vacant_units">
             <div class="dash-card-head"><h2>Leerstehende Einheiten</h2><button type="button" class="dash-btn-sm" id="exportVacantBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="vacantUnitsTable"></table></div>
           </div>
         </div>
 
-        <div class="dash-card">
+        <div id="dashCustomModules"></div>
+
+        <div class="dash-card dash-module" data-dashboard-module="account">
           <h2>Mein Konto</h2>
           <div class="status-row">
             <span class="label">Mitgliedsnummer</span>
@@ -102,7 +106,7 @@
           </div>
         </div>
 
-        <div class="dash-card">
+        <div class="dash-card dash-module" data-dashboard-module="security">
           <h2>Sicherheit</h2>
           <div class="status-row">
             <span class="label">Zwei-Faktor-Authentifizierung</span>
@@ -248,6 +252,7 @@
 
       document.getElementById('dashLoading').style.display = 'none';
       document.getElementById('dashContent').style.display = 'block';
+      applyDashboardModules();
     } catch(err){
       document.getElementById('dashLoading').style.display = 'none';
       document.getElementById('dashError').style.display = 'block';
@@ -255,6 +260,76 @@
   });
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+  function dashboardModuleDefaults(){
+    var adminModules = [
+      { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Aktuelle Übersicht der wichtigsten Portal-Zahlen.' },
+      { key:'overdue_invoices', type:'system', visible:true, title:'Überfällige Rechnungen', text:'Offene Rechnungen mit überschrittenem Fälligkeitsdatum.' },
+      { key:'expiring_tenancies', type:'system', visible:true, title:'Mietverträge laufen bald aus', text:'Aktive Mietverträge, die demnächst enden.' },
+      { key:'vacant_units', type:'system', visible:true, title:'Leerstehende Einheiten', text:'Einheiten ohne aktive Mietverhältnisse.' },
+      { key:'account', type:'system', visible:true, title:'Mein Konto', text:'Profil, Rollen und E-Mail-Adresse.' },
+      { key:'security', type:'system', visible:true, title:'Sicherheit', text:'Zwei-Faktor-Authentifizierung verwalten.' }
+    ];
+    var userModules = [
+      { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Ihre wichtigsten Portal-Informationen.' },
+      { key:'account', type:'system', visible:true, title:'Mein Konto', text:'Profil, Rollen und E-Mail-Adresse.' },
+      { key:'security', type:'system', visible:true, title:'Sicherheit', text:'Zwei-Faktor-Authentifizierung verwalten.' }
+    ];
+    return profile.category === 'admin' ? adminModules : userModules;
+  }
+
+  function mergeDashboardModules(saved){
+    var base = dashboardModuleDefaults();
+    var byKey = {};
+    ((saved && saved.modules) || []).forEach(function(item){ byKey[item.key] = item; });
+    var merged = base.map(function(item){ return Object.assign({}, item, byKey[item.key] || {}); });
+    ((saved && saved.modules) || []).forEach(function(item){
+      if(item.type === 'custom' && !base.some(function(baseItem){ return baseItem.key === item.key; })){
+        merged.push(Object.assign({}, item));
+      }
+    });
+    return merged.filter(function(item){ return item.deleted !== true; });
+  }
+
+  function setModuleTitle(key, title){
+    var module = document.querySelector('[data-dashboard-module="'+key+'"]');
+    if(!module || !title) return;
+    var h2 = module.querySelector('h2');
+    if(h2) h2.textContent = title;
+  }
+
+  function renderCustomDashboardModules(modules){
+    var holder = document.getElementById('dashCustomModules');
+    if(!holder) return;
+    holder.innerHTML = modules.filter(function(item){ return item.type === 'custom' && item.visible !== false; }).map(function(item){
+      return '<div class="dash-card dash-module" data-dashboard-module="'+VeraDashboard.escapeHtml(item.key)+'">' +
+        '<h2>'+VeraDashboard.escapeHtml(item.title || 'Neues Modul')+'</h2>' +
+        '<p class="dash-lead">'+VeraDashboard.escapeHtml(item.text || '')+'</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function applyDashboardModules(){
+    try{
+      var res = await client.from('portal_settings').select('value').eq('key','portal_dashboard_modules').maybeSingle();
+      var modules = mergeDashboardModules(res.data && res.data.value);
+      var customModules = modules.filter(function(item){ return item.type === 'custom'; });
+      renderCustomDashboardModules(customModules);
+      modules.forEach(function(item){
+        var el = document.querySelector('[data-dashboard-module="'+item.key+'"]');
+        if(!el) return;
+        el.style.display = item.visible === false ? 'none' : '';
+        setModuleTitle(item.key, item.title);
+      });
+      var content = document.getElementById('dashContent');
+      modules.forEach(function(item){
+        var el = document.querySelector('[data-dashboard-module="'+item.key+'"]');
+        if(el && content) content.appendChild(el);
+      });
+    } catch(e){
+      /* Dashboard bleibt mit Standard-Modulen bedienbar. */
+    }
+  }
 
   async function initMfaSection(){
     var statusLabel = document.getElementById('mfaStatusLabel');

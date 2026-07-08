@@ -139,6 +139,28 @@
   width:100%;min-height:40px;border:1px solid var(--color-blue-light);border-radius:8px;
   background:var(--color-white);padding:9px 11px;font-family:inherit;font-size:.86rem;color:var(--color-navy);
 }
+.portal-module-palette{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.portal-module-row{
+  display:grid;grid-template-columns:38px 120px minmax(0,1fr) auto;gap:12px;align-items:start;
+  padding:12px 14px;border:1px solid var(--color-blue-light);border-radius:12px;background:var(--color-bg);
+}
+.portal-module-row.is-dragging{opacity:.55;border-color:var(--color-gold);}
+.portal-module-handle{
+  min-height:42px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--color-blue-light);
+  border-radius:10px;color:var(--color-gold);font-weight:900;cursor:grab;background:var(--color-white);
+}
+.portal-module-fields{display:grid;gap:10px;}
+.portal-module-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.portal-module-meta code{
+  font-size:.72rem;color:var(--color-gray-text);background:var(--color-white);border:1px solid var(--color-blue-light);
+  border-radius:999px;padding:3px 8px;
+}
+.portal-module-fields input,.portal-module-fields textarea{
+  width:100%;min-height:40px;border:1px solid var(--color-blue-light);border-radius:8px;
+  background:var(--color-white);padding:9px 11px;font-family:inherit;font-size:.86rem;color:var(--color-navy);
+}
+.portal-module-fields textarea{resize:vertical;line-height:1.35;}
+.portal-module-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
 .homepage-editor-shell{
   display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start;
 }
@@ -956,6 +978,9 @@
   .site-service-fields{grid-template-columns:1fr;}
   .portal-ui-row{grid-template-columns:1fr;}
   .portal-ui-fields{grid-template-columns:1fr;}
+  .portal-module-row{grid-template-columns:1fr;}
+  .portal-module-handle{min-height:36px;}
+  .portal-module-actions{justify-content:flex-start;}
   .email-mode-head{flex-direction:column;align-items:flex-start;}
   .email-mode-toggle{align-items:flex-start;}
   .dash-search-input{max-width:none;font-size:16px;}
