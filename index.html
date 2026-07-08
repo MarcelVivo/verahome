@@ -3,6 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <script>
+/* Supabase Auth-Fallback: Wenn ein Invite-/Recovery-Link trotz
+   redirectTo auf der öffentlichen Startseite landet, Token/Query
+   vollständig zur Passwort-Seite weiterreichen. */
+(function(){
+  var hash = window.location.hash || "";
+  var search = window.location.search || "";
+  var authPayload = hash + search;
+  var isAuthLink = /(?:access_token|refresh_token|type=recovery|type=invite|type=signup|code=)/.test(authPayload);
+  if(isAuthLink && window.location.pathname !== "/portal/update-password.html"){
+    window.location.replace("/portal/update-password.html" + search + hash);
+  }
+})();
+
 /* Bekannter Konflikt zwischen CSS "scroll-behavior:smooth" (siehe
    styles.css) und GSAP ScrollTrigger: Kommt man mit einem #anker in der
    URL auf die Seite (z.B. von den Leistungs-Unterseiten via "Jetzt
