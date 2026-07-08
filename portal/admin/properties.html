@@ -199,26 +199,39 @@
 
   var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
   var UNIT_TYPE_LABELS = {
-    wohnung: 'Wohnungen', einfamilienhaus: 'Einfamilienhäuser', reihenhaus: 'Reihenhäuser', doppelhaushaelfte: 'Doppelhaushälften',
-    villa: 'Villen', maisonette: 'Maisonettewohnungen', attika: 'Attikawohnungen', penthouse: 'Penthouses', triplex: 'Triplexwohnungen',
-    dachwohnung: 'Dachwohnungen', etagenwohnung: 'Etagenwohnungen', loft: 'Lofts', einliegerwohnung: 'Einliegerwohnungen',
-    zimmer_moebliert: 'Möblierte Zimmer', wohnung_moebliert: 'Möblierte Wohnungen', studio: 'Studios',
-    garage: 'Garagen', tiefgaragenplatz: 'Tiefgaragenplätze', aussenparkplatz: 'Aussenparkplätze',
-    hobbyraum: 'Hobbyräume', lager: 'Lager', gewerbe: 'Gewerbe', gastronomie: 'Gastronomie', sonstiges: 'Sonstiges'
+    wohnung: 'Wohnungen / Studios',
+    haus: 'Häuser',
+    zimmer: 'Zimmer',
+    gewerbe: 'Gewerbe',
+    garage: 'Garagen',
+    parkplatz: 'Parkplätze',
+    lager: 'Lager / Hobbyräume',
+    sonstiges: 'Sonstiges'
   };
-  var UNIT_TYPE_ORDER = [
-    'wohnung', 'einfamilienhaus', 'reihenhaus', 'doppelhaushaelfte', 'villa', 'maisonette', 'attika', 'penthouse', 'triplex',
-    'dachwohnung', 'etagenwohnung', 'loft', 'einliegerwohnung', 'zimmer_moebliert', 'wohnung_moebliert', 'studio',
-    'garage', 'tiefgaragenplatz', 'aussenparkplatz', 'hobbyraum', 'lager', 'gewerbe', 'gastronomie', 'sonstiges'
-  ];
+  var UNIT_TYPE_ORDER = ['wohnung', 'haus', 'zimmer', 'gewerbe', 'garage', 'parkplatz', 'lager', 'sonstiges'];
   var UNIT_TYPE_SINGULAR = {
-    wohnung: 'Wohnung', einfamilienhaus: 'Einfamilienhaus', reihenhaus: 'Reihenhaus', doppelhaushaelfte: 'Doppelhaushälfte',
-    villa: 'Villa', maisonette: 'Maisonettewohnung', attika: 'Attikawohnung', penthouse: 'Penthouse', triplex: 'Triplexwohnung',
-    dachwohnung: 'Dachwohnung', etagenwohnung: 'Etagenwohnung', loft: 'Loft', einliegerwohnung: 'Einliegerwohnung',
-    zimmer_moebliert: 'Möbliertes Zimmer', wohnung_moebliert: 'Möblierte Wohnung', studio: 'Studio',
-    garage: 'Garage', tiefgaragenplatz: 'Tiefgaragenplatz', aussenparkplatz: 'Aussenparkplatz',
-    hobbyraum: 'Hobbyraum', lager: 'Lagerraum', gewerbe: 'Gewerbefläche', gastronomie: 'Gastronomiefläche', sonstiges: 'Einheit'
+    wohnung: 'Wohnung / Studio',
+    haus: 'Haus',
+    zimmer: 'Zimmer',
+    gewerbe: 'Gewerberaum',
+    garage: 'Garage',
+    parkplatz: 'Parkplatz',
+    lager: 'Lager / Hobbyraum',
+    sonstiges: 'Einheit'
   };
+  var LEGACY_UNIT_TYPE_MAP = {
+    einfamilienhaus: 'haus', reihenhaus: 'haus', doppelhaushaelfte: 'haus', villa: 'haus',
+    maisonette: 'wohnung', attika: 'wohnung', penthouse: 'wohnung', triplex: 'wohnung',
+    dachwohnung: 'wohnung', etagenwohnung: 'wohnung', loft: 'wohnung', einliegerwohnung: 'wohnung',
+    wohnung_moebliert: 'wohnung', studio: 'wohnung',
+    zimmer_moebliert: 'zimmer',
+    tiefgaragenplatz: 'parkplatz', aussenparkplatz: 'parkplatz',
+    hobbyraum: 'lager',
+    gastronomie: 'gewerbe'
+  };
+  function normalizeUnitType(type){
+    return UNIT_TYPE_LABELS[type] ? type : (LEGACY_UNIT_TYPE_MAP[type] || 'sonstiges');
+  }
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
@@ -299,9 +312,9 @@
      Fläche und Nebenkosten bleiben dort aber relevant -- nur die
      Fläche heisst dort "Fläche m²" statt "Wohnfläche m²", da
      "Wohnfläche" ausdrücklich Wohnraum meint. */
-  var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'tiefgaragenplatz', 'aussenparkplatz'];
-  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'gastronomie', 'lager', 'sonstiges', 'hobbyraum'];
-  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'gastronomie', 'lager', 'sonstiges', 'hobbyraum'];
+  var UNIT_TYPES_WITHOUT_AREA_ROOMS = ['garage', 'parkplatz'];
+  var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'lager', 'sonstiges'];
+  var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'lager', 'sonstiges'];
   function applyUnitTypeFieldVisibility(type){
     var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
     var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
@@ -635,12 +648,12 @@
     if(!propertyId) return '<p class="dash-empty">Bitte zuerst ein Gebäude wählen.</p>';
     var q = (columnSearchState.units || '').trim();
     var units = allUnits.filter(function(u){ return u.property_id === propertyId; }).filter(function(u){
-      return VeraDashboard.matchesSearch([u.label, u.floor, UNIT_TYPE_SINGULAR[u.unit_type || 'sonstiges'], u.offer_type], q);
+      return VeraDashboard.matchesSearch([u.label, u.floor, UNIT_TYPE_SINGULAR[normalizeUnitType(u.unit_type)], u.offer_type], q);
     });
     if(!units.length) return '<p class="dash-empty">Noch keine Einheit in diesem Gebäude.</p>';
     var byType = {};
     units.forEach(function(u){
-      var type = u.unit_type || 'sonstiges';
+      var type = normalizeUnitType(u.unit_type);
       if(!byType[type]) byType[type] = [];
       byType[type].push(u);
     });
@@ -743,7 +756,10 @@
   function propertyQuickDetailHtml(property){
     var units = allUnits.filter(function(u){ return u.property_id === property.id; });
     var byType = {};
-    units.forEach(function(u){ byType[u.unit_type || 'sonstiges'] = (byType[u.unit_type || 'sonstiges'] || 0) + 1; });
+    units.forEach(function(u){
+      var type = normalizeUnitType(u.unit_type);
+      byType[type] = (byType[type] || 0) + 1;
+    });
     var stats = Object.keys(byType).map(function(type){ return '<span>'+VeraDashboard.escapeHtml(UNIT_TYPE_LABELS[type] || type)+': '+byType[type]+'</span>'; }).join('');
     return '<div class="obj-detail-card">' +
       '<span class="obj-step-label">Gebäude / Liegenschaft</span>' +
@@ -759,7 +775,7 @@
 
   function unitQuickDetailHtml(unit){
     var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0];
-    var type = unit.unit_type || 'sonstiges';
+    var type = normalizeUnitType(unit.unit_type);
     return '<div class="obj-detail-card">' +
       '<span class="obj-step-label">Einheit / Nutzung</span>' +
       '<h2>'+VeraDashboard.escapeHtml(unit.label)+'</h2>' +
@@ -896,7 +912,7 @@
         '</button>';
       }).join('');
     } else {
-      var unitsOfType = allUnits.filter(function(u){ return (u.unit_type || 'sonstiges') === key; });
+      var unitsOfType = allUnits.filter(function(u){ return normalizeUnitType(u.unit_type) === key; });
       var filteredUnits = unitsOfType.filter(function(u){
         return VeraDashboard.matchesSearch([u.label, u.floor, u.offer_type], q);
       });
@@ -1254,7 +1270,7 @@
     var unitId = unit.id;
     return '<h3>'+VeraDashboard.escapeHtml(unit.label)+'</h3>' +
       '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'">' +
-        '<select id="unitType-'+unitId+'">'+unitTypeOptionsHtml(unit.unit_type || 'sonstiges')+'</select>' +
+        '<select id="unitType-'+unitId+'">'+unitTypeOptionsHtml(normalizeUnitType(unit.unit_type))+'</select>' +
         '<input id="unitLabel-'+unitId+'" placeholder="Bezeichnung *" required value="'+VeraDashboard.escapeHtml(unit.label)+'">' +
         '<select id="unitVisibility-'+unitId+'">' +
           '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
