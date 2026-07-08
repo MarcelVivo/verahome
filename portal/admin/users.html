@@ -563,6 +563,7 @@
         '</div>' +
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Kontakt speichern</button>' +
+          '<button type="button" class="dash-btn-sm resend-invite-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Einladungslink erneut senden</button>' +
           statusActions +
           '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Kontakt löschen</button>' +
         '</div>' +
@@ -685,7 +686,37 @@
       deleteContact(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
     });
 
+    modalBody.querySelector('.resend-invite-btn').addEventListener('click', function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      resendInviteLink(btn.getAttribute('data-id'), btn);
+    });
+
     wireSendPanel(modalBody, contact);
+  }
+
+  async function resendInviteLink(contactId, btn){
+    if(!window.confirm('Einladungslink zur Registrierung im Vera Portal erneut senden?')) return;
+    btn.disabled = true;
+    var originalText = btn.textContent;
+    btn.textContent = 'Wird gesendet …';
+    try {
+      var res = await client.functions.invoke('admin-resend-invite', { body: { profileId: contactId } });
+      if(res.error || (res.data && res.data.error)){
+        window.alert('Fehler beim Senden: ' + (await edgeFunctionErrorMessage(res)));
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+      btn.textContent = res.data && res.data.skipped ? 'Testmodus: nicht gesendet' : 'Einladung gesendet ✓';
+      setTimeout(function(){
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }, 2200);
+    } catch(err) {
+      window.alert('Fehler beim Senden: ' + err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   }
 
   function wireSendPanel(container, contact){
