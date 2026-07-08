@@ -8,7 +8,6 @@ alter table public.units drop constraint if exists units_unit_type_check;
 alter table public.units add constraint units_unit_type_check
   check (unit_type in (
     'wohnung',
-    'haus',
     'zimmer',
     'gewerbe',
     'garage',
@@ -19,6 +18,7 @@ alter table public.units add constraint units_unit_type_check
     -- alte Detailwerte bleiben vorerst erlaubt, damit bestehende
     -- Daten nicht brechen; im Portal werden sie automatisch in die
     -- Hauptgruppen einsortiert.
+    'haus',
     'einfamilienhaus',
     'reihenhaus',
     'doppelhaushaelfte',

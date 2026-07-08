@@ -200,7 +200,6 @@
   var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
   var UNIT_TYPE_LABELS = {
     wohnung: 'Wohnungen / Studios',
-    haus: 'Häuser',
     zimmer: 'Zimmer',
     gewerbe: 'Gewerbe',
     garage: 'Garagen',
@@ -208,10 +207,9 @@
     lager: 'Lager / Hobbyräume',
     sonstiges: 'Sonstiges'
   };
-  var UNIT_TYPE_ORDER = ['wohnung', 'haus', 'zimmer', 'gewerbe', 'garage', 'parkplatz', 'lager', 'sonstiges'];
+  var UNIT_TYPE_ORDER = ['wohnung', 'zimmer', 'gewerbe', 'garage', 'parkplatz', 'lager', 'sonstiges'];
   var UNIT_TYPE_SINGULAR = {
     wohnung: 'Wohnung / Studio',
-    haus: 'Haus',
     zimmer: 'Zimmer',
     gewerbe: 'Gewerberaum',
     garage: 'Garage',
@@ -220,7 +218,7 @@
     sonstiges: 'Einheit'
   };
   var LEGACY_UNIT_TYPE_MAP = {
-    einfamilienhaus: 'haus', reihenhaus: 'haus', doppelhaushaelfte: 'haus', villa: 'haus',
+    einfamilienhaus: 'sonstiges', reihenhaus: 'sonstiges', doppelhaushaelfte: 'sonstiges', villa: 'sonstiges',
     maisonette: 'wohnung', attika: 'wohnung', penthouse: 'wohnung', triplex: 'wohnung',
     dachwohnung: 'wohnung', etagenwohnung: 'wohnung', loft: 'wohnung', einliegerwohnung: 'wohnung',
     wohnung_moebliert: 'wohnung', studio: 'wohnung',

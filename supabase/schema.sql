@@ -4165,9 +4165,9 @@ alter table public.units drop constraint if exists units_unit_type_check;
 alter table public.units add constraint units_unit_type_check
   check (unit_type in (
     'wohnung',
-    'haus',
     'zimmer',
     'parkplatz',
+    'haus',
     'einfamilienhaus',
     'reihenhaus',
     'doppelhaushaelfte',
