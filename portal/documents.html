@@ -95,8 +95,16 @@
           </div>
           <p class="form-status" id="fmStatus"></p>
           <div class="filemgr-dropzone" id="filemgrDropzone">
-            <div class="filemgr-folder-grid" id="filemgrFolderGrid"></div>
-            <div class="filemgr-file-list" id="filemgrFileList"></div>
+            <div class="filemgr-browser">
+              <div class="filemgr-columns" id="filemgrColumns" aria-label="Ordner und Dateien"></div>
+              <aside class="filemgr-detail" id="filemgrDetail" aria-label="Dokument Anzeige">
+                <div class="filemgr-detail-empty">
+                  <span class="filemgr-detail-icon">📄</span>
+                  <strong>Kein Dokument ausgewählt</strong>
+                  <span>Wählen Sie links eine Datei oder einen Ordner aus.</span>
+                </div>
+              </aside>
+            </div>
           </div>
         </div>
       </div>
@@ -107,6 +115,9 @@
           <h3 id="shareModalTitle">Teilen</h3>
           <p class="doc-meta" id="shareModalHint"></p>
           <div class="prop-user-picker" id="shareModalPicker"></div>
+          <label class="auth-form-label">Zusätzliche E-Mail-Adressen
+            <textarea id="shareModalEmails" rows="3" placeholder="Eine oder mehrere E-Mail-Adressen, getrennt mit Komma oder Zeilenumbruch"></textarea>
+          </label>
           <label class="filemgr-confirm-label">
             <input type="checkbox" id="shareModalNeedsConfirmation"> Bestätigung einfordern
           </label>
@@ -114,6 +125,28 @@
           <div class="share-modal-actions">
             <button type="button" class="dash-btn-sm" id="shareModalCancel">Abbrechen</button>
             <button type="button" class="btn btn-primary" id="shareModalConfirm">Teilen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zuweisen-Modal (admin) -->
+      <div class="share-modal-backdrop" id="assignModalBackdrop" hidden>
+        <div class="share-modal">
+          <h3 id="assignModalTitle">Dokument zuweisen</h3>
+          <p class="doc-meta">Dokument einem Objekt oder einer Wohnung zuordnen und optional automatisch allen aktuellen Bewohnern freigeben.</p>
+          <label class="auth-form-label">Objekt
+            <select id="assignPropertySelect"></select>
+          </label>
+          <label class="auth-form-label">Wohnung / Einheit
+            <select id="assignUnitSelect"></select>
+          </label>
+          <label class="filemgr-confirm-label">
+            <input type="checkbox" id="assignShareResidents" checked> Allen aktuellen Mietern und Eigentümern freigeben
+          </label>
+          <p class="form-status" id="assignModalStatus"></p>
+          <div class="share-modal-actions">
+            <button type="button" class="dash-btn-sm" id="assignModalCancel">Abbrechen</button>
+            <button type="button" class="btn btn-primary" id="assignModalConfirm">Zuweisen</button>
           </div>
         </div>
       </div>
@@ -281,12 +314,16 @@
      in der DB (document_folders/document_files) — Storage-Pfade sind
      flach, Verschieben ist daher nie eine Storage-Operation.
   ============================================================ */
-  var fmPath = []; // Stack von {id, name} — aktueller Ordner ist das letzte Element, [] = Wurzel
+  var fmPath = []; // Stack von {id, name}; [] = Wurzel
   var fmFolders = [];
   var fmFiles = [];
   var fmAllProfiles = [];
+  var fmProperties = [];
+  var fmUnits = [];
   var fmDragged = null; // { type: 'folder'|'file', id }
+  var fmSelected = null; // { type: 'folder'|'file', item }
   var fmShareTarget = null; // { type: 'folder'|'file', id, name }
+  var fmAssignTarget = null; // file row
 
   function fmCurrentFolderId(){
     return fmPath.length ? fmPath[fmPath.length - 1].id : null;
@@ -297,10 +334,12 @@
     document.getElementById('fm_new_folder_btn').addEventListener('click', fmCreateFolder);
     document.getElementById('fm_back_btn').addEventListener('click', function(){
       if(fmPath.length) fmPath.pop();
+      fmSelected = null;
       fmLoadCurrentFolder();
     });
     document.getElementById('fm_up_btn').addEventListener('click', function(){
       if(fmPath.length) fmPath.pop();
+      fmSelected = null;
       fmLoadCurrentFolder();
     });
     document.getElementById('fm_upload_btn').addEventListener('click', function(){
@@ -329,10 +368,17 @@
 
     document.getElementById('shareModalCancel').addEventListener('click', fmCloseShareModal);
     document.getElementById('shareModalConfirm').addEventListener('click', fmSubmitShare);
+    document.getElementById('assignModalCancel').addEventListener('click', fmCloseAssignModal);
+    document.getElementById('assignModalConfirm').addEventListener('click', fmSubmitAssignment);
+    document.getElementById('assignPropertySelect').addEventListener('change', fmRenderAssignUnits);
 
     client.from('profiles').select('id, first_name, last_name, category, email')
       .eq('status', 'active').neq('category', 'admin').order('category').order('last_name')
       .then(function(res){ fmAllProfiles = res.data || []; });
+    client.from('properties').select('id, label, street, city').order('label')
+      .then(function(res){ fmProperties = res.data || []; });
+    client.from('units').select('id, label, property_id').order('label')
+      .then(function(res){ fmUnits = res.data || []; });
 
     fmLoadCurrentFolder();
   }
@@ -345,7 +391,6 @@
 
   async function fmLoadCurrentFolder(){
     var folderId = fmCurrentFolderId();
-
     var foldersQuery = client.from('document_folders').select('*').order('name');
     foldersQuery = folderId === null ? foldersQuery.is('parent_id', null) : foldersQuery.eq('parent_id', folderId);
     var foldersRes = await foldersQuery;
@@ -358,8 +403,8 @@
 
     fmRenderBreadcrumb();
     fmRenderLocation();
-    fmRenderFolderGrid();
-    fmRenderFileList();
+    fmRenderColumns();
+    fmRenderDetail();
   }
 
   function fmRenderLocation(){
@@ -382,6 +427,7 @@
       var idx = parseInt(item.getAttribute('data-crumb-index'), 10);
       item.addEventListener('click', function(){
         fmPath = idx === -1 ? [] : fmPath.slice(0, idx + 1);
+        fmSelected = null;
         fmLoadCurrentFolder();
       });
       fmWireDropTarget(item, idx === -1 ? null : fmPath[idx].id);
@@ -390,6 +436,7 @@
 
   function fmWireDropTarget(el, targetFolderId){
     el.addEventListener('dragover', function(e){
+      if(!fmDragged) return;
       e.preventDefault();
       el.classList.add('drag-over');
     });
@@ -418,6 +465,7 @@
       await client.from('document_files').update({ folder_id: targetFolderId }).eq('id', fmDragged.id);
     }
     fmDragged = null;
+    fmSelected = null;
     fmLoadCurrentFolder();
   }
 
@@ -434,72 +482,6 @@
     return true;
   }
 
-  function fmRenderFolderGrid(){
-    var grid = document.getElementById('filemgrFolderGrid');
-    grid.innerHTML = fmFolders.map(function(f){
-      return '<div class="filemgr-folder-tile" draggable="true" tabindex="0" data-folder-id="'+f.id+'" data-folder-name="'+VeraDashboard.escapeHtml(f.name)+'">' +
-        '<div class="filemgr-tile-main">' +
-          '<span class="filemgr-folder-icon">📁</span>' +
-          '<span class="filemgr-folder-name">'+VeraDashboard.escapeHtml(f.name)+'</span>' +
-          '<span class="filemgr-file-meta">Ordner</span>' +
-        '</div>' +
-        '<div class="filemgr-folder-actions filemgr-item-actions">' +
-          '<button type="button" class="fm-open-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Öffnen</button>' +
-          '<button type="button" class="fm-share-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Senden</button>' +
-          '<button type="button" class="fm-rename-folder-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Ändern</button>' +
-          '<button type="button" class="fm-delete-folder-btn danger" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.name)+'">Löschen</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-
-    grid.querySelectorAll('.filemgr-folder-tile').forEach(function(tile){
-      var id = tile.getAttribute('data-folder-id');
-      var name = tile.getAttribute('data-folder-name');
-      function openFolder(){
-        fmPath.push({ id: id, name: name });
-        fmLoadCurrentFolder();
-      }
-      tile.addEventListener('dblclick', function(e){
-        if(e.target.closest('button')) return;
-        openFolder();
-      });
-      tile.addEventListener('keydown', function(e){
-        if(e.key === 'Enter' && !e.target.closest('button')) openFolder();
-      });
-      tile.addEventListener('dragstart', function(e){
-        fmDragged = { type: 'folder', id: id };
-        if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-      });
-      tile.addEventListener('dragend', function(){ fmDragged = null; });
-      fmWireDropTarget(tile, id);
-    });
-    grid.querySelectorAll('.fm-open-folder-btn').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        fmPath.push({ id: btn.getAttribute('data-id'), name: btn.getAttribute('data-name') });
-        fmLoadCurrentFolder();
-      });
-    });
-    grid.querySelectorAll('.fm-rename-folder-btn').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        fmRenameFolder(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
-      });
-    });
-    grid.querySelectorAll('.fm-delete-folder-btn').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        fmDeleteFolder(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
-      });
-    });
-    grid.querySelectorAll('.fm-share-folder-btn').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        fmOpenShareModal('folder', btn.getAttribute('data-id'), btn.getAttribute('data-name'));
-      });
-    });
-  }
-
   function fmFileIcon(mime){
     if(!mime) return '📄';
     if(mime.indexOf('pdf') > -1) return '📕';
@@ -511,63 +493,121 @@
   }
 
   function fmFormatSize(bytes){
-    if(!bytes) return '';
-    if(bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+    if(!bytes) return '–';
+    if(bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  function fmRenderFileList(){
-    var list = document.getElementById('filemgrFileList');
-    if(!fmFiles.length){
-      list.innerHTML = fmFolders.length ? '' : '<p class="dash-empty">Dieser Ordner ist leer.</p>';
-      return;
-    }
-    list.innerHTML = fmFiles.map(function(f){
-      return '<div class="filemgr-file-row" draggable="true" data-file-id="'+f.id+'" data-file-title="'+VeraDashboard.escapeHtml(f.title)+'">' +
-        '<div class="filemgr-file-info">' +
-          '<span class="filemgr-file-icon">'+fmFileIcon(f.mime_type)+'</span>' +
-          '<span class="filemgr-file-title">'+VeraDashboard.escapeHtml(f.title)+'</span>' +
-          '<span class="filemgr-file-meta">'+fmFormatSize(f.size_bytes)+'</span>' +
-        '</div>' +
-        '<div class="dash-btn-row">' +
-          '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+f.file_path+'">Öffnen</a>' +
-          '<button type="button" class="dash-btn-sm fm-share-file-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.title)+'">Senden</button>' +
-          '<button type="button" class="dash-btn-sm fm-rename-file-btn" data-id="'+f.id+'" data-name="'+VeraDashboard.escapeHtml(f.title)+'">Ändern</button>' +
-          '<button type="button" class="dash-btn-sm danger fm-delete-file-btn" data-id="'+f.id+'" data-path="'+f.file_path+'" data-name="'+VeraDashboard.escapeHtml(f.title)+'">Löschen</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
+  function fmIsSelected(type, id){
+    return fmSelected && fmSelected.type === type && fmSelected.item.id === id;
+  }
 
-    wireOpenLinks(list, 'document-vault');
-    list.querySelectorAll('.filemgr-file-row').forEach(function(row){
-      row.addEventListener('dragstart', function(e){
-        fmDragged = { type: 'file', id: row.getAttribute('data-file-id') };
+  function fmRenderColumns(){
+    var columns = document.getElementById('filemgrColumns');
+    var title = fmPath.length ? fmPath[fmPath.length - 1].name : 'Alle Dokumente';
+    var itemsHtml = fmFolders.map(function(f){
+      var active = fmIsSelected('folder', f.id) ? ' active' : '';
+      return '<button type="button" draggable="true" class="filemgr-column-item folder'+active+'" data-type="folder" data-id="'+f.id+'">' +
+        '<span class="filemgr-column-icon">📁</span><span>'+VeraDashboard.escapeHtml(f.name)+'</span><span class="filemgr-column-chevron">›</span></button>';
+    }).join('') + fmFiles.map(function(f){
+      var active = fmIsSelected('file', f.id) ? ' active' : '';
+      return '<button type="button" draggable="true" class="filemgr-column-item file'+active+'" data-type="file" data-id="'+f.id+'">' +
+        '<span class="filemgr-column-icon">'+fmFileIcon(f.mime_type)+'</span><span>'+VeraDashboard.escapeHtml(f.title)+'</span></button>';
+    }).join('');
+    if(!itemsHtml) itemsHtml = '<p class="dash-empty">Dieser Ordner ist leer.</p>';
+    columns.innerHTML = '<div class="filemgr-column"><h3>'+VeraDashboard.escapeHtml(title)+'</h3><div class="filemgr-column-list">'+itemsHtml+'</div></div>';
+
+    columns.querySelectorAll('.filemgr-column-item').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var type = btn.getAttribute('data-type');
+        var id = btn.getAttribute('data-id');
+        if(type === 'folder'){
+          var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
+          fmSelected = { type:'folder', item: folder };
+        } else {
+          var file = fmFiles.filter(function(f){ return f.id === id; })[0];
+          fmSelected = { type:'file', item: file };
+        }
+        fmRenderColumns();
+        fmRenderDetail();
+      });
+      btn.addEventListener('dblclick', function(){
+        if(btn.getAttribute('data-type') !== 'folder') return;
+        var id = btn.getAttribute('data-id');
+        var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
+        if(folder){ fmPath.push({ id: folder.id, name: folder.name }); fmSelected = null; fmLoadCurrentFolder(); }
+      });
+      btn.addEventListener('dragstart', function(e){
+        fmDragged = { type: btn.getAttribute('data-type'), id: btn.getAttribute('data-id') };
         if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       });
-      row.addEventListener('dragend', function(){ fmDragged = null; });
+      btn.addEventListener('dragend', function(){ fmDragged = null; });
+      if(btn.getAttribute('data-type') === 'folder') fmWireDropTarget(btn, btn.getAttribute('data-id'));
     });
-    list.querySelectorAll('.fm-share-file-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        fmOpenShareModal('file', btn.getAttribute('data-id'), btn.getAttribute('data-name'));
-      });
-    });
-    list.querySelectorAll('.fm-delete-file-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        fmDeleteFile(btn.getAttribute('data-id'), btn.getAttribute('data-path'), btn.getAttribute('data-name'));
-      });
-    });
-    list.querySelectorAll('.fm-rename-file-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        fmRenameFile(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
-      });
-    });
+  }
+
+  function fmPropertyLabel(file){
+    if(!file || !file.property_id) return 'Nicht zugewiesen';
+    var prop = fmProperties.filter(function(p){ return p.id === file.property_id; })[0];
+    var unit = file.unit_id ? fmUnits.filter(function(u){ return u.id === file.unit_id; })[0] : null;
+    return (prop ? prop.label : 'Objekt') + (unit ? ' · ' + unit.label : '');
+  }
+
+  function fmRenderDetail(){
+    var detail = document.getElementById('filemgrDetail');
+    if(!fmSelected){
+      detail.innerHTML = '<div class="filemgr-detail-empty"><span class="filemgr-detail-icon">📄</span><strong>Kein Dokument ausgewählt</strong><span>Wählen Sie links eine Datei oder einen Ordner aus.</span></div>';
+      return;
+    }
+    if(fmSelected.type === 'folder'){
+      var folder = fmSelected.item;
+      detail.innerHTML = '<div class="filemgr-detail-preview folder">📁</div>' +
+        '<h2>'+VeraDashboard.escapeHtml(folder.name)+'</h2>' +
+        '<p class="doc-meta">Ordner · '+VeraDashboard.formatDate(folder.created_at)+'</p>' +
+        '<div class="filemgr-detail-actions">' +
+          '<button type="button" class="btn btn-primary" id="fmDetailOpenFolder">Öffnen</button>' +
+          '<button type="button" class="dash-btn-sm" id="fmDetailShareFolder">Senden</button>' +
+          '<button type="button" class="dash-btn-sm" id="fmDetailAssignFolder">Objekt/Wohnung zuweisen</button>' +
+          '<button type="button" class="dash-btn-sm" id="fmDetailRenameFolder">Umbenennen</button>' +
+          '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFolder">Löschen</button>' +
+        '</div>';
+      document.getElementById('fmDetailOpenFolder').onclick = function(){ fmPath.push({ id: folder.id, name: folder.name }); fmSelected = null; fmLoadCurrentFolder(); };
+      document.getElementById('fmDetailShareFolder').onclick = function(){ fmOpenShareModal('folder', folder.id, folder.name); };
+      document.getElementById('fmDetailAssignFolder').onclick = function(){ fmOpenAssignModal('folder', folder); };
+      document.getElementById('fmDetailRenameFolder').onclick = function(){ fmRenameFolder(folder.id, folder.name); };
+      document.getElementById('fmDetailDeleteFolder').onclick = function(){ fmDeleteFolder(folder.id, folder.name); };
+      return;
+    }
+    var file = fmSelected.item;
+    detail.innerHTML = '<div class="filemgr-detail-preview">'+fmFileIcon(file.mime_type)+'</div>' +
+      '<h2>'+VeraDashboard.escapeHtml(file.title)+'</h2>' +
+      '<p class="doc-meta">'+VeraDashboard.escapeHtml(file.mime_type || 'Datei')+' · '+fmFormatSize(file.size_bytes)+'</p>' +
+      '<div class="filemgr-detail-info"><strong>Zuweisung</strong><span>'+VeraDashboard.escapeHtml(fmPropertyLabel(file))+'</span></div>' +
+      '<div class="filemgr-detail-info"><strong>Erstellt</strong><span>'+VeraDashboard.formatDateTime(file.created_at)+'</span></div>' +
+      '<div class="filemgr-detail-actions">' +
+        '<button type="button" class="btn btn-primary" id="fmDetailOpenFile">Öffnen</button>' +
+        '<button type="button" class="dash-btn-sm" id="fmDetailShareFile">Senden</button>' +
+        '<button type="button" class="dash-btn-sm" id="fmDetailAssignFile">Objekt/Wohnung zuweisen</button>' +
+        '<button type="button" class="dash-btn-sm" id="fmDetailRenameFile">Umbenennen</button>' +
+        '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFile">Löschen</button>' +
+      '</div>';
+    document.getElementById('fmDetailOpenFile').onclick = function(){ openSignedUrl('document-vault', file.file_path); };
+    document.getElementById('fmDetailShareFile').onclick = function(){ fmOpenShareModal('file', file.id, file.title); };
+    document.getElementById('fmDetailAssignFile').onclick = function(){ fmOpenAssignModal('file', file); };
+    document.getElementById('fmDetailRenameFile').onclick = function(){ fmRenameFile(file.id, file.title); };
+    document.getElementById('fmDetailDeleteFile').onclick = function(){ fmDeleteFile(file.id, file.file_path, file.title); };
   }
 
   async function fmCreateFolder(){
     var name = window.prompt('Ordnername:');
     if(!name || !name.trim()) return;
+    var assignment = await fmGetFolderAssignment(fmCurrentFolderId());
     await client.from('document_folders').insert({
-      name: name.trim(), parent_id: fmCurrentFolderId(), created_by: profile.id
+      name: name.trim(),
+      parent_id: fmCurrentFolderId(),
+      property_id: assignment.property_id,
+      unit_id: assignment.unit_id,
+      created_by: profile.id
     });
     fmLoadCurrentFolder();
   }
@@ -576,6 +616,7 @@
     var name = window.prompt('Neuer Name:', currentName);
     if(!name || !name.trim() || name.trim() === currentName) return;
     await client.from('document_folders').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('id', id);
+    fmSelected = null;
     fmLoadCurrentFolder();
   }
 
@@ -583,39 +624,43 @@
     var name = window.prompt('Neuer Dateiname:', currentName);
     if(!name || !name.trim() || name.trim() === currentName) return;
     await client.from('document_files').update({ title: name.trim() }).eq('id', id);
+    fmSelected = null;
     fmLoadCurrentFolder();
   }
 
-  // Sammelt rekursiv alle Datei-Zeilen unterhalb eines Ordners (admin
-  // hat ohnehin Vollzugriff auf beide Tabellen) — für Löschen (Storage
-  // aufräumen) und Teilen (Fan-out auf Datei-Ebene) gleichermassen.
   async function fmCollectFilesRecursive(folderId){
     var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId);
     var files = filesRes.data || [];
     var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
     var subFolders = subRes.data || [];
-    for(var i = 0; i < subFolders.length; i++){
-      var nested = await fmCollectFilesRecursive(subFolders[i].id);
-      files = files.concat(nested);
-    }
+    for(var i = 0; i < subFolders.length; i++) files = files.concat(await fmCollectFilesRecursive(subFolders[i].id));
     return files;
+  }
+
+  async function fmCollectFolderIdsRecursive(folderId){
+    var ids = [folderId];
+    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+    var subFolders = subRes.data || [];
+    for(var i = 0; i < subFolders.length; i++) ids = ids.concat(await fmCollectFolderIdsRecursive(subFolders[i].id));
+    return ids;
   }
 
   async function fmDeleteFolder(id, name){
     if(!window.confirm('Ordner "'+name+'" wirklich löschen? Alle Unterordner und Dateien darin werden unwiderruflich gelöscht.')) return;
     if(!window.confirm('Letzte Bestätigung: "'+name+'" jetzt endgültig löschen?')) return;
     var files = await fmCollectFilesRecursive(id);
-    if(files.length){
-      await client.storage.from('document-vault').remove(files.map(function(f){ return f.file_path; }));
-    }
+    if(files.length) await client.storage.from('document-vault').remove(files.map(function(f){ return f.file_path; }));
     await client.from('document_folders').delete().eq('id', id);
+    fmSelected = null;
     fmLoadCurrentFolder();
   }
 
   async function fmDeleteFile(id, path, name){
     if(!window.confirm('Datei "'+name+'" wirklich löschen?')) return;
+    if(!window.confirm('Letzte Bestätigung: "'+name+'" endgültig löschen?')) return;
     await client.storage.from('document-vault').remove([path]);
     await client.from('document_files').delete().eq('id', id);
+    fmSelected = null;
     fmLoadCurrentFolder();
   }
 
@@ -629,21 +674,18 @@
   async function fmUploadFileList(files){
     if(!files.length) return;
     var folderId = fmCurrentFolderId();
-
+    var assignment = await fmGetFolderAssignment(folderId);
     fmSetStatus('Wird hochgeladen …');
     for(var i = 0; i < files.length; i++){
       var file = files[i];
       var fileId = crypto.randomUUID();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       var filePath = fileId + '-' + safeName;
-
       var upRes = await client.storage.from('document-vault').upload(filePath, file);
-      if(upRes.error){
-        fmSetStatus('Fehler beim Hochladen von "'+file.name+'": ' + upRes.error.message);
-        continue;
-      }
+      if(upRes.error){ fmSetStatus('Fehler beim Hochladen von "'+file.name+'": ' + upRes.error.message); continue; }
       await client.from('document_files').insert({
         id: fileId, folder_id: folderId, title: file.name, file_path: filePath,
+        property_id: assignment.property_id, unit_id: assignment.unit_id,
         mime_type: file.type || null, size_bytes: file.size, created_by: profile.id
       });
     }
@@ -675,13 +717,14 @@
     fmShareTarget = { type: type, id: id, name: name };
     document.getElementById('shareModalTitle').textContent = 'Teilen: ' + name;
     document.getElementById('shareModalHint').textContent = type === 'folder'
-      ? 'Teilt alle Dateien in diesem Ordner (und Unterordnern) mit den ausgewählten Nutzern.'
-      : 'Teilt diese Datei mit den ausgewählten Nutzern.';
+      ? 'Teilt alle Dateien in diesem Ordner (und Unterordnern) mit ausgewählten Nutzern.'
+      : 'Teilt diese Datei mit ausgewählten Nutzern.';
     document.getElementById('shareModalPicker').innerHTML = fmAllProfiles.map(function(p){
       return '<label><input type="checkbox" value="'+p.id+'"> '+VeraDashboard.escapeHtml(p.first_name+' '+p.last_name)+
         ' <span class="cal-participant-cat">('+VeraDashboard.categoryLabel(p.category)+')</span></label>';
     }).join('');
     document.getElementById('shareModalNeedsConfirmation').checked = false;
+    document.getElementById('shareModalEmails').value = '';
     document.getElementById('shareModalStatus').textContent = '';
     document.getElementById('shareModalBackdrop').hidden = false;
   }
@@ -694,47 +737,131 @@
   async function fmSubmitShare(){
     if(!fmShareTarget) return;
     var statusEl = document.getElementById('shareModalStatus');
-    var profileIds = Array.prototype.slice.call(
-      document.querySelectorAll('#shareModalPicker input[type=checkbox]:checked')
-    ).map(function(cb){ return cb.value; });
-    if(!profileIds.length){
-      statusEl.textContent = 'Bitte mindestens einen Nutzer auswählen.';
-      return;
-    }
-
+    var profileIds = Array.prototype.slice.call(document.querySelectorAll('#shareModalPicker input[type=checkbox]:checked')).map(function(cb){ return cb.value; });
+    var externalEmails = fmParseEmails(document.getElementById('shareModalEmails').value);
+    if(!profileIds.length && !externalEmails.length){ statusEl.textContent = 'Bitte mindestens einen Nutzer oder eine E-Mail-Adresse auswählen.'; return; }
     statusEl.textContent = 'Wird geteilt …';
-    var fileIds;
-    if(fmShareTarget.type === 'folder'){
-      var files = await fmCollectFilesRecursive(fmShareTarget.id);
-      fileIds = files.map(function(f){ return f.id; });
-    } else {
-      fileIds = [fmShareTarget.id];
-    }
-    if(!fileIds.length){
-      statusEl.textContent = 'Keine Dateien zum Teilen vorhanden.';
-      return;
-    }
-
-    var needsConfirmation = document.getElementById('shareModalNeedsConfirmation').checked;
-    var rows = [];
-    fileIds.forEach(function(fid){
-      profileIds.forEach(function(pid){
-        rows.push({ file_id: fid, profile_id: pid, needs_confirmation: needsConfirmation, created_by: profile.id });
-      });
-    });
-    var upsertRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
-    if(upsertRes.error){
-      statusEl.textContent = 'Fehler: ' + upsertRes.error.message;
-      return;
-    }
-
-    try {
-      await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds } });
-    } catch(err) { /* Freigabe steht, Mail-Fehler blockiert nichts */ }
-
+    var fileIds = fmShareTarget.type === 'folder'
+      ? (await fmCollectFilesRecursive(fmShareTarget.id)).map(function(f){ return f.id; })
+      : [fmShareTarget.id];
+    if(!fileIds.length){ statusEl.textContent = 'Keine Dateien zum Teilen vorhanden.'; return; }
+    await fmShareFileIdsWithProfiles(fileIds, profileIds, document.getElementById('shareModalNeedsConfirmation').checked, externalEmails);
     statusEl.textContent = 'Geteilt und per E-Mail versendet.';
     setTimeout(fmCloseShareModal, 900);
   }
+
+  function fmParseEmails(raw){
+    return String(raw || '').split(/[,\n;]/).map(function(e){ return e.trim(); }).filter(function(e){
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+    });
+  }
+
+  async function fmShareFileIdsWithProfiles(fileIds, profileIds, needsConfirmation, externalEmails){
+    var rows = [];
+    profileIds = profileIds || [];
+    externalEmails = externalEmails || [];
+    fileIds.forEach(function(fid){ profileIds.forEach(function(pid){ rows.push({ file_id: fid, profile_id: pid, needs_confirmation: !!needsConfirmation, created_by: profile.id }); }); });
+    if(rows.length){
+      var upsertRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      if(upsertRes.error) throw upsertRes.error;
+    }
+    try { await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } }); }
+    catch(err) { /* Freigabe steht, Mail-Fehler blockiert nicht. */ }
+  }
+
+  async function fmGetFolderAssignment(folderId){
+    if(!folderId) return { property_id: null, unit_id: null };
+    var res = await client.from('document_folders').select('property_id, unit_id').eq('id', folderId).maybeSingle();
+    return res.data || { property_id: null, unit_id: null };
+  }
+
+  function fmOpenAssignModal(type, item){
+    fmAssignTarget = { type: type, item: item };
+    var name = type === 'folder' ? item.name : item.title;
+    document.getElementById('assignModalTitle').textContent = 'Zuweisen: ' + name;
+    var propSelect = document.getElementById('assignPropertySelect');
+    propSelect.innerHTML = '<option value="">Kein Objekt</option>' + fmProperties.map(function(p){
+      return '<option value="'+p.id+'"'+(item.property_id === p.id ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(p.label || [p.street,p.city].filter(Boolean).join(', ') || 'Objekt')+'</option>';
+    }).join('');
+    fmRenderAssignUnits();
+    document.getElementById('assignModalStatus').textContent = '';
+    document.getElementById('assignModalBackdrop').hidden = false;
+  }
+
+  function fmRenderAssignUnits(){
+    var propertyId = document.getElementById('assignPropertySelect').value;
+    var unitSelect = document.getElementById('assignUnitSelect');
+    var item = fmAssignTarget ? fmAssignTarget.item : {};
+    var units = fmUnits.filter(function(u){ return !propertyId || u.property_id === propertyId; });
+    unitSelect.innerHTML = '<option value="">Gesamtes Objekt</option>' + units.map(function(u){
+      return '<option value="'+u.id+'"'+(item.unit_id === u.id ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(u.label)+'</option>';
+    }).join('');
+  }
+
+  function fmCloseAssignModal(){
+    document.getElementById('assignModalBackdrop').hidden = true;
+    fmAssignTarget = null;
+  }
+
+  async function fmResidentProfileIds(propertyId, unitId){
+    var ids = new Set();
+    if(unitId){
+      var tenancies = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unitId).eq('status', 'active');
+      (tenancies.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
+      var ownerships = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unitId).or('end_date.is.null,end_date.gte.' + new Date().toISOString().slice(0,10));
+      (ownerships.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+      return Array.from(ids);
+    }
+    if(propertyId){
+      var units = await client.from('units').select('id').eq('property_id', propertyId);
+      var unitIds = (units.data || []).map(function(u){ return u.id; });
+      if(unitIds.length){
+        var tRes = await client.from('tenancies').select('tenant_profile_id').in('unit_id', unitIds).eq('status', 'active');
+        (tRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
+        var oPropRes = await client.from('ownerships').select('owner_profile_id').eq('property_id', propertyId);
+        (oPropRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+        var oUnitRes = await client.from('ownerships').select('owner_profile_id').in('unit_id', unitIds);
+        (oUnitRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+      }
+    }
+    return Array.from(ids);
+  }
+
+  async function fmSubmitAssignment(){
+    if(!fmAssignTarget) return;
+    var statusEl = document.getElementById('assignModalStatus');
+    var propertyId = document.getElementById('assignPropertySelect').value || null;
+    var unitId = document.getElementById('assignUnitSelect').value || null;
+    if(unitId && !propertyId){
+      var selectedUnit = fmUnits.filter(function(u){ return u.id === unitId; })[0];
+      propertyId = selectedUnit ? selectedUnit.property_id : null;
+    }
+    statusEl.textContent = 'Wird zugewiesen …';
+    var fileIds = [];
+    var updateRes;
+    if(fmAssignTarget.type === 'folder'){
+      var folderIds = await fmCollectFolderIdsRecursive(fmAssignTarget.item.id);
+      updateRes = await client.from('document_folders').update({ property_id: propertyId, unit_id: unitId, updated_at: new Date().toISOString() }).in('id', folderIds);
+      fileIds = (await fmCollectFilesRecursive(fmAssignTarget.item.id)).map(function(f){ return f.id; });
+      if(fileIds.length){
+        var fileUpdateRes = await client.from('document_files').update({ property_id: propertyId, unit_id: unitId }).in('id', fileIds);
+        if(fileUpdateRes.error){ statusEl.textContent = 'Fehler: ' + fileUpdateRes.error.message; return; }
+      }
+    } else {
+      updateRes = await client.from('document_files').update({ property_id: propertyId, unit_id: unitId }).eq('id', fmAssignTarget.item.id);
+      fileIds = [fmAssignTarget.item.id];
+    }
+    if(updateRes.error){ statusEl.textContent = 'Fehler: ' + updateRes.error.message; return; }
+    if(document.getElementById('assignShareResidents').checked && (propertyId || unitId)){
+      var residents = await fmResidentProfileIds(propertyId, unitId);
+      if(residents.length && fileIds.length) await fmShareFileIdsWithProfiles(fileIds, residents, false);
+      statusEl.textContent = residents.length ? 'Zugewiesen und Bewohner freigegeben.' : 'Zugewiesen. Keine aktiven Bewohner gefunden.';
+    } else {
+      statusEl.textContent = 'Zugewiesen.';
+    }
+    setTimeout(function(){ fmCloseAssignModal(); fmSelected = null; fmLoadCurrentFolder(); }, 900);
+  }
+
 })();
 </script>
 </body>

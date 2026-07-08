@@ -70,9 +70,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { fileIds, profileIds } = await req.json();
-    if (!Array.isArray(fileIds) || !fileIds.length || !Array.isArray(profileIds) || !profileIds.length) {
-      return new Response(JSON.stringify({ error: "fileIds und profileIds sind erforderlich." }), {
+    const { fileIds, profileIds = [], externalEmails = [] } = await req.json();
+    const cleanExternalEmails = Array.isArray(externalEmails)
+      ? externalEmails.map((e: unknown) => String(e ?? "").trim()).filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+      : [];
+    if (!Array.isArray(fileIds) || !fileIds.length || (!Array.isArray(profileIds) || !profileIds.length) && !cleanExternalEmails.length) {
+      return new Response(JSON.stringify({ error: "fileIds und Empfänger sind erforderlich." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -120,12 +123,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: recipients } = await adminClient
-      .from("profiles")
-      .select("id, first_name, email")
-      .in("id", profileIds);
-    if (!recipients?.length) {
-      return new Response(JSON.stringify({ error: "Empfänger nicht gefunden." }), {
+    const { data: profileRecipients } = Array.isArray(profileIds) && profileIds.length
+      ? await adminClient.from("profiles").select("id, first_name, email").in("id", profileIds)
+      : { data: [] };
+    const recipients = [
+      ...(profileRecipients ?? []),
+      ...cleanExternalEmails.map((email: string) => ({ id: null, first_name: "", email }))
+    ];
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ error: "Empfänger nicht gefunden oder ungültig." }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -176,10 +182,11 @@ Deno.serve(async (req) => {
         ? "<ul>" + linkOnlyFiles.map((t) => `<li>${escapeHtml(t)} (zu gross zum Anhängen, im Portal öffnen)</li>`).join("") + "</ul>"
         : "";
 
+      const greetingName = person.first_name ? ` ${escapeHtml(person.first_name)}` : "";
       const html = `
         <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:600px;">
           <h2 style="color:#1a2a40;">Neue Dokumente für Sie freigegeben</h2>
-          <p>Guten Tag ${escapeHtml(person.first_name)},</p>
+          <p>Guten Tag${greetingName},</p>
           <p>Julia Allen (Vera Home Immobilien) hat folgende Dokumente mit Ihnen geteilt:</p>
           ${attachedListHtml}
           ${linkOnlyListHtml}

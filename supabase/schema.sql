@@ -3667,10 +3667,14 @@ create table public.document_folders (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
   parent_id   uuid references public.document_folders(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  unit_id     uuid references public.units(id) on delete set null,
   created_by  uuid references public.profiles(id),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+alter table public.document_folders add column if not exists property_id uuid references public.properties(id) on delete set null;
+alter table public.document_folders add column if not exists unit_id uuid references public.units(id) on delete set null;
 alter table public.document_folders enable row level security;
 alter table public.document_folders force row level security;
 create policy document_folders_admin_all on public.document_folders
@@ -3679,6 +3683,8 @@ create policy document_folders_admin_all on public.document_folders
 create table public.document_files (
   id                 uuid primary key default gen_random_uuid(),
   folder_id          uuid references public.document_folders(id) on delete cascade,
+  property_id        uuid references public.properties(id) on delete set null,
+  unit_id            uuid references public.units(id) on delete set null,
   title              text not null,
   file_path          text not null,
   mime_type          text,
@@ -3687,6 +3693,8 @@ create table public.document_files (
   created_by         uuid references public.profiles(id),
   created_at         timestamptz not null default now()
 );
+alter table public.document_files add column if not exists property_id uuid references public.properties(id) on delete set null;
+alter table public.document_files add column if not exists unit_id uuid references public.units(id) on delete set null;
 alter table public.document_files enable row level security;
 alter table public.document_files force row level security;
 create policy document_files_admin_all on public.document_files
