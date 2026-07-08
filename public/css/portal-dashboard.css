@@ -52,9 +52,12 @@
    Bottom-Sheet, siehe @media max-width:900px weiter unten, das diesen
    hier ausblendet und den Sidebar-Button stattdessen zeigt). */
 .dash-top-actions{
-  position:fixed;top:calc(var(--nav-height) + 14px);right:24px;z-index:900;
-  display:flex;align-items:flex-start;justify-content:flex-end;gap:10px;
+  position:fixed;top:calc(var(--nav-height) + 14px);left:272px;right:24px;z-index:900;
+  display:flex;align-items:flex-start;justify-content:flex-end;gap:10px;flex-wrap:wrap;
+  pointer-events:none;
 }
+.dash-top-actions > *{pointer-events:auto;}
+.dash-top-search-group{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:280px;}
 .dash-logout-top{
   padding:10px 22px;border-radius:50px;border:1.5px solid var(--color-blue-light);
   color:var(--color-navy);font-size:.85rem;font-weight:600;background:var(--color-white);
@@ -102,16 +105,31 @@
   .dash-sidebar .dash-logout-btn{display:none;}
 }
 @media (max-width:900px){
-  .dash-top-actions{display:none;}
+  .dash-top-actions{
+    top:var(--nav-height);left:0;right:0;display:grid;grid-template-columns:1fr auto;
+    align-items:start;gap:8px;padding:10px 14px 12px;background:rgba(247,249,251,.97);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--color-blue-light);box-shadow:0 8px 18px rgba(13,36,64,.08);
+  }
+  .dash-top-search-group{grid-column:1 / -1;width:100%;min-width:0;margin-right:0;}
+  .dash-content-editor-top,.dash-logout-top,.dash-email-mode-switch{min-height:44px;}
+  .dash-email-mode-top{align-items:flex-start;max-width:none;}
+  .dash-email-mode-top p{display:none;}
 }
 
-@media (max-width:1100px){
+@media (min-width:901px) and (max-width:1100px){
+  .dash-top-actions{left:260px;gap:8px;}
+  .admin-quickbar-search input{width:min(360px,30vw);}
+  .dash-content-editor-top,.dash-logout-top{padding-left:12px;padding-right:12px;font-size:.76rem;}
   .portal-preview-editor-shell{grid-template-columns:1fr;}
   .portal-preview-editor-shell .homepage-edit-panel{position:static;}
   .portal-preview-frame{height:68vh;min-height:560px;}
 }
 
 .dash-content{flex:1;min-width:0;padding:48px 56px;}
+@media (min-width:901px){
+  body:has(.dash-top-actions) .dash-content{padding-top:92px;}
+}
 .dash-content h1{font-size:1.7rem;margin-bottom:8px;}
 .dash-content > .dash-lead{color:var(--color-gray-text);margin-bottom:32px;}
 
@@ -848,19 +866,12 @@
 .laundry-slot .laundry-slot-time{font-weight:600;color:var(--color-navy);}
 .laundry-slot .laundry-slot-actions{margin-top:6px;}
 
-/* Admin-Schnellzugriff oben mittig (Suche + Tickets nebeneinander) --
-   "mittig" bezieht sich auf den Inhaltsbereich rechts der Sidebar
-   (240px), nicht auf den gesamten Viewport, sonst wirkt es auf breiten
-   Screens optisch nach rechts verschoben. */
 #dashAdminQuickbar{
-  position:fixed;top:calc(var(--nav-height) + 14px);
-  left:calc(240px + (100vw - 240px) / 2);transform:translateX(-50%);
-  z-index:900;
   display:flex;align-items:center;gap:10px;
 }
 .admin-quickbar-search{position:relative;}
 .admin-quickbar-search input{
-  width:280px;padding:9px 16px;border:1px solid var(--color-blue-light);border-radius:50px;
+  width:min(420px,34vw);padding:9px 16px;border:1px solid var(--color-blue-light);border-radius:50px;
   font-size:.82rem;font-family:var(--font-body);background:var(--color-white);box-shadow:var(--shadow-card);
 }
 .admin-quickbar-search input:focus{outline:none;border-color:var(--color-gold);}
@@ -936,11 +947,7 @@
 }
 
 @media (max-width:900px){
-  #dashAdminQuickbar{
-    position:fixed;top:var(--nav-height);left:0;right:0;transform:none;justify-content:flex-end;
-    padding:10px 20px;background:rgba(247,249,251,.96);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-    border-bottom:1px solid var(--color-blue-light);z-index:850;
-  }
+  #dashAdminQuickbar{width:100%;}
   .admin-quickbar-search{flex:1;}
   .admin-quickbar-search input{width:100%;}
   .admin-quickbar-results{left:0;right:0;width:100%;max-height:min(55vh,420px);}
@@ -961,7 +968,8 @@
   .dash-tabbar{display:flex;}
   .dash-sidebar{display:none;}
   .dash-content{padding:32px 20px calc(76px + env(safe-area-inset-bottom));}
-  body:has(#dashAdminQuickbar) .dash-content{padding-top:94px;}
+  body:has(#dashTopActions) .dash-content{padding-top:96px;}
+  body:has(#dashAdminQuickbar) .dash-content{padding-top:178px;}
   /* Popover darf nie hinter der fixen unteren Nav-Leiste enden --
      sonst sind der untere Teil des Formulars (z.B. "Termin speichern")
      unsichtbar/nicht antippbar, obwohl das Popover selbst noch

@@ -477,9 +477,11 @@ window.VeraDashboard = (function () {
   function renderAdminQuickbar(profile) {
     if (profile.category !== "admin") return;
     if (document.getElementById("dashAdminQuickbar")) return;
+    var actions = ensureTopActions();
 
     var bar = document.createElement("div");
     bar.id = "dashAdminQuickbar";
+    bar.className = "dash-top-search-group";
     bar.innerHTML =
       '<div class="admin-quickbar-search">' +
         '<input type="text" id="adminGlobalSearch" placeholder="Alles durchsuchen (Kontakte, Objekte, Mietverhältnisse, Rechnungen, Termine) …" autocomplete="off">' +
@@ -489,7 +491,7 @@ window.VeraDashboard = (function () {
         TICKETS_ICON_SVG +
         '<span class="dash-nav-badge admin-quickbar-badge" data-badge-for="tickets" hidden></span>' +
       "</a>";
-    document.body.appendChild(bar);
+    actions.appendChild(bar);
     initAdminGlobalSearch();
   }
 
@@ -552,8 +554,7 @@ window.VeraDashboard = (function () {
      beschränkt, wo diese obere Leiste ausgeblendet ist und die
      Sidebar zum Bottom-Sheet wird). Für ALLE Rollen, nicht nur Admin
      -- anders als renderAdminQuickbar, das nur Admin sieht. */
-  function renderTopLogoutButton() {
-    if (document.getElementById("dashLogoutTop")) return;
+  function ensureTopActions() {
     var actions = document.getElementById("dashTopActions");
     if (!actions) {
       actions = document.createElement("div");
@@ -561,6 +562,12 @@ window.VeraDashboard = (function () {
       actions.className = "dash-top-actions";
       document.body.appendChild(actions);
     }
+    return actions;
+  }
+
+  function renderTopLogoutButton() {
+    if (document.getElementById("dashLogoutTop")) return;
+    var actions = ensureTopActions();
     var btn = document.createElement("button");
     btn.type = "button";
     btn.id = "dashLogoutTop";
@@ -576,12 +583,7 @@ window.VeraDashboard = (function () {
 
   async function renderAdminEmailModeSwitch(profile) {
     if (!profile || profile.category !== "admin" || document.getElementById("dashEmailModeTop")) return;
-    var actions = document.getElementById("dashTopActions");
-    if (!actions) {
-      renderTopLogoutButton();
-      actions = document.getElementById("dashTopActions");
-    }
-    if (!actions) return;
+    var actions = ensureTopActions();
 
     var wrap = document.createElement("div");
     wrap.id = "dashEmailModeTop";
@@ -649,12 +651,7 @@ window.VeraDashboard = (function () {
 
   function renderAdminContentEditorButton(profile) {
     if (!profile || profile.category !== "admin" || document.getElementById("dashContentEditorTop")) return;
-    var actions = document.getElementById("dashTopActions");
-    if (!actions) {
-      renderTopLogoutButton();
-      actions = document.getElementById("dashTopActions");
-    }
-    if (!actions) return;
+    var actions = ensureTopActions();
     var link = document.createElement("a");
     link.id = "dashContentEditorTop";
     link.className = "dash-content-editor-top";
@@ -665,12 +662,7 @@ window.VeraDashboard = (function () {
 
   function renderAdminPortalEditorButton(profile) {
     if (!profile || profile.category !== "admin" || document.getElementById("dashPortalEditorTop")) return;
-    var actions = document.getElementById("dashTopActions");
-    if (!actions) {
-      renderTopLogoutButton();
-      actions = document.getElementById("dashTopActions");
-    }
-    if (!actions) return;
+    var actions = ensureTopActions();
     var link = document.createElement("a");
     link.id = "dashPortalEditorTop";
     link.className = "dash-content-editor-top";
