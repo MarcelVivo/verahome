@@ -1099,6 +1099,34 @@ async function loadHomepageServiceSettings(){
 
 loadHomepageServiceSettings();
 
+function enableHomepageEditMode(){
+  if(new URLSearchParams(window.location.search).get('adminEdit') !== '1') return;
+  document.body.classList.add('homepage-edit-mode');
+  var style = document.createElement('style');
+  style.textContent =
+    '.homepage-edit-mode [data-i18n],.homepage-edit-mode [data-service-key]{outline:2px dashed rgba(201,168,76,.55);outline-offset:4px;cursor:pointer;}' +
+    '.homepage-edit-mode [data-i18n]:hover,.homepage-edit-mode [data-service-key]:hover{outline-color:#c9a84c;background:rgba(201,168,76,.10);}' +
+    '.homepage-edit-mode [data-service-key][hidden]{display:block!important;opacity:.42;filter:grayscale(.25);}';
+  document.head.appendChild(style);
+  document.addEventListener('click', function(e){
+    var serviceCard = e.target.closest('[data-service-key]');
+    var textEl = e.target.closest('[data-i18n]');
+    if(!serviceCard && !textEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(serviceCard){
+      var key = serviceCard.getAttribute('data-service-key');
+      var item = (homepageServiceSettings.items || []).filter(function(i){ return i.key === key; })[0] || {};
+      window.parent.postMessage({ type:'vera-homepage-edit-select', target:'service', key:key, item:item }, window.location.origin);
+      return;
+    }
+    var textKey = textEl.getAttribute('data-i18n');
+    window.parent.postMessage({ type:'vera-homepage-edit-select', target:'text', key:textKey, value:textEl.textContent || '' }, window.location.origin);
+  }, true);
+}
+
+enableHomepageEditMode();
+
 /* ============================================================
    NAVIGATION
 ============================================================ */

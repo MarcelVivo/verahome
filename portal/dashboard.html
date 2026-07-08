@@ -63,18 +63,6 @@
         <div class="dash-stat-row" id="dashStats"></div>
 
         <div id="dashAdminPanels" style="display:none;">
-          <div class="dash-card" id="homepageServicesCard">
-            <div class="dash-card-head">
-              <div>
-                <h2>Homepage Portfolio</h2>
-                <p class="doc-meta">Kacheln auf der Startseite ein-/ausblenden und Texte bearbeiten.</p>
-              </div>
-              <button type="button" class="dash-btn-sm" id="saveHomepageServicesBtn">Speichern</button>
-            </div>
-            <div class="site-services-editor" id="homepageServicesEditor"></div>
-            <p class="form-status" id="homepageServicesStatus"></p>
-          </div>
-
           <div class="dash-card">
             <div class="dash-card-head"><h2>Überfällige Rechnungen</h2><button type="button" class="dash-btn-sm" id="exportOverdueBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="overdueInvoicesTable"></table></div>
@@ -176,14 +164,6 @@
 (function(){
   "use strict";
   var client, profile;
-  var DEFAULT_HOMEPAGE_SERVICES = [
-    { key:'stockwerkeigentum', visible:true, title:'Stockwerkeigentum', text:'Eigentümerversammlungen, Budgetierung, Jahresrechnungen, Unterhaltsplanung, Versicherungswesen.', badge:'Kernleistung' },
-    { key:'mietverwaltung', visible:true, title:'Liegenschafts Verwaltung', text:'Mietermanagement, Inkasso, Nebenkostenabrechnungen, Unterhaltskoordination, Wiedervermietungen.', badge:'Kernleistung' },
-    { key:'erstvermietung', visible:true, title:'Erstvermietung', text:'Mietzinsfestlegung, Vermarktung, Bonitätsprüfung, Vertragsabwicklung und Übergabe.', badge:'Kernleistung' },
-    { key:'bauleitung', visible:true, title:'Bauleitung', text:'Ausschreibungen, Offertvergleiche, Terminplanung, Kostenkontrolle, Qualitätsüberwachung.', badge:'' },
-    { key:'immobilienverkauf', visible:true, title:'Immobilienverkauf', text:'Marktwertschätzung, Verkaufsstrategie, Vermarktung und Begleitung, in Kooperation mit erfahrener Maklerin.', badge:'Kooperation' },
-    { key:'projektentwicklung', visible:false, title:'Projektentwicklung', text:'Machbarkeitsanalysen, Begleitung von Neubauprojekten, Koordination mit Behörden.', badge:'Aufbauphase' }
-  ];
 
   VeraDashboard.init('dashboard').then(async function(ctx){
     if(!ctx) return;
@@ -209,7 +189,6 @@
 
       var stats = [];
       if(profile.category === 'admin'){
-        initHomepageServicesEditor();
         var todayStr = new Date().toISOString().slice(0,10);
         var activeUsers = await client.from('profiles').select('*', { count:'exact', head:true }).eq('status','active');
         var pendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
@@ -276,76 +255,6 @@
   });
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
-
-  async function initHomepageServicesEditor(){
-    var editor = document.getElementById('homepageServicesEditor');
-    var saveBtn = document.getElementById('saveHomepageServicesBtn');
-    var statusEl = document.getElementById('homepageServicesStatus');
-    if(!editor || editor.dataset.ready === '1') return;
-    editor.dataset.ready = '1';
-
-    function normalizeItems(value){
-      var incoming = value && Array.isArray(value.items) ? value.items : [];
-      return DEFAULT_HOMEPAGE_SERVICES.map(function(base){
-        var saved = incoming.filter(function(item){ return item.key === base.key; })[0] || {};
-        return {
-          key: base.key,
-          visible: saved.deleted === true ? false : (saved.visible !== undefined ? saved.visible !== false : base.visible),
-          title: saved.title || base.title,
-          text: saved.text || base.text,
-          badge: saved.badge !== undefined ? saved.badge : base.badge
-        };
-      });
-    }
-
-    function render(items){
-      editor.innerHTML = items.map(function(item){
-        return '<div class="site-service-row" data-key="'+item.key+'">' +
-          '<label class="site-service-toggle"><input type="checkbox" class="svc-visible" '+(item.visible ? 'checked' : '')+'> Anzeigen</label>' +
-          '<div class="site-service-fields">' +
-            '<input type="text" class="svc-title" value="'+VeraDashboard.escapeHtml(item.title)+'" placeholder="Titel">' +
-            '<textarea class="svc-text" rows="2" placeholder="Beschreibung">'+VeraDashboard.escapeHtml(item.text)+'</textarea>' +
-            '<input type="text" class="svc-badge" value="'+VeraDashboard.escapeHtml(item.badge || '')+'" placeholder="Badge, z.B. Kernleistung">' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-    async function load(){
-      statusEl.textContent = 'Wird geladen …';
-      statusEl.classList.add('show');
-      var res = await client.from('portal_settings').select('value').eq('key', 'homepage_services').maybeSingle();
-      var items = normalizeItems(res.data && res.data.value);
-      render(items);
-      statusEl.textContent = res.error ? 'Fallback geladen. SQL-Policy prüfen, falls Speichern fehlschlägt.' : '';
-      statusEl.classList.toggle('show', !!res.error);
-    }
-
-    saveBtn.addEventListener('click', async function(){
-      var items = Array.prototype.slice.call(editor.querySelectorAll('.site-service-row')).map(function(row){
-        return {
-          key: row.getAttribute('data-key'),
-          visible: row.querySelector('.svc-visible').checked,
-          title: row.querySelector('.svc-title').value.trim(),
-          text: row.querySelector('.svc-text').value.trim(),
-          badge: row.querySelector('.svc-badge').value.trim()
-        };
-      });
-      saveBtn.disabled = true;
-      statusEl.textContent = 'Wird gespeichert …';
-      statusEl.classList.add('show');
-      var res = await client.from('portal_settings').upsert({
-        key: 'homepage_services',
-        value: { items: items },
-        updated_by: profile.id,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' });
-      saveBtn.disabled = false;
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert. Die Startseite übernimmt die Kacheln automatisch.';
-    });
-
-    load();
-  }
 
   async function initMfaSection(){
     var statusLabel = document.getElementById('mfaStatusLabel');

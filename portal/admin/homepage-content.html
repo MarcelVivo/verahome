@@ -38,30 +38,47 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Homepage bearbeiten</h1>
-      <p class="dash-lead">Texte und Portfolio-Kacheln der Website bearbeiten, ausblenden oder löschen. Datenbank-Inhalte wie Objekte, Nutzer, Termine und Dokumente bleiben davon getrennt.</p>
+      <p class="dash-lead">Klicken Sie direkt in der Vorschau auf einen Text oder eine Portfolio-Kachel. Rechts bearbeiten, löschen oder speichern.</p>
 
-      <div class="dash-card">
-        <div class="dash-card-head">
-          <div>
-            <h2>Portfolio-Kacheln</h2>
-            <p class="doc-meta">Ausblenden entfernt die Kachel von der Website. Löschen entfernt sie aus dieser Konfiguration und fragt zweimal nach.</p>
+      <div class="homepage-editor-shell">
+        <div class="homepage-preview-card">
+          <div class="homepage-preview-head">
+            <div>
+              <h2>Live-Vorschau</h2>
+              <p class="doc-meta">Die Website wird 1:1 geladen. Gelöschte/ausgeblendete Kacheln erscheinen in der Vorschau transparent, damit sie wieder anklickbar bleiben.</p>
+            </div>
+            <button type="button" class="dash-btn-sm" id="refreshPreviewBtn">Vorschau neu laden</button>
           </div>
-          <button type="button" class="dash-btn-sm" id="saveServicesBtn">Kacheln speichern</button>
+          <iframe id="homepagePreviewFrame" class="homepage-preview-frame" src="/index.html?adminEdit=1" title="Homepage Vorschau"></iframe>
         </div>
-        <div class="site-services-editor" id="servicesEditor"></div>
-        <p class="form-status" id="servicesStatus"></p>
-      </div>
 
-      <div class="dash-card">
-        <div class="dash-card-head">
-          <div>
-            <h2>Homepage-Texte</h2>
-            <p class="doc-meta">Leere Felder werden leer angezeigt. Löschen leert den Text nach zwei Bestätigungen.</p>
-          </div>
-          <button type="button" class="dash-btn-sm" id="saveContentBtn">Texte speichern</button>
-        </div>
-        <div class="site-content-editor" id="contentEditor"></div>
-        <p class="form-status" id="contentStatus"></p>
+        <aside class="homepage-edit-panel">
+          <h2>Auswahl bearbeiten</h2>
+          <p class="doc-meta" id="selectionHint">Noch nichts ausgewählt. Klicken Sie links in der Vorschau auf Text oder Kachel.</p>
+
+          <form id="textEditorForm" class="homepage-edit-form" hidden>
+            <label>Text-Schlüssel<input type="text" id="textKeyInput" readonly></label>
+            <label>Text<textarea id="textValueInput" rows="7"></textarea></label>
+            <div class="dash-btn-row">
+              <button type="submit" class="btn btn-primary">Text speichern</button>
+              <button type="button" class="dash-btn-sm danger" id="deleteTextBtn">Text löschen</button>
+            </div>
+          </form>
+
+          <form id="serviceEditorForm" class="homepage-edit-form" hidden>
+            <label>Kachel-Schlüssel<input type="text" id="serviceKeyInput" readonly></label>
+            <label class="site-service-toggle"><input type="checkbox" id="serviceVisibleInput"> Kachel anzeigen</label>
+            <label>Titel<input type="text" id="serviceTitleInput"></label>
+            <label>Beschreibung<textarea id="serviceTextInput" rows="5"></textarea></label>
+            <label>Badge<input type="text" id="serviceBadgeInput" placeholder="z.B. Kernleistung"></label>
+            <div class="dash-btn-row">
+              <button type="submit" class="btn btn-primary">Kachel speichern</button>
+              <button type="button" class="dash-btn-sm danger" id="deleteServiceBtn">Kachel löschen</button>
+            </div>
+          </form>
+
+          <p class="form-status" id="editorStatus"></p>
+        </aside>
       </div>
     </section>
   </div>
@@ -75,7 +92,9 @@
 <script>
 (function(){
   "use strict";
-  var client, profile;
+  var client, profile, selected = null;
+  var servicesValue = { items: [] };
+  var contentValue = { de: {} };
   var DEFAULT_SERVICES = [
     { key:'stockwerkeigentum', visible:true, title:'Stockwerkeigentum', text:'Eigentümerversammlungen, Budgetierung, Jahresrechnungen, Unterhaltsplanung, Versicherungswesen.', badge:'Kernleistung' },
     { key:'mietverwaltung', visible:true, title:'Liegenschafts Verwaltung', text:'Mietermanagement, Inkasso, Nebenkostenabrechnungen, Unterhaltskoordination, Wiedervermietungen.', badge:'Kernleistung' },
@@ -84,120 +103,127 @@
     { key:'immobilienverkauf', visible:true, title:'Immobilienverkauf', text:'Marktwertschätzung, Verkaufsstrategie, Vermarktung und Begleitung, in Kooperation mit erfahrener Maklerin.', badge:'Kooperation' },
     { key:'projektentwicklung', visible:false, title:'Projektentwicklung', text:'Machbarkeitsanalysen, Begleitung von Neubauprojekten, Koordination mit Behörden.', badge:'Aufbauphase' }
   ];
-  var TEXTS = {
-    hero_eyebrow:'VERA HOME IMMOBILIEN', hero_line1:'Zuhause', hero_line2:'beginnt hier.', hero_sub:'Professionelle Immobilienbewirtschaftung, persönlich und fair.',
-    hero_cta_primary:'Jetzt Kontakt aufnehmen', hero_cta_secondary:'Unsere Leistungen', trust_1:'5 Jahre Erfahrung', trust_2:'Faire Konditionen', trust_3:'Persönliche Betreuung',
-    about_badge:'Immobilienbewirtschafterin', about_eyebrow:'Ihre persönlichen Ansprechpartner', about_subline:'Vera Home Immobilien',
-    about_p1:'Vera Home Immobilien, gegründet von Julia Allen ist seit fünf Jahren mit Herzblut unterwegs. Zahlen und Paragraphen sitzen bei uns, keine Sorge. Am liebsten sitzen wir aber mit Ihnen am Tisch und hören zu, worum es bei Ihnen wirklich geht.',
-    about_p2:'Ob Eigentümer, Mieter oder Investor, bei uns sind Sie keine Akte, sondern ein Name, den wir uns merken. Wir betreuen Sie individuell und persönlich.',
-    chip_2:'Diplom Immobilienbewirtschaftung', chip_3:'5 Jahre Erfahrung', chip_4:'Schweizweit tätig', services_head:'Was wir für Sie tun',
-    services_sub:'Ein vollständiges Portfolio, von der Vermietung bis zur Bauleitung.', tools_head:'Tools für Mieter & Eigentümer',
-    tools_sub:'Alles, was Sie als Mieter oder Eigentümer brauchen, direkt online.', tool1_title:'Für Wohnung bewerben',
-    tool1_text:'Laden Sie Ihre Bewerbungsunterlagen direkt hier hoch, ganz ohne Papierkram.', tool2_title:'Termin vereinbaren',
-    tool2_text:'Buchen Sie online einen Besichtigungstermin oder ein Beratungsgespräch, wann es Ihnen passt.', tool3_title:'Direkt schreiben',
-    tool3_text:'Kurze Frage? Schreiben Sie uns per WhatsApp, wir antworten meist noch am selben Tag.', tool4_title:'Formulare & Checklisten',
-    tool4_text:'Kostenlose Downloads: Miet-Checklisten, Übergabeprotokolle und ein paar Tipps aus unserem Alltag als Verwaltung.',
-    tool5_title:'Vera Portal', tool5_text:'Ihr persönlicher Zugang, sicher eingeloggt.', objects_head:'Aktuelle Objekte',
-    objects_sub:'Hier finden Sie unsere aktuellen Miet- und Kaufobjekte.', objects_empty_head:'Aktuell keine veröffentlichten Inserate',
-    objects_empty_text:'Besuchen Sie uns regelmässig, um die neusten Objekte und freien Wohnungen zu entdecken.', values_head:'Unsere Werte',
-    v1_title:'Fair & Transparent', v1_text:'Klare Preise von Anfang an: Was wir vereinbaren, gilt auch auf der Rechnung.',
-    v2_title:'Zuhören & Verstehen', v2_text:'Jede Situation ist anders, darum nehmen wir uns Zeit, für jeden Mieter und jeden Eigentümer.',
-    v3_title:'Erreichbar & Schnell', v3_text:'Wir melden uns in der Regel noch am selben Tag zurück, meistens sogar schneller.',
-    v4_title:'Nachhaltig & Sozial', v4_text:'Langfristiges Denken für Mensch und Liegenschaft, fair für alle Seiten.',
-    downloads_head:'Kostenlose Downloads', downloads_sub:'Unser Wissen, gratis für Sie: Checklisten, Ratgeber und Formulare zum Herunterladen.',
-    region_head:'Verwurzelt und vernetzt', region_text:'Vera Home kennt die Region wie die eigene Hosentasche. Lokale Marktkenntnis, gewachsene Netzwerke und ein echtes Verständnis für die Menschen vor Ort, das ist unser Heimvorteil.',
-    faq_head:'Häufige Fragen', contact_head:'Nehmen Sie Kontakt auf', contact_sub:'Wir freuen uns auf Ihre Nachricht, ob Frage, Anfrage oder erstes Gespräch.'
-  };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar('dashboard', profile);
-    loadAll();
+    loadSettings();
   });
 
+  function setStatus(message){
+    var el = document.getElementById('editorStatus');
+    el.textContent = message || '';
+    el.classList.toggle('show', !!message);
+  }
   function confirmDelete(label){
     return window.confirm(label + ' wirklich löschen?') && window.confirm('Letzte Bestätigung: ' + label + ' endgültig löschen?');
   }
+  function reloadPreview(){
+    var frame = document.getElementById('homepagePreviewFrame');
+    frame.src = '/index.html?adminEdit=1&t=' + Date.now();
+  }
   function normalizeServices(value){
     var incoming = value && Array.isArray(value.items) ? value.items : [];
-    return DEFAULT_SERVICES.map(function(base){
+    servicesValue.items = DEFAULT_SERVICES.map(function(base){
       var saved = incoming.filter(function(item){ return item.key === base.key; })[0] || {};
       return Object.assign({}, base, saved);
-    }).filter(function(item){ return item.deleted !== true; });
-  }
-  function renderServices(items){
-    var editor = document.getElementById('servicesEditor');
-    editor.innerHTML = items.map(function(item){
-      return '<div class="site-service-row" data-key="'+item.key+'">' +
-        '<label class="site-service-toggle"><input type="checkbox" class="svc-visible" '+(item.visible !== false ? 'checked' : '')+'> Anzeigen</label>' +
-        '<div class="site-service-fields">' +
-          '<input type="text" class="svc-title" value="'+VeraDashboard.escapeHtml(item.title || '')+'" placeholder="Titel">' +
-          '<textarea class="svc-text" rows="2" placeholder="Beschreibung">'+VeraDashboard.escapeHtml(item.text || '')+'</textarea>' +
-          '<input type="text" class="svc-badge" value="'+VeraDashboard.escapeHtml(item.badge || '')+'" placeholder="Badge">' +
-        '</div>' +
-        '<button type="button" class="dash-btn-sm danger svc-delete">Löschen</button>' +
-      '</div>';
-    }).join('');
-    editor.querySelectorAll('.svc-delete').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var row = btn.closest('.site-service-row');
-        if(confirmDelete('Diese Kachel')) row.remove();
-      });
     });
   }
-  function renderTexts(values){
-    var editor = document.getElementById('contentEditor');
-    editor.innerHTML = Object.keys(TEXTS).map(function(key){
-      var value = values[key] !== undefined ? values[key] : TEXTS[key];
-      return '<div class="site-content-row" data-key="'+key+'">' +
-        '<label>'+VeraDashboard.escapeHtml(key)+'</label>' +
-        '<textarea rows="2">'+VeraDashboard.escapeHtml(value)+'</textarea>' +
-        '<button type="button" class="dash-btn-sm danger text-delete">Löschen</button>' +
-      '</div>';
-    }).join('');
-    editor.querySelectorAll('.text-delete').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        if(confirmDelete('Diesen Text')) btn.closest('.site-content-row').querySelector('textarea').value = '';
-      });
-    });
-  }
-  async function loadAll(){
+  async function loadSettings(){
     var services = await client.from('portal_settings').select('value').eq('key','homepage_services').maybeSingle();
-    renderServices(normalizeServices(services.data && services.data.value));
+    normalizeServices(services.data && services.data.value);
     var content = await client.from('portal_settings').select('value').eq('key','homepage_content').maybeSingle();
-    renderTexts((content.data && content.data.value && content.data.value.de) || {});
+    contentValue = content.data && content.data.value ? content.data.value : { de:{} };
   }
-  document.getElementById('saveServicesBtn').addEventListener('click', async function(){
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#servicesEditor .site-service-row'));
-    var items = rows.map(function(row){
-      return {
-        key: row.getAttribute('data-key'),
-        visible: row.querySelector('.svc-visible').checked,
-        title: row.querySelector('.svc-title').value.trim(),
-        text: row.querySelector('.svc-text').value.trim(),
-        badge: row.querySelector('.svc-badge').value.trim()
-      };
-    });
-    var present = new Set(items.map(function(item){ return item.key; }));
-    DEFAULT_SERVICES.forEach(function(base){
-      if(!present.has(base.key)) items.push(Object.assign({}, base, { visible:false, deleted:true }));
-    });
-    var res = await client.from('portal_settings').upsert({ key:'homepage_services', value:{ items:items }, updated_by:profile.id, updated_at:new Date().toISOString() }, { onConflict:'key' });
-    var status = document.getElementById('servicesStatus');
-    status.textContent = res.error ? 'Fehler: ' + res.error.message : 'Kacheln gespeichert.';
-    status.classList.add('show');
+  function serviceByKey(key){
+    var item = servicesValue.items.filter(function(i){ return i.key === key; })[0];
+    if(!item){
+      item = { key:key, visible:true, title:'', text:'', badge:'' };
+      servicesValue.items.push(item);
+    }
+    return item;
+  }
+  function showTextEditor(key, value){
+    selected = { type:'text', key:key };
+    document.getElementById('selectionHint').textContent = 'Text ausgewählt: ' + key;
+    document.getElementById('serviceEditorForm').hidden = true;
+    document.getElementById('textEditorForm').hidden = false;
+    document.getElementById('textKeyInput').value = key;
+    document.getElementById('textValueInput').value = (contentValue.de && contentValue.de[key] !== undefined) ? contentValue.de[key] : value;
+  }
+  function showServiceEditor(key, item){
+    selected = { type:'service', key:key };
+    var service = Object.assign({}, serviceByKey(key), item || {});
+    document.getElementById('selectionHint').textContent = 'Kachel ausgewählt: ' + key;
+    document.getElementById('textEditorForm').hidden = true;
+    document.getElementById('serviceEditorForm').hidden = false;
+    document.getElementById('serviceKeyInput').value = key;
+    document.getElementById('serviceVisibleInput').checked = service.deleted !== true && service.visible !== false;
+    document.getElementById('serviceTitleInput').value = service.title || '';
+    document.getElementById('serviceTextInput').value = service.text || '';
+    document.getElementById('serviceBadgeInput').value = service.badge || '';
+  }
+  async function saveContent(){
+    var res = await client.from('portal_settings').upsert({
+      key:'homepage_content',
+      value:contentValue,
+      updated_by:profile.id,
+      updated_at:new Date().toISOString()
+    }, { onConflict:'key' });
+    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Text gespeichert.');
+    if(!res.error) reloadPreview();
+  }
+  async function saveServices(){
+    var res = await client.from('portal_settings').upsert({
+      key:'homepage_services',
+      value:servicesValue,
+      updated_by:profile.id,
+      updated_at:new Date().toISOString()
+    }, { onConflict:'key' });
+    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Kachel gespeichert.');
+    if(!res.error) reloadPreview();
+  }
+
+  window.addEventListener('message', function(event){
+    if(event.origin !== window.location.origin || !event.data || event.data.type !== 'vera-homepage-edit-select') return;
+    if(event.data.target === 'text') showTextEditor(event.data.key, event.data.value);
+    if(event.data.target === 'service') showServiceEditor(event.data.key, event.data.item);
   });
-  document.getElementById('saveContentBtn').addEventListener('click', async function(){
-    var de = {};
-    document.querySelectorAll('#contentEditor .site-content-row').forEach(function(row){
-      de[row.getAttribute('data-key')] = row.querySelector('textarea').value;
-    });
-    var res = await client.from('portal_settings').upsert({ key:'homepage_content', value:{ de:de }, updated_by:profile.id, updated_at:new Date().toISOString() }, { onConflict:'key' });
-    var status = document.getElementById('contentStatus');
-    status.textContent = res.error ? 'Fehler: ' + res.error.message : 'Texte gespeichert.';
-    status.classList.add('show');
+  document.getElementById('refreshPreviewBtn').addEventListener('click', reloadPreview);
+  document.getElementById('textEditorForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!selected || selected.type !== 'text') return;
+    contentValue.de = contentValue.de || {};
+    contentValue.de[selected.key] = document.getElementById('textValueInput').value;
+    saveContent();
+  });
+  document.getElementById('deleteTextBtn').addEventListener('click', function(){
+    if(!selected || selected.type !== 'text' || !confirmDelete('Diesen Text')) return;
+    contentValue.de = contentValue.de || {};
+    contentValue.de[selected.key] = '';
+    document.getElementById('textValueInput').value = '';
+    saveContent();
+  });
+  document.getElementById('serviceEditorForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!selected || selected.type !== 'service') return;
+    var item = serviceByKey(selected.key);
+    item.deleted = false;
+    item.visible = document.getElementById('serviceVisibleInput').checked;
+    item.title = document.getElementById('serviceTitleInput').value.trim();
+    item.text = document.getElementById('serviceTextInput').value.trim();
+    item.badge = document.getElementById('serviceBadgeInput').value.trim();
+    saveServices();
+  });
+  document.getElementById('deleteServiceBtn').addEventListener('click', function(){
+    if(!selected || selected.type !== 'service' || !confirmDelete('Diese Kachel')) return;
+    var item = serviceByKey(selected.key);
+    item.deleted = true;
+    item.visible = false;
+    document.getElementById('serviceVisibleInput').checked = false;
+    saveServices();
   });
 })();
 </script>
