@@ -32,7 +32,9 @@ window.VeraDashboard = (function () {
     { key: "admin-tenancies", href: "/portal/admin/tenancies.html", label: "Mietverhältnisse" },
     { key: "admin-ownerships", href: "/portal/admin/ownerships.html", label: "Eigentümerschaften" },
     { key: "admin-jobs", href: "/portal/admin/jobs.html", label: "Aufträge" },
-    { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" }
+    { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" },
+    { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Portal bearbeiten" },
+    { key: "admin-homepage-content", href: "/portal/admin/homepage-content.html", label: "Homepage editieren" }
   ]};
   var SERVICES_NAV_GROUP = { label: "Services", items: [
     { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },

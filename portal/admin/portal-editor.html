@@ -93,7 +93,7 @@
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
-    VeraDashboard.renderSidebar('dashboard', profile);
+    VeraDashboard.renderSidebar('admin-portal-editor', profile);
     loadSettings();
     loadModuleSettings();
   });
@@ -199,6 +199,8 @@
           '<textarea class="module-text" rows="2" placeholder="Beschreibung / Text">'+VeraDashboard.escapeHtml(item.text || '')+'</textarea>' +
         '</div>' +
         '<div class="portal-module-actions">' +
+          '<button type="button" class="dash-btn-sm module-up">Hoch</button>' +
+          '<button type="button" class="dash-btn-sm module-down">Runter</button>' +
           '<button type="button" class="dash-btn-sm module-copy">Kopieren</button>' +
           '<button type="button" class="dash-btn-sm danger module-delete">Löschen</button>' +
         '</div>' +
@@ -228,6 +230,18 @@
         var index = modules.findIndex(function(module){ return module.key === row.getAttribute('data-key'); });
         modules.splice(index + 1, 0, item);
         renderModules(modules);
+      });
+    });
+    editor.querySelectorAll('.module-up').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var row = btn.closest('.portal-module-row');
+        if(row && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+      });
+    });
+    editor.querySelectorAll('.module-down').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var row = btn.closest('.portal-module-row');
+        if(row && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
       });
     });
     editor.querySelectorAll('.module-delete').forEach(function(btn){
