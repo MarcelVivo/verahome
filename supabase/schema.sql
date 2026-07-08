@@ -594,6 +594,7 @@ set search_path = public
 as $$
   select id from public.profiles
   where category = 'admin' and status = 'active'
+  order by (email = 'welcome@verahome.ch') desc, created_at asc
   limit 1;
 $$;
 
@@ -1870,6 +1871,10 @@ $$;
 alter table public.profiles
   add column if not exists is_primary_admin boolean not null default false;
 
+update public.profiles
+set is_primary_admin = (email = 'welcome@verahome.ch')
+where category = 'admin';
+
 create or replace function public.get_admin_id()
 returns uuid
 language sql
@@ -1879,7 +1884,7 @@ set search_path = public
 as $$
   select id from public.profiles
   where category = 'admin' and status = 'active'
-  order by is_primary_admin desc, created_at asc
+  order by (email = 'welcome@verahome.ch') desc, is_primary_admin desc, created_at asc
   limit 1;
 $$;
 

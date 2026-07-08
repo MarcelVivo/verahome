@@ -24,7 +24,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const VALID_CATEGORIES = ["mieter", "eigentuemer", "partner", "handwerker", "hauswart", "firma", "aemter"];
+const VALID_CATEGORIES = ["mieter", "eigentuemer", "partner", "handwerker", "hauswart", "firma", "aemter", "admin"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -138,13 +138,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // handle_new_user() legt das profiles-Datensatz mit der primaeren
-    // Kategorie an; alle (ggf. weiteren) Kategorien landen zusaetzlich
-    // hier -- service role umgeht RLS, kein Insert-Recht auf Client-Seite
-    // noetig.
-    const { error: rolesErr } = await adminClient
-      .from("profile_role_assignments")
-      .insert(categoryList.map((c) => ({ profile_id: invited.user.id, category: c })));
+    if (category === "admin") {
+      const { error: adminUpdateErr } = await adminClient
+        .from("profiles")
+        .update({
+          category: "admin",
+          member_number: null,
+          status: "active",
+          is_primary_admin: false,
+        })
+        .eq("id", invited.user.id);
+      if (adminUpdateErr) {
+        return new Response(JSON.stringify({ error: adminUpdateErr.message }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // handle_new_user() legt den profiles-Datensatz an; alle Rollen
+    // landen zusaetzlich hier. Admin-Rollen werden nicht in die
+    // Kontakt-Rollen-Tabelle geschrieben, weil voller Portalzugriff
+    // ueber profiles.category = 'admin' gesteuert wird.
+    const roleRows = categoryList
+      .filter((c) => c !== "admin")
+      .map((c) => ({ profile_id: invited.user.id, category: c }));
+    const { error: rolesErr } = roleRows.length
+      ? await adminClient.from("profile_role_assignments").insert(roleRows)
+      : { error: null };
     if (rolesErr) {
       console.error("profile_role_assignments insert failed:", rolesErr.message);
     }

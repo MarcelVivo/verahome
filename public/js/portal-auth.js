@@ -87,10 +87,10 @@ window.VeraPortal = (function () {
     });
   }
 
-  /* Returns the single Admin's profile id, or null if none is set up
+  /* Returns the primary Admin's profile id, or null if none is set up
      yet. Never exposes any other admin profile field to the client —
      needed because a regular user's own profiles SELECT policy only
-     ever matches their own row, not Julia's. */
+     ever matches their own row, not Vera Home's primary admin row. */
   async function getAdminId() {
     var res = await getClient().rpc("get_admin_id");
     if (res.error) throw res.error;
