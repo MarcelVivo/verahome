@@ -564,6 +564,22 @@ window.VeraDashboard = (function () {
     loadMode();
   }
 
+  function renderAdminContentEditorButton(profile) {
+    if (!profile || profile.category !== "admin" || document.getElementById("dashContentEditorTop")) return;
+    var actions = document.getElementById("dashTopActions");
+    if (!actions) {
+      renderTopLogoutButton();
+      actions = document.getElementById("dashTopActions");
+    }
+    if (!actions) return;
+    var link = document.createElement("a");
+    link.id = "dashContentEditorTop";
+    link.className = "dash-content-editor-top";
+    link.href = "/portal/admin/homepage-content.html";
+    link.textContent = "Homepage editieren";
+    actions.insertBefore(link, document.getElementById("dashEmailModeTop") || document.getElementById("dashLogoutTop"));
+  }
+
   /* Call once at the top of every SHARED dashboard page's inline script
      (dashboard/documents/messages/calendar). Handles the auth redirect,
      loads the profile, renders the sidebar, and resolves with
@@ -609,6 +625,7 @@ window.VeraDashboard = (function () {
     downloadIcs: downloadIcs,
     downloadCsv: downloadCsv,
     fetchOwnRoles: fetchOwnRoles,
-    renderAdminEmailModeSwitch: renderAdminEmailModeSwitch
+    renderAdminEmailModeSwitch: renderAdminEmailModeSwitch,
+    renderAdminContentEditorButton: renderAdminContentEditorButton
   };
 })();

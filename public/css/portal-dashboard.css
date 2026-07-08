@@ -61,6 +61,12 @@
   box-shadow:var(--shadow-card);transition:border-color .2s,color .2s;
 }
 .dash-logout-top:hover{border-color:var(--color-gold);color:var(--color-gold);}
+.dash-content-editor-top{
+  display:inline-flex;align-items:center;min-height:38px;padding:8px 14px;border-radius:50px;
+  border:1.5px solid rgba(201,168,76,.75);background:var(--color-gold);color:var(--color-navy);
+  font-size:.78rem;font-weight:800;box-shadow:var(--shadow-card);white-space:nowrap;
+}
+.dash-content-editor-top:hover{filter:brightness(.98);transform:translateY(-1px);}
 .dash-email-mode-top{
   display:flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:270px;
 }
@@ -122,6 +128,17 @@
 }
 
 .site-services-editor{display:flex;flex-direction:column;gap:12px;}
+.site-content-editor{display:flex;flex-direction:column;gap:12px;}
+.site-content-row{
+  display:grid;grid-template-columns:220px minmax(0,1fr) auto;gap:10px;align-items:start;
+  padding:14px;border:1px solid var(--color-blue-light);border-radius:12px;background:var(--color-bg);
+}
+.site-content-row label{font-size:.82rem;font-weight:800;color:var(--color-navy);padding-top:10px;}
+.site-content-row textarea{
+  width:100%;min-height:44px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-white);
+  padding:10px 12px;font-family:inherit;font-size:.88rem;color:var(--color-navy);resize:vertical;
+}
+.site-content-row .dash-btn-sm{white-space:nowrap;}
 .site-service-row{
   display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;align-items:start;
   padding:14px;border:1px solid var(--color-blue-light);border-radius:12px;background:var(--color-bg);
@@ -897,6 +914,7 @@
   .dash-content > .dash-lead{font-size:.92rem;margin-bottom:22px;}
   .dash-card{padding:20px 18px;margin-bottom:18px;border-radius:10px;}
   .dash-card-head{align-items:stretch;flex-direction:column;}
+  .site-content-row{grid-template-columns:1fr;}
   .site-service-row{grid-template-columns:1fr;}
   .site-service-toggle{padding-top:0;}
   .site-service-fields{grid-template-columns:1fr;}

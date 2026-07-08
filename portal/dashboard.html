@@ -191,6 +191,7 @@
     client = VeraPortal.getClient();
     if(profile.category === 'admin'){
       VeraDashboard.renderAdminEmailModeSwitch(profile);
+      VeraDashboard.renderAdminContentEditorButton(profile);
     }
 
     try{
@@ -289,7 +290,7 @@
         var saved = incoming.filter(function(item){ return item.key === base.key; })[0] || {};
         return {
           key: base.key,
-          visible: saved.visible !== undefined ? saved.visible !== false : base.visible,
+          visible: saved.deleted === true ? false : (saved.visible !== undefined ? saved.visible !== false : base.visible),
           title: saved.title || base.title,
           text: saved.text || base.text,
           badge: saved.badge !== undefined ? saved.badge : base.badge

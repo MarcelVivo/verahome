@@ -1011,12 +1011,12 @@ function applyTranslations(lang){
   document.querySelectorAll('.custom-select').forEach(function(wrapper){
     if(wrapper._rebuildCustomSelect) wrapper._rebuildCustomSelect();
   });
+  applyHomepageContentSettings();
 }
 
 function switchLang(lang){
   currentLang = lang;
   applyTranslations(lang);
-  applyHomepageServiceSettings();
   document.querySelectorAll('.lang-switch button').forEach(function(btn){
     btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
   });
@@ -1039,13 +1039,29 @@ var homepageServiceSettings = {
     { key:'projektentwicklung', visible:false, title:'Projektentwicklung', text:'Machbarkeitsanalysen, Begleitung von Neubauprojekten, Koordination mit Behörden.', badge:'Aufbauphase' }
   ]
 };
+var homepageContentSettings = { de: {} };
+
+function applyHomepageContentSettings(){
+  var values = homepageContentSettings[currentLang] || homepageContentSettings.de || {};
+  Object.keys(values).forEach(function(key){
+    document.querySelectorAll('[data-i18n="'+key+'"]').forEach(function(el){
+      el.textContent = values[key] || '';
+    });
+    document.querySelectorAll('[data-i18n-ph="'+key+'"]').forEach(function(el){
+      el.setAttribute('placeholder', values[key] || '');
+    });
+  });
+  document.querySelectorAll('.custom-select').forEach(function(wrapper){
+    if(wrapper._rebuildCustomSelect) wrapper._rebuildCustomSelect();
+  });
+}
 
 function applyHomepageServiceSettings(){
   var items = homepageServiceSettings.items || [];
   items.forEach(function(item){
     var card = document.querySelector('.leistung-card[data-service-key="'+item.key+'"]');
     if(!card) return;
-    card.hidden = item.visible === false;
+    card.hidden = item.deleted === true || item.visible === false;
     var title = card.querySelector('h3');
     var text = card.querySelector('p');
     var badge = card.querySelector('.card-badge');
@@ -1067,9 +1083,15 @@ async function loadHomepageServiceSettings(){
       window.VERA_SUPABASE_CONFIG.url,
       window.VERA_SUPABASE_CONFIG.anonKey
     );
-    var res = await client.from('portal_settings').select('value').eq('key', 'homepage_services').maybeSingle();
-    if(!res.error && res.data && res.data.value && Array.isArray(res.data.value.items)){
-      homepageServiceSettings = res.data.value;
+    var servicesRes = await client.from('portal_settings').select('value').eq('key', 'homepage_services').maybeSingle();
+    if(!servicesRes.error && servicesRes.data && servicesRes.data.value && Array.isArray(servicesRes.data.value.items)){
+      homepageServiceSettings = servicesRes.data.value;
+      applyHomepageServiceSettings();
+    }
+    var contentRes = await client.from('portal_settings').select('value').eq('key', 'homepage_content').maybeSingle();
+    if(!contentRes.error && contentRes.data && contentRes.data.value){
+      homepageContentSettings = contentRes.data.value;
+      applyTranslations(currentLang);
       applyHomepageServiceSettings();
     }
   }catch(e){ /* Fallback bleibt aktiv. */ }

@@ -4730,13 +4730,17 @@ create policy portal_settings_admin_select on public.portal_settings
   for select using (public.is_admin());
 
 create policy portal_settings_public_homepage_select on public.portal_settings
-  for select using (key = 'homepage_services');
+  for select using (key in ('homepage_services', 'homepage_content'));
 
 create policy portal_settings_admin_write on public.portal_settings
   for all using (public.is_admin()) with check (public.is_admin());
 
 insert into public.portal_settings (key, value)
 values ('outbound_email_mode', '{"mode":"live"}'::jsonb)
+on conflict (key) do nothing;
+
+insert into public.portal_settings (key, value)
+values ('homepage_content', '{"de":{}}'::jsonb)
 on conflict (key) do nothing;
 
 insert into public.portal_settings (key, value)
