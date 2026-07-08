@@ -55,7 +55,13 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Objekte</h1>
-      <p class="dash-lead">Zuerst Gebäude/Liegenschaft erfassen, danach die Einheiten darin. Jede Einheit kann Mieter, Eigentümer, Hauswart, Dokumente und Verträge getrennt zugewiesen bekommen.</p>
+      <p class="dash-lead">Objekte sind Gebäude/Liegenschaften. Darunter werden nur echte Einheiten wie Wohnungen, Studios, Gewerbe, Garagen, Parkplätze oder Lager erfasst. Rollen, Dokumente und Geräte werden anschliessend genau dort zugewiesen, wo sie rechtlich hingehören.</p>
+      <div class="obj-flow-guide" aria-label="Logische Erfassungsreihenfolge">
+        <div><span>1</span><strong>Gebäude / Liegenschaft</strong><small>Adresse, Eigentümer, Hauswart, Hausordnung, Gebäudegeräte.</small></div>
+        <div><span>2</span><strong>Einheiten darunter</strong><small>Wohnungen, Studios, Gewerbe, Garagen, Parkplätze, Lager.</small></div>
+        <div><span>3</span><strong>Rollen & Rechte</strong><small>Mieter, Eigentümer, Hauswart und Dokument-Freigaben gezielt zuweisen.</small></div>
+        <div><span>4</span><strong>Dokumente & Geräte</strong><small>Nur dort erfassen, wo sie fachlich hingehören.</small></div>
+      </div>
 
       <div class="obj-columns-wrap">
         <div class="obj-columns" id="objColumns"></div>
@@ -80,11 +86,11 @@
   </div>
 </div>
 
-<!-- Neues Objekt Modal -->
+<!-- Neues Gebäude Modal -->
 <div class="share-modal-backdrop" id="newPropertyModalBackdrop" hidden>
   <div class="share-modal">
     <button type="button" class="obj-modal-close" id="newPropertyModalClose" aria-label="Schliessen">✕</button>
-    <h3>Neues Objekt</h3>
+    <h3>Neues Gebäude / Liegenschaft</h3>
     <form class="auth-form modal-scroll-body" id="newPropertyForm">
       <input id="p_label" placeholder="Bezeichnung (z.B. Hauptstrasse 39, Frick) *" required>
       <div class="auth-form-row">
@@ -97,7 +103,7 @@
       <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
       <input type="file" id="p_detail_images" accept="image/*" multiple>
       <div class="dash-btn-row">
-        <button type="submit" class="btn btn-primary">Objekt anlegen</button>
+        <button type="submit" class="btn btn-primary">Gebäude anlegen</button>
         <button type="button" class="dash-btn-sm" id="newPropertyCancelBtn">Abbrechen</button>
       </div>
       <p class="form-status" id="newPropertyStatus"></p>
@@ -112,7 +118,10 @@
     <h3>Neue Einheit</h3>
     <form class="auth-form modal-scroll-body" id="newUnitForm">
       <select id="u_property" required><option value="" disabled selected>Objekt wählen *</option></select>
-      <select id="u_type"></select>
+      <span class="obj-modal-section-label">Was wird in diesem Gebäude erfasst?</span>
+      <select id="u_type" class="obj-hidden-select" aria-hidden="true" tabindex="-1"></select>
+      <div class="obj-unit-type-picker" id="u_type_cards" data-unit-type-picker="u_type" role="group" aria-label="Art der Einheit wählen"></div>
+      <p class="obj-helper-text">Hier erscheinen bewusst nur echte Untereinheiten. Ein Haus/Gebäude wird eine Stufe vorher als Gebäude/Liegenschaft erfasst.</p>
       <input id="u_label" placeholder="Einheit (z.B. 3.5-Zimmer-Wohnung EG links) *" required>
       <select id="u_visibility">
         <option value="private" selected>Nicht veröffentlichen</option>
@@ -216,6 +225,24 @@
     parkplatz: 'Parkplatz',
     lager: 'Lager / Hobbyraum',
     sonstiges: 'Einheit'
+  };
+  var UNIT_TYPE_HINTS = {
+    wohnung: 'Wohnung, Studio, Einliegerwohnung',
+    zimmer: 'möbliertes Zimmer, Einzelzimmer',
+    gewerbe: 'Gewerbe, Büro, Gastronomie',
+    garage: 'Einzelgarage, Box',
+    parkplatz: 'Tiefgarage, Aussenparkplatz',
+    lager: 'Hobbyraum, Keller, Lager',
+    sonstiges: 'nur falls nichts passt'
+  };
+  var UNIT_TYPE_ICONS = {
+    wohnung: '⌂',
+    zimmer: '▣',
+    gewerbe: '▤',
+    garage: '▥',
+    parkplatz: 'P',
+    lager: '▦',
+    sonstiges: '•'
   };
   var LEGACY_UNIT_TYPE_MAP = {
     einfamilienhaus: 'sonstiges', reihenhaus: 'sonstiges', doppelhaushaelfte: 'sonstiges', villa: 'sonstiges',
@@ -327,6 +354,23 @@
     if(hideAll) document.getElementById('u_extra_costs').value = '';
   }
 
+  function applyExistingUnitTypeFieldVisibility(unitId, type, clearHiddenFields){
+    var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
+    var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
+    setUnitFieldWrap('unitAreaWrap-'+unitId, 'unitArea-'+unitId, hideAll, clearHiddenFields);
+    setUnitFieldWrap('unitRoomsWrap-'+unitId, 'unitRooms-'+unitId, hideRooms, clearHiddenFields);
+    setUnitFieldWrap('unitExtraCostsWrap-'+unitId, 'unitExtraCosts-'+unitId, hideAll, clearHiddenFields);
+    var areaInput = document.getElementById('unitArea-'+unitId);
+    if(areaInput) areaInput.placeholder = UNIT_TYPES_NON_RESIDENTIAL_AREA.indexOf(type) > -1 ? 'Fläche m²' : 'Wohnfläche m²';
+  }
+
+  function setUnitFieldWrap(wrapId, inputId, hidden, clearHiddenFields){
+    var wrap = document.getElementById(wrapId);
+    var input = document.getElementById(inputId);
+    if(wrap) wrap.hidden = hidden;
+    if(hidden && clearHiddenFields && input) input.value = '';
+  }
+
   function init(){
     document.getElementById('newPropertyForm').addEventListener('submit', async function(e){
       e.preventDefault();
@@ -428,6 +472,7 @@
       var selectPropertyScope = e.target.closest('[data-select-property-scope]');
       var selectUnit = e.target.closest('[data-select-unit]');
       var addUnitToProperty = e.target.closest('[data-add-unit-to-property]');
+      var quickUnitType = e.target.closest('[data-quick-unit-type]');
       var detailBtn = e.target.closest('[data-detail-type]');
       var nextAction = e.target.closest('[data-next-action]');
       var openTreeDoc = e.target.closest('[data-open-tree-doc]');
@@ -461,6 +506,7 @@
       else if(deleteAppliance) deleteApplianceRecord(deleteAppliance.getAttribute('data-delete-appliance'));
       else if(openProp) openPropertyModal(openProp.getAttribute('data-open-property'));
       else if(openUnit) openUnitModal(openUnit.getAttribute('data-open-unit'));
+      else if(quickUnitType) openCreateModal(quickUnitType.getAttribute('data-quick-unit-type'), quickUnitType.getAttribute('data-property-id'));
       else if(addUnitToProperty) openCreateModal('unit-for-property', addUnitToProperty.getAttribute('data-add-unit-to-property'));
       else if(addBtn) openCreateModal(addBtn.getAttribute('data-add'));
     });
@@ -492,10 +538,14 @@
       document.getElementById(id).addEventListener('input', updateUnitLabelAuto);
     });
     document.getElementById('u_type').addEventListener('change', function(){
-      updateUnitLabelAuto();
-      applyUnitTypeFieldVisibility(this.value);
+      setUnitTypeValue('u_type', this.value, true);
     });
     document.getElementById('u_label').addEventListener('input', function(){ unitLabelManualOverride = true; });
+    document.addEventListener('click', function(e){
+      var typeBtn = e.target.closest('[data-unit-type-target]');
+      if(!typeBtn) return;
+      setUnitTypeValue(typeBtn.getAttribute('data-unit-type-target'), typeBtn.getAttribute('data-unit-type'), true);
+    });
 
     loadAll().then(function(){
       applyGlobalSearchParam();
@@ -544,6 +594,49 @@
     }).join('');
   }
 
+  function unitTypeCardsHtml(selected, targetId, compact){
+    return UNIT_TYPE_ORDER.map(function(type){
+      var active = type === selected;
+      return '<button type="button" class="obj-type-card'+(active?' active':'')+(compact?' compact':'')+'" data-unit-type-target="'+targetId+'" data-unit-type="'+type+'" aria-pressed="'+(active?'true':'false')+'">' +
+        '<span class="obj-type-icon">'+VeraDashboard.escapeHtml(UNIT_TYPE_ICONS[type] || '•')+'</span>' +
+        '<span><strong>'+VeraDashboard.escapeHtml(UNIT_TYPE_SINGULAR[type])+'</strong><small>'+VeraDashboard.escapeHtml(UNIT_TYPE_HINTS[type] || '')+'</small></span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function setUnitTypeValue(targetId, type, clearHiddenFields){
+    var select = document.getElementById(targetId);
+    if(!select) return;
+    select.value = type;
+    document.querySelectorAll('[data-unit-type-target="'+targetId+'"]').forEach(function(btn){
+      var active = btn.getAttribute('data-unit-type') === type;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if(targetId === 'u_type'){
+      updateUnitLabelAuto();
+      applyUnitTypeFieldVisibility(type);
+      updateNewUnitChecklist();
+      return;
+    }
+    if(targetId.indexOf('unitType-') === 0){
+      var unitId = targetId.replace('unitType-', '');
+      applyExistingUnitTypeFieldVisibility(unitId, type, !!clearHiddenFields);
+      updateUnitChecklist(unitId);
+    }
+  }
+
+  function quickUnitTypeButtonsHtml(propertyId){
+    if(!propertyId) return '';
+    var recommended = ['wohnung', 'garage', 'parkplatz', 'gewerbe', 'lager', 'zimmer'];
+    return '<div class="obj-quick-types">' + recommended.map(function(type){
+      return '<button type="button" class="obj-quick-type" data-property-id="'+propertyId+'" data-quick-unit-type="'+type+'">' +
+        '<span>'+VeraDashboard.escapeHtml(UNIT_TYPE_ICONS[type] || '•')+'</span>' +
+        '<strong>'+VeraDashboard.escapeHtml(UNIT_TYPE_SINGULAR[type])+'</strong>' +
+      '</button>';
+    }).join('') + '</div>';
+  }
+
   var allProperties = [];
   var allUnits = [];
   var allProfilesForPicker = [];
@@ -564,7 +657,8 @@
     var propSel = document.getElementById('u_property');
     propSel.innerHTML = '<option value="" disabled selected>Objekt wählen *</option>' +
       allProperties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
-    document.getElementById('u_type').innerHTML = unitTypeOptionsHtml('sonstiges');
+    document.getElementById('u_type').innerHTML = unitTypeOptionsHtml('wohnung');
+    document.getElementById('u_type_cards').innerHTML = unitTypeCardsHtml('wohnung', 'u_type');
 
     var unitsRes = await client.from('units').select('*').order('label');
     allUnits = unitsRes.data || [];
@@ -611,17 +705,17 @@
     var selectedUnit = allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] || null;
     return '<div class="obj-hierarchy">' +
       '<section class="obj-pane obj-pane-buildings">' +
-        '<div class="obj-pane-head"><div><strong>1. Gebäude</strong><span>'+allProperties.length+' erfasst</span></div><button type="button" class="obj-add-btn" data-add="objekte" title="Gebäude erfassen">+</button></div>' +
+        '<div class="obj-pane-head"><div><strong>1. Gebäude / Liegenschaft</strong><span>'+allProperties.length+' erfasst</span></div><button type="button" class="obj-add-btn" data-add="objekte" title="Gebäude erfassen">+</button></div>' +
         '<input type="text" class="dash-search-input obj-hierarchy-search" data-search-key="objekte" placeholder="Gebäude suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState.objekte||'')+'">' +
         '<div class="obj-pane-list">'+propertyRowsHtml()+'</div>' +
       '</section>' +
       '<section class="obj-pane obj-pane-units">' +
-        '<div class="obj-pane-head"><div><strong>2. Ebene</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
+        '<div class="obj-pane-head"><div><strong>2. Einheiten darunter</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
         '<input type="text" class="dash-search-input obj-hierarchy-search" data-search-key="units" placeholder="Wohnung, Garage, Parkplatz suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState.units||'')+'"'+(!selectedPropertyId?' disabled':'')+'>' +
         '<div class="obj-pane-list">'+unitRowsHtml(selectedPropertyId)+'</div>' +
       '</section>' +
       '<section class="obj-pane obj-pane-relations">' +
-        '<div class="obj-pane-head"><div><strong>3. Zuordnung</strong><span>'+scopeLabel(selectedProperty, selectedUnit)+'</span></div></div>' +
+        '<div class="obj-pane-head"><div><strong>3. Rollen, Rechte, Inhalt</strong><span>'+scopeLabel(selectedProperty, selectedUnit)+'</span></div></div>' +
         '<div class="obj-pane-list">'+relationRowsHtml(selectedProperty, selectedUnit)+'</div>' +
       '</section>' +
       '<aside class="obj-pane obj-pane-detail">' + hierarchyDetailHtml(selectedProperty, selectedUnit) + '</aside>' +
@@ -673,7 +767,7 @@
         }).join('') +
       '</div>';
     }).join('');
-    if(!unitHtml) unitHtml = '<p class="dash-empty">Noch keine Einheit. Über + Wohnung, Garage, Parkplatz usw. erfassen.</p>';
+    if(!unitHtml) unitHtml = '<div class="obj-guided-empty"><strong>Noch keine Einheit erfasst</strong><span>Wählen Sie direkt, was unter dieser Liegenschaft existiert. Keine Haus-Auswahl: Häuser/Gebäude sind Stufe 1.</span>'+quickUnitTypeButtonsHtml(propertyId)+'</div>';
     return propertyScopeHtml + unitHtml;
   }
 
@@ -696,10 +790,18 @@
     var people = relationPeopleRows(property, unit);
     var docs = relationDocRows(property, unit);
     var appliances = relationApplianceRows(property, unit);
-    return '<div class="obj-unit-group"><h3>Personen</h3>' + people + '</div>' +
-      '<div class="obj-unit-group"><h3>Dokumente</h3>' + docs + '</div>' +
+    return '<div class="obj-unit-group"><h3>Personen</h3>' + people +
+        '<button type="button" class="obj-row obj-hierarchy-row obj-action-row" data-next-action="'+(unit ? 'unit-people' : 'property-people')+'">' +
+          '<strong>+ Person / Rolle zuweisen</strong><span class="obj-row-meta">'+(unit ? 'Mieter oder Eigentümer dieser Einheit' : 'Eigentümer oder Hauswart dieser Liegenschaft')+'</span>' +
+        '</button>' +
+      '</div>' +
+      '<div class="obj-unit-group"><h3>Dokumente</h3>' + docs +
+        '<button type="button" class="obj-row obj-hierarchy-row obj-action-row" data-next-action="'+(unit ? 'unit-docs' : 'property-docs')+'">' +
+          '<strong>+ Dokument gezielt freigeben</strong><span class="obj-row-meta">'+(unit ? 'z.B. Mietvertrag nur für berechtigte Person' : 'z.B. Hausordnung für die Liegenschaft')+'</span>' +
+        '</button>' +
+      '</div>' +
       '<div class="obj-unit-group"><h3>Fix eingebaute Geräte</h3>' + appliances +
-        '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="add-appliance" data-detail-id="'+scope+'">' +
+        '<button type="button" class="obj-row obj-hierarchy-row obj-action-row" data-detail-type="add-appliance" data-detail-id="'+scope+'">' +
           '<strong>+ Gerät erfassen</strong><span class="obj-row-meta">'+(unit ? 'z.B. Kochherd, Kühlschrank, Backofen' : 'z.B. Waschmaschine, Tumbler, Lift')+'</span>' +
         '</button>' +
       '</div>';
@@ -768,6 +870,11 @@
       '<p class="doc-meta">'+VeraDashboard.escapeHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'Keine Adresse')+'</p>' +
       '<div class="obj-detail-stats">'+(stats || '<span>Noch keine Einheiten</span>')+'</div>' +
       nextStepsHtml(property, null) +
+      '<div class="obj-context-action">' +
+        '<strong>Was gehört zu diesem Gebäude?</strong>' +
+        '<span>Direkt die passende Untereinheit erfassen.</span>' +
+        quickUnitTypeButtonsHtml(property.id) +
+      '</div>' +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-add-unit-to-property="'+property.id+'">Einheit hinzufügen</button>' +
         '<button type="button" class="dash-btn-sm" data-open-property="'+property.id+'">Gebäude bearbeiten</button>' +
@@ -1110,10 +1217,9 @@
     }
     var unitType = key === 'unit-for-property' ? 'wohnung' : key;
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(unitType);
+    document.getElementById('u_type_cards').innerHTML = unitTypeCardsHtml(unitType, 'u_type');
     if(propertyId) document.getElementById('u_property').value = propertyId;
-    updateUnitLabelAuto();
-    applyUnitTypeFieldVisibility(unitType);
-    updateNewUnitChecklist();
+    setUnitTypeValue('u_type', unitType, true);
     document.getElementById('newUnitModalBackdrop').hidden = false;
   }
 
@@ -1350,9 +1456,12 @@
 
   function unitModalHtml(unit){
     var unitId = unit.id;
+    var selectedType = normalizeUnitType(unit.unit_type);
     return '<h3>'+VeraDashboard.escapeHtml(unit.label)+'</h3>' +
       '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'">' +
-        '<select id="unitType-'+unitId+'">'+unitTypeOptionsHtml(normalizeUnitType(unit.unit_type))+'</select>' +
+        '<span class="obj-modal-section-label">Art dieser Einheit</span>' +
+        '<select id="unitType-'+unitId+'" class="obj-hidden-select" aria-hidden="true" tabindex="-1">'+unitTypeOptionsHtml(selectedType)+'</select>' +
+        '<div class="obj-unit-type-picker compact" data-unit-type-picker="unitType-'+unitId+'" role="group" aria-label="Art der Einheit wählen">'+unitTypeCardsHtml(selectedType, 'unitType-'+unitId, true)+'</div>' +
         '<input id="unitLabel-'+unitId+'" placeholder="Bezeichnung *" required value="'+VeraDashboard.escapeHtml(unit.label)+'">' +
         '<select id="unitVisibility-'+unitId+'">' +
           '<option value="private"'+(unit.visibility !== 'public' ? ' selected' : '')+'>Nicht veröffentlichen</option>' +
@@ -1378,14 +1487,14 @@
           '<div><input type="number" step="0.01" min="0" id="unitRent-'+unitId+'" placeholder="Mietzins / Preis CHF" value="'+VeraDashboard.escapeHtml(unit.rent_chf || '')+'"></div>' +
         '</div>' +
         '<div class="auth-form-row">' +
-          '<div><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
+          '<div id="unitExtraCostsWrap-'+unitId+'"><input type="number" step="0.01" min="0" id="unitExtraCosts-'+unitId+'" placeholder="Nebenkosten CHF" value="'+VeraDashboard.escapeHtml(unit.extra_costs_chf || '')+'"></div>' +
           '<div><input id="unitAvailable-'+unitId+'" placeholder="Verfügbar ab" value="'+VeraDashboard.escapeHtml(unit.available_from || '')+'"></div>' +
         '</div>' +
 
         '<span class="obj-modal-section-label">Grösse &amp; Lage</span>' +
         '<div class="auth-form-row">' +
-          '<div><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
-          '<div><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
+          '<div id="unitAreaWrap-'+unitId+'"><input type="number" step="0.01" min="0" id="unitArea-'+unitId+'" placeholder="Wohnfläche m²" value="'+VeraDashboard.escapeHtml(unit.living_area_m2 || '')+'"></div>' +
+          '<div id="unitRoomsWrap-'+unitId+'"><input type="number" step="0.5" min="0" id="unitRooms-'+unitId+'" placeholder="Zimmer" value="'+VeraDashboard.escapeHtml(unit.rooms || '')+'"></div>' +
         '</div>' +
         '<input id="unitFloor-'+unitId+'" placeholder="Etage / Lage im Haus" value="'+VeraDashboard.escapeHtml(unit.floor || '')+'">' +
 
@@ -1478,8 +1587,12 @@
     var modalBody = document.getElementById('unitModalBody');
     loadUnitThumbs(unitId);
     updateUnitChecklist(unitId);
+    applyExistingUnitTypeFieldVisibility(unitId, normalizeUnitType(unit.unit_type), false);
     document.getElementById('unitListingForm-'+unitId).addEventListener('input', function(){ updateUnitChecklist(unitId); });
     document.getElementById('unitListingForm-'+unitId).addEventListener('change', function(){ updateUnitChecklist(unitId); });
+    document.getElementById('unitType-'+unitId).addEventListener('change', function(){
+      setUnitTypeValue('unitType-'+unitId, this.value, true);
+    });
     document.getElementById('unitListingForm-'+unitId).addEventListener('submit', function(e){
       saveUnitListingDetails(e, unitId);
     });
