@@ -421,6 +421,28 @@
 .filemgr-column-item.file{grid-template-columns:24px minmax(0,1fr) 0;}
 .filemgr-column-icon{font-size:1.05rem;}
 .filemgr-column-chevron{opacity:.7;text-align:right;}
+.filemgr-preview-column{
+  flex:1 1 560px;min-width:420px;padding:12px;border-left:1px solid var(--color-blue-light);
+  background:rgba(255,255,255,.48);display:flex;flex-direction:column;gap:10px;
+}
+.filemgr-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px;}
+.filemgr-preview-head strong{
+  font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--color-gray-text);
+}
+.filemgr-preview-head span{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;color:var(--color-gray-text);
+}
+.filemgr-preview-stage{
+  flex:1;min-height:420px;border:1px solid var(--color-blue-light);border-radius:12px;background:var(--color-white);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+}
+.filemgr-preview-frame{width:100%;height:100%;min-height:420px;border:0;background:var(--color-white);}
+.filemgr-preview-image{max-width:100%;max-height:100%;object-fit:contain;display:block;}
+.filemgr-preview-loading,.filemgr-preview-fallback{
+  min-height:260px;padding:22px;text-align:center;color:var(--color-gray-text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+}
+.filemgr-preview-fallback span{font-size:3rem;}
 .filemgr-detail{
   border:1px solid var(--color-blue-light);border-radius:14px;background:var(--color-white);
   box-shadow:var(--shadow-card);padding:18px;min-width:0;
@@ -1039,6 +1061,8 @@
   .filemgr-detail{order:-1;}
   .filemgr-columns{min-height:360px;}
   .filemgr-column{flex-basis:min(82vw,340px);}
+  .filemgr-preview-column{flex-basis:min(92vw,620px);min-width:min(92vw,620px);}
+  .filemgr-preview-stage,.filemgr-preview-frame{min-height:360px;}
   .invoice-sheet{padding:24px 20px;}
   .invoice-sheet-parties{flex-direction:column;gap:14px;}
 }
@@ -1080,6 +1104,9 @@
   .filemgr-detail-preview,.filemgr-detail-icon{width:120px;height:96px;font-size:2.6rem;margin-bottom:12px;}
   .filemgr-column{flex-basis:86vw;padding:10px;}
   .filemgr-column-item{min-height:46px;font-size:.88rem;}
+  .filemgr-preview-column{flex-basis:86vw;min-width:86vw;padding:10px;}
+  .filemgr-preview-head{align-items:flex-start;flex-direction:column;gap:4px;}
+  .filemgr-preview-stage,.filemgr-preview-frame{min-height:320px;}
   .filemgr-folder-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
   .filemgr-file-row .dash-btn-row{width:100%;}
   .filemgr-file-row .dash-btn-row .dash-btn-sm{flex:1;text-align:center;}

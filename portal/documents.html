@@ -324,6 +324,7 @@
   var fmSelected = null; // { type: 'folder'|'file', item }
   var fmShareTarget = null; // { type: 'folder'|'file', id, name }
   var fmAssignTarget = null; // file row
+  var fmPreviewToken = 0;
 
   function fmCurrentFolderId(){
     return fmPath.length ? fmPath[fmPath.length - 1].id : null;
@@ -515,7 +516,17 @@
         '<span class="filemgr-column-icon">'+fmFileIcon(f.mime_type)+'</span><span>'+VeraDashboard.escapeHtml(f.title)+'</span></button>';
     }).join('');
     if(!itemsHtml) itemsHtml = '<p class="dash-empty">Dieser Ordner ist leer.</p>';
-    columns.innerHTML = '<div class="filemgr-column"><h3>'+VeraDashboard.escapeHtml(title)+'</h3><div class="filemgr-column-list">'+itemsHtml+'</div></div>';
+    var previewHtml = '';
+    if(fmSelected && fmSelected.type === 'file'){
+      previewHtml = '<div class="filemgr-preview-column">' +
+        '<div class="filemgr-preview-head"><strong>Vorschau</strong><span>'+VeraDashboard.escapeHtml(fmSelected.item.title)+'</span></div>' +
+        '<div class="filemgr-preview-stage" id="filemgrPreviewStage">' +
+          '<div class="filemgr-preview-loading">Vorschau wird geladen …</div>' +
+        '</div>' +
+      '</div>';
+    }
+    columns.innerHTML = '<div class="filemgr-column"><h3>'+VeraDashboard.escapeHtml(title)+'</h3><div class="filemgr-column-list">'+itemsHtml+'</div></div>' + previewHtml;
+    if(fmSelected && fmSelected.type === 'file') fmRenderFilePreview(fmSelected.item);
 
     columns.querySelectorAll('.filemgr-column-item').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -544,6 +555,46 @@
       btn.addEventListener('dragend', function(){ fmDragged = null; });
       if(btn.getAttribute('data-type') === 'folder') fmWireDropTarget(btn, btn.getAttribute('data-id'));
     });
+  }
+
+  function fmPreviewKind(file){
+    var mime = String(file.mime_type || '').toLowerCase();
+    var name = String(file.title || '').toLowerCase();
+    if(mime.indexOf('image/') === 0 || /\.(png|jpe?g|gif|webp|svg)$/.test(name)) return 'image';
+    if(mime.indexOf('pdf') > -1 || /\.pdf$/.test(name)) return 'pdf';
+    if(mime.indexOf('text/') === 0 || /\.(txt|csv|log|md)$/.test(name)) return 'text';
+    if(mime.indexOf('word') > -1 || mime.indexOf('excel') > -1 || mime.indexOf('sheet') > -1 ||
+      mime.indexOf('presentation') > -1 || mime.indexOf('powerpoint') > -1 ||
+      /\.(docx?|xlsx?|pptx?)$/.test(name)) return 'office';
+    return 'unsupported';
+  }
+
+  async function fmRenderFilePreview(file){
+    var token = ++fmPreviewToken;
+    var stage = document.getElementById('filemgrPreviewStage');
+    if(!stage) return;
+    var signed = await client.storage.from('document-vault').createSignedUrl(file.file_path, 600);
+    if(token !== fmPreviewToken || !document.getElementById('filemgrPreviewStage')) return;
+    if(signed.error || !signed.data){
+      stage.innerHTML = '<div class="filemgr-preview-fallback"><span>'+fmFileIcon(file.mime_type)+'</span><strong>Vorschau konnte nicht geladen werden.</strong></div>';
+      return;
+    }
+    var url = signed.data.signedUrl;
+    var kind = fmPreviewKind(file);
+    if(kind === 'image'){
+      stage.innerHTML = '<img class="filemgr-preview-image" src="'+url+'" alt="'+VeraDashboard.escapeHtml(file.title)+'">';
+      return;
+    }
+    if(kind === 'pdf' || kind === 'text'){
+      stage.innerHTML = '<iframe class="filemgr-preview-frame" src="'+url+'" title="Vorschau: '+VeraDashboard.escapeHtml(file.title)+'"></iframe>';
+      return;
+    }
+    if(kind === 'office'){
+      stage.innerHTML = '<iframe class="filemgr-preview-frame" src="https://view.officeapps.live.com/op/embed.aspx?src='+encodeURIComponent(url)+'" title="Vorschau: '+VeraDashboard.escapeHtml(file.title)+'"></iframe>';
+      return;
+    }
+    stage.innerHTML = '<div class="filemgr-preview-fallback"><span>'+fmFileIcon(file.mime_type)+'</span><strong>Für diesen Dateityp ist keine direkte Vorschau verfügbar.</strong><button type="button" class="dash-btn-sm" id="fmPreviewOpenFallback">Datei öffnen</button></div>';
+    document.getElementById('fmPreviewOpenFallback').onclick = function(){ window.open(url, '_blank'); };
   }
 
   function fmPropertyLabel(file){
