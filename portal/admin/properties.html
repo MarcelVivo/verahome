@@ -414,17 +414,38 @@
       var openUnit = e.target.closest('[data-open-unit]');
       var addBtn = e.target.closest('[data-add]');
       var selectProp = e.target.closest('[data-select-property]');
+      var selectPropertyScope = e.target.closest('[data-select-property-scope]');
       var selectUnit = e.target.closest('[data-select-unit]');
       var addUnitToProperty = e.target.closest('[data-add-unit-to-property]');
+      var detailBtn = e.target.closest('[data-detail-type]');
+      var openTreeDoc = e.target.closest('[data-open-tree-doc]');
+      var deleteAppliance = e.target.closest('[data-delete-appliance]');
       if(selectProp){
         selectedPropertyId = selectProp.getAttribute('data-select-property');
         selectedUnitId = null;
+        selectedDetailType = null;
+        selectedDetailId = null;
+        renderAllColumns();
+      }
+      else if(selectPropertyScope){
+        selectedUnitId = null;
+        selectedDetailType = null;
+        selectedDetailId = null;
         renderAllColumns();
       }
       else if(selectUnit){
         selectedUnitId = selectUnit.getAttribute('data-select-unit');
+        selectedDetailType = null;
+        selectedDetailId = null;
         renderAllColumns();
       }
+      else if(detailBtn){
+        selectedDetailType = detailBtn.getAttribute('data-detail-type');
+        selectedDetailId = detailBtn.getAttribute('data-detail-id');
+        renderAllColumns();
+      }
+      else if(openTreeDoc) openDocumentVaultFile(openTreeDoc.getAttribute('data-open-tree-doc'));
+      else if(deleteAppliance) deleteApplianceRecord(deleteAppliance.getAttribute('data-delete-appliance'));
       else if(openProp) openPropertyModal(openProp.getAttribute('data-open-property'));
       else if(openUnit) openUnitModal(openUnit.getAttribute('data-open-unit'));
       else if(addUnitToProperty) openCreateModal('unit-for-property', addUnitToProperty.getAttribute('data-add-unit-to-property'));
@@ -435,6 +456,9 @@
       var key = e.target.getAttribute('data-search-key');
       columnSearchState[key] = e.target.value;
       refreshColumnRows(key);
+    });
+    document.getElementById('objColumns').addEventListener('submit', function(e){
+      if(e.target && e.target.id === 'applianceForm') saveApplianceRecord(e);
     });
 
     document.getElementById('propertyModalClose').addEventListener('click', closePropertyModal);
@@ -510,8 +534,15 @@
   var allProperties = [];
   var allUnits = [];
   var allProfilesForPicker = [];
+  var allTenancies = [];
+  var allOwnerships = [];
+  var allPropertyPermissions = [];
+  var allDocumentFiles = [];
+  var allAppliances = [];
   var selectedPropertyId = null;
   var selectedUnitId = null;
+  var selectedDetailType = null;
+  var selectedDetailId = null;
 
   async function loadAll(){
     var propRes = await client.from('properties').select('*').order('label');
@@ -527,6 +558,21 @@
 
     var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').neq('category', 'admin').order('last_name');
     allProfilesForPicker = profilesRes.data || [];
+
+    var tenanciesRes = await client.from('tenancies').select('*').order('start_date', { ascending:false });
+    allTenancies = tenanciesRes.data || [];
+    var ownershipsRes = await client.from('ownerships').select('*').order('start_date', { ascending:false });
+    allOwnerships = ownershipsRes.data || [];
+    var permissionsRes = await client.from('property_permissions').select('*');
+    allPropertyPermissions = permissionsRes.data || [];
+    var docsRes = await client.from('document_files').select('*').order('created_at', { ascending:false });
+    allDocumentFiles = docsRes.data || [];
+    try {
+      var appliancesRes = await client.from('property_appliances').select('*').order('label');
+      allAppliances = appliancesRes.data || [];
+    } catch(err) {
+      allAppliances = [];
+    }
   }
 
   /* ============================================================
@@ -557,9 +603,13 @@
         '<div class="obj-pane-list">'+propertyRowsHtml()+'</div>' +
       '</section>' +
       '<section class="obj-pane obj-pane-units">' +
-        '<div class="obj-pane-head"><div><strong>2. Einheiten</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
+        '<div class="obj-pane-head"><div><strong>2. Ebene</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
         '<input type="text" class="dash-search-input obj-hierarchy-search" data-search-key="units" placeholder="Wohnung, Garage, Parkplatz suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState.units||'')+'"'+(!selectedPropertyId?' disabled':'')+'>' +
         '<div class="obj-pane-list">'+unitRowsHtml(selectedPropertyId)+'</div>' +
+      '</section>' +
+      '<section class="obj-pane obj-pane-relations">' +
+        '<div class="obj-pane-head"><div><strong>3. Zuordnung</strong><span>'+scopeLabel(selectedProperty, selectedUnit)+'</span></div></div>' +
+        '<div class="obj-pane-list">'+relationRowsHtml(selectedProperty, selectedUnit)+'</div>' +
       '</section>' +
       '<aside class="obj-pane obj-pane-detail">' + hierarchyDetailHtml(selectedProperty, selectedUnit) + '</aside>' +
     '</div>';
@@ -594,7 +644,9 @@
       if(!byType[type]) byType[type] = [];
       byType[type].push(u);
     });
-    return UNIT_TYPE_ORDER.filter(function(type){ return byType[type] && byType[type].length; }).map(function(type){
+    var propertyScopeHtml = '<button type="button" class="obj-row obj-hierarchy-row'+(!selectedUnitId?' active':'')+'" data-select-property-scope="'+propertyId+'">' +
+      '<strong>Liegenschaft / Objekt</strong><span class="obj-row-meta">Eigentümer, Hauswart, Hausordnung, Geräte im Gebäude</span></button>';
+    return propertyScopeHtml + UNIT_TYPE_ORDER.filter(function(type){ return byType[type] && byType[type].length; }).map(function(type){
       return '<div class="obj-unit-group"><h3>'+UNIT_TYPE_LABELS[type]+'</h3>' +
         byType[type].map(function(u){
           var meta = [];
@@ -612,9 +664,80 @@
   }
 
   function hierarchyDetailHtml(property, unit){
+    if(selectedDetailType) return selectedDetailHtml(property, unit);
     if(unit) return unitQuickDetailHtml(unit);
     if(property) return propertyQuickDetailHtml(property);
     return '<div class="obj-empty-state"><strong>Noch kein Gebäude ausgewählt</strong><span>Erfassen Sie zuerst ein Gebäude/Liegenschaft.</span><button type="button" class="btn btn-primary" data-add="objekte">Gebäude erfassen</button></div>';
+  }
+
+  function scopeLabel(property, unit){
+    if(unit) return unit.label;
+    if(property) return property.label;
+    return 'Keine Auswahl';
+  }
+
+  function relationRowsHtml(property, unit){
+    if(!property) return '<p class="dash-empty">Bitte zuerst ein Gebäude wählen.</p>';
+    var scope = unit ? 'unit' : 'property';
+    var people = relationPeopleRows(property, unit);
+    var docs = relationDocRows(property, unit);
+    var appliances = relationApplianceRows(property, unit);
+    return '<div class="obj-unit-group"><h3>Personen</h3>' + people + '</div>' +
+      '<div class="obj-unit-group"><h3>Dokumente</h3>' + docs + '</div>' +
+      '<div class="obj-unit-group"><h3>Fix eingebaute Geräte</h3>' + appliances +
+        '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="add-appliance" data-detail-id="'+scope+'">' +
+          '<strong>+ Gerät erfassen</strong><span class="obj-row-meta">'+(unit ? 'z.B. Kochherd, Kühlschrank, Backofen' : 'z.B. Waschmaschine, Tumbler, Lift')+'</span>' +
+        '</button>' +
+      '</div>';
+  }
+
+  function relationPeopleRows(property, unit){
+    var rows = [];
+    if(unit){
+      allTenancies.filter(function(t){ return t.unit_id === unit.id; }).forEach(function(t){
+        rows.push({ role:'Mieter', id:t.id, profile_id:t.tenant_profile_id, meta:t.status + ' · ab ' + (t.start_date || '–') });
+      });
+      allOwnerships.filter(function(o){ return o.unit_id === unit.id; }).forEach(function(o){
+        rows.push({ role:'Eigentümer', id:o.id, profile_id:o.owner_profile_id, meta:(o.share_percent || '–') + '% Anteil' });
+      });
+    } else {
+      allOwnerships.filter(function(o){ return o.property_id === property.id && !o.unit_id; }).forEach(function(o){
+        rows.push({ role:'Eigentümer Objekt', id:o.id, profile_id:o.owner_profile_id, meta:(o.share_percent || '–') + '% Anteil' });
+      });
+    }
+    allPropertyPermissions.filter(function(p){ return p.property_id === property.id && p.permission === 'hauswart'; }).forEach(function(p){
+      rows.push({ role:'Hauswart', id:p.id, profile_id:p.profile_id, meta:'für Liegenschaft' });
+    });
+    if(!rows.length) return '<p class="dash-empty">Noch keine Personen zugewiesen.</p>';
+    return rows.map(function(row){
+      return '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="person" data-detail-id="'+row.role+'">'+
+        '<strong>'+VeraDashboard.escapeHtml(row.role+': '+profileLabelById(row.profile_id))+'</strong>' +
+        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(row.meta)+'</span></button>';
+    }).join('');
+  }
+
+  function relationDocRows(property, unit){
+    var docs = unit
+      ? allDocumentFiles.filter(function(d){ return d.unit_id === unit.id || (d.property_id === property.id && !d.unit_id); })
+      : allDocumentFiles.filter(function(d){ return d.property_id === property.id && !d.unit_id; });
+    if(!docs.length) return '<p class="dash-empty">Noch keine Dokumente zugewiesen.</p>';
+    return docs.map(function(d){
+      return '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="document" data-detail-id="'+d.id+'">' +
+        '<strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
+        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(d.unit_id ? 'Einheitsdokument' : 'Liegenschaftsdokument')+'</span></button>';
+    }).join('');
+  }
+
+  function relationApplianceRows(property, unit){
+    var rows = unit
+      ? allAppliances.filter(function(a){ return a.unit_id === unit.id; })
+      : allAppliances.filter(function(a){ return a.property_id === property.id && !a.unit_id; });
+    if(!rows.length) return '<p class="dash-empty">Noch keine Geräte erfasst.</p>';
+    return rows.map(function(a){
+      return '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="appliance" data-detail-id="'+a.id+'">' +
+        '<strong>'+VeraDashboard.escapeHtml(a.label)+'</strong>' +
+        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml([a.manufacturer, a.model, a.serial_number].filter(Boolean).join(' · ') || a.category || 'Gerät')+'</span></button>';
+    }).join('');
   }
 
   function propertyQuickDetailHtml(property){
@@ -651,6 +774,79 @@
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-unit="'+unit.id+'">Einheit bearbeiten & zuweisen</button>' +
         '<button type="button" class="dash-btn-sm" data-open-property="'+unit.property_id+'">Gebäude öffnen</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function selectedDetailHtml(property, unit){
+    if(selectedDetailType === 'document') return documentDetailHtml();
+    if(selectedDetailType === 'appliance') return applianceDetailHtml();
+    if(selectedDetailType === 'add-appliance') return applianceFormHtml(property, unit);
+    if(selectedDetailType === 'person') return personDetailHtml(property, unit);
+    return unit ? unitQuickDetailHtml(unit) : propertyQuickDetailHtml(property);
+  }
+
+  function documentDetailHtml(){
+    var doc = allDocumentFiles.filter(function(d){ return d.id === selectedDetailId; })[0];
+    if(!doc) return '<div class="obj-empty-state"><strong>Dokument nicht gefunden</strong></div>';
+    return '<div class="obj-detail-card">' +
+      '<span class="obj-step-label">Dokument / Vertrag</span>' +
+      '<h2>'+VeraDashboard.escapeHtml(doc.title)+'</h2>' +
+      '<p class="doc-meta">'+VeraDashboard.escapeHtml(doc.mime_type || 'Datei')+' · '+VeraDashboard.formatDate(doc.created_at)+'</p>' +
+      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Sichtbar nur für Personen mit expliziter Freigabe in document_shares.</div>' +
+      '<div class="dash-btn-row">' +
+        '<button type="button" class="btn btn-primary" data-open-tree-doc="'+doc.file_path+'">Öffnen</button>' +
+        '<a class="dash-btn-sm" href="/portal/documents.html">Im Dokumentenmanager bearbeiten</a>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function applianceDetailHtml(){
+    var appliance = allAppliances.filter(function(a){ return a.id === selectedDetailId; })[0];
+    if(!appliance) return '<div class="obj-empty-state"><strong>Gerät nicht gefunden</strong></div>';
+    return '<div class="obj-detail-card">' +
+      '<span class="obj-step-label">Fix eingebautes Gerät</span>' +
+      '<h2>'+VeraDashboard.escapeHtml(appliance.label)+'</h2>' +
+      '<div class="obj-detail-info">' +
+        '<div><strong>Kategorie</strong><span>'+VeraDashboard.escapeHtml(appliance.category || '–')+'</span></div>' +
+        '<div><strong>Hersteller</strong><span>'+VeraDashboard.escapeHtml(appliance.manufacturer || '–')+'</span></div>' +
+        '<div><strong>Modell</strong><span>'+VeraDashboard.escapeHtml(appliance.model || '–')+'</span></div>' +
+        '<div><strong>Seriennummer</strong><span>'+VeraDashboard.escapeHtml(appliance.serial_number || '–')+'</span></div>' +
+        '<div><strong>Einbau</strong><span>'+VeraDashboard.escapeHtml(appliance.installed_at || '–')+'</span></div>' +
+        '<div><strong>Wartung</strong><span>'+VeraDashboard.escapeHtml(appliance.maintenance_at || '–')+'</span></div>' +
+      '</div>' +
+      (appliance.notes ? '<p class="doc-meta">'+VeraDashboard.escapeHtml(appliance.notes)+'</p>' : '') +
+      '<button type="button" class="dash-btn-sm danger" data-delete-appliance="'+appliance.id+'">Gerät löschen</button>' +
+    '</div>';
+  }
+
+  function applianceFormHtml(property, unit){
+    var scopeText = unit ? unit.label : (property ? property.label : 'Auswahl');
+    var types = unit
+      ? ['Kochherd','Kühlschrank','Backofen','Mikrowelle','Geschirrspüler','Dampfabzug','Waschmaschine','Tumbler','Boiler','Sonstiges']
+      : ['Waschmaschine','Tumbler','Lift','Heizung','Boiler','Lüftung','Solaranlage','Gegensprechanlage','Sonstiges'];
+    return '<form class="auth-form obj-appliance-form" id="applianceForm">' +
+      '<span class="obj-step-label">Gerät erfassen</span>' +
+      '<h2>'+VeraDashboard.escapeHtml(scopeText)+'</h2>' +
+      '<select id="applianceCategory">'+types.map(function(t){ return '<option value="'+VeraDashboard.escapeHtml(t)+'">'+VeraDashboard.escapeHtml(t)+'</option>'; }).join('')+'</select>' +
+      '<input id="applianceLabel" placeholder="Bezeichnung, z.B. Kochherd Electrolux *" required>' +
+      '<div class="auth-form-row"><div><input id="applianceManufacturer" placeholder="Hersteller"></div><div><input id="applianceModel" placeholder="Modell"></div></div>' +
+      '<input id="applianceSerial" placeholder="Seriennummer">' +
+      '<div class="auth-form-row"><div><label class="doc-meta">Einbaudatum</label><input type="date" id="applianceInstalled"></div><div><label class="doc-meta">Nächste Wartung</label><input type="date" id="applianceMaintenance"></div></div>' +
+      '<textarea id="applianceNotes" placeholder="Notizen, Wartungsfirma, Garantie, Standort"></textarea>' +
+      '<button type="submit" class="btn btn-primary">Gerät speichern</button>' +
+      '<p class="form-status" id="applianceStatus"></p>' +
+    '</form>';
+  }
+
+  function personDetailHtml(property, unit){
+    return '<div class="obj-detail-card">' +
+      '<span class="obj-step-label">Person / Rolle</span>' +
+      '<h2>'+VeraDashboard.escapeHtml(selectedDetailId || 'Zuweisung')+'</h2>' +
+      '<p class="doc-meta">Rollen werden bewusst getrennt verwaltet. Eine Person kann gleichzeitig Mieter, Eigentümer und Hauswart sein.</p>' +
+      '<div class="dash-btn-row">' +
+        (unit ? '<button type="button" class="btn btn-primary" data-open-unit="'+unit.id+'">Rollen dieser Einheit bearbeiten</button>' : '') +
+        (property ? '<button type="button" class="dash-btn-sm" data-open-property="'+property.id+'">Gebäude-Zuweisungen bearbeiten</button>' : '') +
       '</div>' +
     '</div>';
   }
@@ -1411,6 +1607,53 @@
   async function openDocumentVaultFile(path){
     var res = await client.storage.from('document-vault').createSignedUrl(path, 60);
     if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+  }
+
+  async function saveApplianceRecord(e){
+    e.preventDefault();
+    var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
+    var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
+    var statusEl = document.getElementById('applianceStatus');
+    var label = document.getElementById('applianceLabel').value.trim();
+    if(!property || !label){
+      statusEl.textContent = 'Bitte Bezeichnung angeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+    var res = await client.from('property_appliances').insert({
+      property_id: property.id,
+      unit_id: unit ? unit.id : null,
+      category: document.getElementById('applianceCategory').value,
+      label: label,
+      manufacturer: document.getElementById('applianceManufacturer').value.trim() || null,
+      model: document.getElementById('applianceModel').value.trim() || null,
+      serial_number: document.getElementById('applianceSerial').value.trim() || null,
+      installed_at: document.getElementById('applianceInstalled').value || null,
+      maintenance_at: document.getElementById('applianceMaintenance').value || null,
+      notes: document.getElementById('applianceNotes').value.trim() || null
+    });
+    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gerät gespeichert.';
+    statusEl.classList.add('show');
+    if(!res.error){
+      selectedDetailType = null;
+      selectedDetailId = null;
+      await loadAll();
+      renderAllColumns();
+    }
+  }
+
+  async function deleteApplianceRecord(id){
+    if(!window.confirm('Gerät wirklich löschen?')) return;
+    if(!window.confirm('Letzte Bestätigung: Gerät endgültig löschen?')) return;
+    var res = await client.from('property_appliances').delete().eq('id', id);
+    if(res.error){
+      window.alert('Fehler beim Löschen: ' + res.error.message);
+      return;
+    }
+    selectedDetailType = null;
+    selectedDetailId = null;
+    await loadAll();
+    renderAllColumns();
   }
 
   async function saveUnitListingDetails(e, unitId){
