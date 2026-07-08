@@ -429,6 +429,7 @@
       var selectUnit = e.target.closest('[data-select-unit]');
       var addUnitToProperty = e.target.closest('[data-add-unit-to-property]');
       var detailBtn = e.target.closest('[data-detail-type]');
+      var nextAction = e.target.closest('[data-next-action]');
       var openTreeDoc = e.target.closest('[data-open-tree-doc]');
       var deleteAppliance = e.target.closest('[data-delete-appliance]');
       if(selectProp){
@@ -455,6 +456,7 @@
         selectedDetailId = detailBtn.getAttribute('data-detail-id');
         renderAllColumns();
       }
+      else if(nextAction) handleNextAction(nextAction.getAttribute('data-next-action'));
       else if(openTreeDoc) openDocumentVaultFile(openTreeDoc.getAttribute('data-open-tree-doc'));
       else if(deleteAppliance) deleteApplianceRecord(deleteAppliance.getAttribute('data-delete-appliance'));
       else if(openProp) openPropertyModal(openProp.getAttribute('data-open-property'));
@@ -804,24 +806,74 @@
       var hasHauswart = allPropertyPermissions.some(function(p){ return p.property_id === property.id && p.permission === 'hauswart'; });
       var hasDocs = allDocumentFiles.some(function(d){ return d.property_id === property.id && !d.unit_id; });
       var hasAppliance = allAppliances.some(function(a){ return a.property_id === property.id && !a.unit_id; });
-      steps.push({ ok: units.length > 0, label: 'Einheiten erfassen', hint: 'Wohnung, Garage, Parkplatz, Gewerbe usw.' });
-      steps.push({ ok: hasOwner, label: 'Eigentümer/Hauswart zuweisen', hint: 'Gebäude-Zuständigkeiten setzen' });
-      steps.push({ ok: hasDocs, label: 'Liegenschaftsdokumente zuweisen', hint: 'Hausordnung, Pläne, Reglemente' });
-      steps.push({ ok: hasAppliance, label: 'Gebäudegeräte erfassen', hint: 'Lift, Waschmaschine, Tumbler, Heizung' });
+      steps.push({ ok: units.length > 0, label: 'Einheiten erfassen', hint: 'Wohnung, Garage, Parkplatz, Gewerbe usw.', action: 'add-unit' });
+      steps.push({ ok: hasOwner, label: 'Eigentümer/Hauswart zuweisen', hint: 'Gebäude-Zuständigkeiten setzen', action: 'property-people' });
+      steps.push({ ok: hasDocs, label: 'Liegenschaftsdokumente zuweisen', hint: 'Hausordnung, Pläne, Reglemente', action: 'property-docs' });
+      steps.push({ ok: hasAppliance, label: 'Gebäudegeräte erfassen', hint: 'Lift, Waschmaschine, Tumbler, Heizung', action: 'property-appliance' });
     } else {
       var hasTenant = allTenancies.some(function(t){ return t.unit_id === unit.id && t.status === 'active'; });
       var hasOwnerUnit = allOwnerships.some(function(o){ return o.unit_id === unit.id; });
       var hasUnitDoc = allDocumentFiles.some(function(d){ return d.unit_id === unit.id; });
       var hasUnitAppliance = allAppliances.some(function(a){ return a.unit_id === unit.id; });
-      steps.push({ ok: hasTenant || hasOwnerUnit, label: 'Person zuweisen', hint: 'Mieter und/oder Eigentümer' });
-      steps.push({ ok: hasUnitDoc, label: 'Private Dokumente zuweisen', hint: 'Mietvertrag, Nebenkosten, Rechnungen' });
-      steps.push({ ok: hasUnitAppliance, label: 'Einheitsgeräte erfassen', hint: 'Kochherd, Kühlschrank, Backofen' });
+      steps.push({ ok: hasTenant || hasOwnerUnit, label: 'Person zuweisen', hint: 'Mieter und/oder Eigentümer', action: 'unit-people' });
+      steps.push({ ok: hasUnitDoc, label: 'Private Dokumente zuweisen', hint: 'Mietvertrag, Nebenkosten, Rechnungen', action: 'unit-docs' });
+      steps.push({ ok: hasUnitAppliance, label: 'Einheitsgeräte erfassen', hint: 'Kochherd, Kühlschrank, Backofen', action: 'unit-appliance' });
     }
     return '<div class="obj-next-steps"><strong>Nächste sinnvolle Schritte</strong>' +
       steps.map(function(step){
-        return '<div class="obj-next-step'+(step.ok?' done':'')+'"><span>'+(step.ok?'✓':'○')+'</span><div><b>'+VeraDashboard.escapeHtml(step.label)+'</b><small>'+VeraDashboard.escapeHtml(step.hint)+'</small></div></div>';
+        return '<button type="button" class="obj-next-step'+(step.ok?' done':'')+'" data-next-action="'+step.action+'"><span>'+(step.ok?'✓':'○')+'</span><div><b>'+VeraDashboard.escapeHtml(step.label)+'</b><small>'+VeraDashboard.escapeHtml(step.hint)+'</small></div></button>';
       }).join('') +
     '</div>';
+  }
+
+  function handleNextAction(action){
+    var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
+    var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
+    if(action === 'add-unit' && property){
+      openCreateModal('unit-for-property', property.id);
+      return;
+    }
+    if(action === 'property-people' && property){
+      openPropertyModal(property.id);
+      focusModalField('#hauswartUsers-' + property.id);
+      return;
+    }
+    if(action === 'property-docs' && property){
+      openPropertyModal(property.id);
+      focusModalField('#docTitle-' + property.id);
+      return;
+    }
+    if(action === 'property-appliance' && property){
+      selectedUnitId = null;
+      selectedDetailType = 'add-appliance';
+      selectedDetailId = 'property';
+      renderAllColumns();
+      return;
+    }
+    if(action === 'unit-people' && unit){
+      openUnitModal(unit.id);
+      focusModalField('#unitTenantSelect-' + unit.id);
+      return;
+    }
+    if(action === 'unit-docs' && unit){
+      openUnitModal(unit.id);
+      focusModalField('#unitPrivateDocTitle-' + unit.id);
+      return;
+    }
+    if(action === 'unit-appliance' && unit){
+      selectedDetailType = 'add-appliance';
+      selectedDetailId = 'unit';
+      renderAllColumns();
+    }
+  }
+
+  function focusModalField(selector){
+    setTimeout(function(){
+      var field = document.querySelector(selector);
+      if(!field) return;
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if(typeof field.focus === 'function') field.focus();
+    }, 120);
   }
 
   function selectedDetailHtml(property, unit){
