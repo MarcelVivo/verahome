@@ -648,7 +648,6 @@
     var units = allUnits.filter(function(u){ return u.property_id === propertyId; }).filter(function(u){
       return VeraDashboard.matchesSearch([u.label, u.floor, UNIT_TYPE_SINGULAR[normalizeUnitType(u.unit_type)], u.offer_type], q);
     });
-    if(!units.length) return '<p class="dash-empty">Noch keine Einheit in diesem Gebäude.</p>';
     var byType = {};
     units.forEach(function(u){
       var type = normalizeUnitType(u.unit_type);
@@ -657,7 +656,7 @@
     });
     var propertyScopeHtml = '<button type="button" class="obj-row obj-hierarchy-row'+(!selectedUnitId?' active':'')+'" data-select-property-scope="'+propertyId+'">' +
       '<strong>Liegenschaft / Objekt</strong><span class="obj-row-meta">Eigentümer, Hauswart, Hausordnung, Geräte im Gebäude</span></button>';
-    return propertyScopeHtml + UNIT_TYPE_ORDER.filter(function(type){ return byType[type] && byType[type].length; }).map(function(type){
+    var unitHtml = UNIT_TYPE_ORDER.filter(function(type){ return byType[type] && byType[type].length; }).map(function(type){
       return '<div class="obj-unit-group"><h3>'+UNIT_TYPE_LABELS[type]+'</h3>' +
         byType[type].map(function(u){
           var meta = [];
@@ -672,6 +671,8 @@
         }).join('') +
       '</div>';
     }).join('');
+    if(!unitHtml) unitHtml = '<p class="dash-empty">Noch keine Einheit. Über + Wohnung, Garage, Parkplatz usw. erfassen.</p>';
+    return propertyScopeHtml + unitHtml;
   }
 
   function hierarchyDetailHtml(property, unit){
@@ -764,6 +765,7 @@
       '<h2>'+VeraDashboard.escapeHtml(property.label)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'Keine Adresse')+'</p>' +
       '<div class="obj-detail-stats">'+(stats || '<span>Noch keine Einheiten</span>')+'</div>' +
+      nextStepsHtml(property, null) +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-add-unit-to-property="'+property.id+'">Einheit hinzufügen</button>' +
         '<button type="button" class="dash-btn-sm" data-open-property="'+property.id+'">Gebäude bearbeiten</button>' +
@@ -785,10 +787,40 @@
         (unit.visibility === 'public' ? '<span>Inserat online</span>' : '<span>privat</span>') +
       '</div>' +
       '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Dokumente werden nur angezeigt, wenn die Person explizit als Mieter/Eigentümer oder per Dokument-Freigabe berechtigt ist.</div>' +
+      nextStepsHtml(property, unit) +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-unit="'+unit.id+'">Einheit bearbeiten & zuweisen</button>' +
         '<button type="button" class="dash-btn-sm" data-open-property="'+unit.property_id+'">Gebäude öffnen</button>' +
       '</div>' +
+    '</div>';
+  }
+
+  function nextStepsHtml(property, unit){
+    if(!property) return '';
+    var steps = [];
+    if(!unit){
+      var units = allUnits.filter(function(u){ return u.property_id === property.id; });
+      var hasOwner = allOwnerships.some(function(o){ return o.property_id === property.id && !o.unit_id; });
+      var hasHauswart = allPropertyPermissions.some(function(p){ return p.property_id === property.id && p.permission === 'hauswart'; });
+      var hasDocs = allDocumentFiles.some(function(d){ return d.property_id === property.id && !d.unit_id; });
+      var hasAppliance = allAppliances.some(function(a){ return a.property_id === property.id && !a.unit_id; });
+      steps.push({ ok: units.length > 0, label: 'Einheiten erfassen', hint: 'Wohnung, Garage, Parkplatz, Gewerbe usw.' });
+      steps.push({ ok: hasOwner, label: 'Eigentümer/Hauswart zuweisen', hint: 'Gebäude-Zuständigkeiten setzen' });
+      steps.push({ ok: hasDocs, label: 'Liegenschaftsdokumente zuweisen', hint: 'Hausordnung, Pläne, Reglemente' });
+      steps.push({ ok: hasAppliance, label: 'Gebäudegeräte erfassen', hint: 'Lift, Waschmaschine, Tumbler, Heizung' });
+    } else {
+      var hasTenant = allTenancies.some(function(t){ return t.unit_id === unit.id && t.status === 'active'; });
+      var hasOwnerUnit = allOwnerships.some(function(o){ return o.unit_id === unit.id; });
+      var hasUnitDoc = allDocumentFiles.some(function(d){ return d.unit_id === unit.id; });
+      var hasUnitAppliance = allAppliances.some(function(a){ return a.unit_id === unit.id; });
+      steps.push({ ok: hasTenant || hasOwnerUnit, label: 'Person zuweisen', hint: 'Mieter und/oder Eigentümer' });
+      steps.push({ ok: hasUnitDoc, label: 'Private Dokumente zuweisen', hint: 'Mietvertrag, Nebenkosten, Rechnungen' });
+      steps.push({ ok: hasUnitAppliance, label: 'Einheitsgeräte erfassen', hint: 'Kochherd, Kühlschrank, Backofen' });
+    }
+    return '<div class="obj-next-steps"><strong>Nächste sinnvolle Schritte</strong>' +
+      steps.map(function(step){
+        return '<div class="obj-next-step'+(step.ok?' done':'')+'"><span>'+(step.ok?'✓':'○')+'</span><div><b>'+VeraDashboard.escapeHtml(step.label)+'</b><small>'+VeraDashboard.escapeHtml(step.hint)+'</small></div></div>';
+      }).join('') +
     '</div>';
   }
 
