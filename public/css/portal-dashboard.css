@@ -1065,8 +1065,8 @@
 }
 
 @media (max-width:480px){
-  #dashAdminQuickbar{padding:8px 12px;}
-  body:has(#dashAdminQuickbar) .dash-content{padding-top:86px;}
+  .dash-top-actions{padding:8px 12px 10px;}
+  body:has(#dashAdminQuickbar) .dash-content{padding-top:214px;}
   .dash-content{padding-left:12px;padding-right:12px;}
   .dash-card{padding:18px 14px;}
   .dash-tab{min-height:48px;padding:0 14px;font-size:.82rem;}
