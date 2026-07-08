@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal bearbeiten | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text"><strong class="nav-logo-brand">Vera Home</strong><span class="nav-logo-sub">Immobilien</span></span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Vera Portal bearbeiten</h1>
+      <p class="dash-lead">Sichere Portal-Anpassungen ohne Code: Menüpunkte umbenennen, ausblenden oder wieder aktivieren. Datenbank-Funktionen und Berechtigungen bleiben unverändert.</p>
+
+      <div class="dash-card">
+        <div class="dash-card-head">
+          <div>
+            <h2>Navigation</h2>
+            <p class="doc-meta">Ausblenden entfernt den Menüpunkt aus Sidebar und Mobile-Navigation. Löschen fragt zweimal nach und blendet den Punkt dauerhaft aus.</p>
+          </div>
+          <div class="dash-btn-row">
+            <button type="button" class="dash-btn-sm" id="resetNavBtn">Standard wiederherstellen</button>
+            <button type="button" class="btn btn-primary" id="savePortalUiBtn">Speichern</button>
+          </div>
+        </div>
+        <div class="portal-ui-editor" id="portalNavEditor"></div>
+        <p class="form-status" id="portalUiStatus"></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile, currentItems = [];
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+    VeraDashboard.renderSidebar('dashboard', profile);
+    loadSettings();
+  });
+
+  function status(message){
+    var el = document.getElementById('portalUiStatus');
+    el.textContent = message || '';
+    el.classList.toggle('show', !!message);
+  }
+  function confirmDelete(label){
+    return window.confirm(label + ' wirklich löschen?') && window.confirm('Letzte Bestätigung: ' + label + ' endgültig löschen?');
+  }
+  function defaults(){
+    return VeraDashboard.portalNavDefaults(profile).map(function(item){ return Object.assign({}, item); });
+  }
+  function normalize(saved){
+    var savedByKey = {};
+    ((saved && saved.navItems) || []).forEach(function(item){ savedByKey[item.key] = item; });
+    return defaults().map(function(base){
+      return Object.assign({}, base, savedByKey[base.key] || {});
+    }).filter(function(item){ return item.deleted !== true; });
+  }
+  function render(items){
+    currentItems = items;
+    var editor = document.getElementById('portalNavEditor');
+    var lastGroup = null;
+    editor.innerHTML = items.map(function(item){
+      var group = item.group !== lastGroup ? '<h3 class="portal-ui-group">'+VeraDashboard.escapeHtml(item.group || 'Portal')+'</h3>' : '';
+      lastGroup = item.group;
+      return group + '<div class="portal-ui-row" data-key="'+item.key+'">' +
+        '<label class="site-service-toggle"><input type="checkbox" class="nav-visible" '+(item.visible !== false ? 'checked' : '')+'> Anzeigen</label>' +
+        '<div class="portal-ui-fields">' +
+          '<input type="text" class="nav-label" value="'+VeraDashboard.escapeHtml(item.label || '')+'" placeholder="Menüname">' +
+          '<input type="text" value="'+VeraDashboard.escapeHtml(item.href || '')+'" readonly title="Zielseite">' +
+        '</div>' +
+        '<button type="button" class="dash-btn-sm danger nav-delete">Löschen</button>' +
+      '</div>';
+    }).join('');
+    editor.querySelectorAll('.nav-delete').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var row = btn.closest('.portal-ui-row');
+        if(confirmDelete('Diesen Menüpunkt')) row.remove();
+      });
+    });
+  }
+  async function loadSettings(){
+    status('Wird geladen …');
+    var res = await client.from('portal_settings').select('value').eq('key', 'portal_ui_settings').maybeSingle();
+    render(normalize(res.data && res.data.value));
+    status(res.error ? 'Fallback geladen. SQL-Policy prüfen, falls Speichern fehlschlägt.' : '');
+  }
+  function collect(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#portalNavEditor .portal-ui-row'));
+    var items = rows.map(function(row){
+      var base = currentItems.filter(function(item){ return item.key === row.getAttribute('data-key'); })[0] || {};
+      return Object.assign({}, base, {
+        key: row.getAttribute('data-key'),
+        visible: row.querySelector('.nav-visible').checked,
+        label: row.querySelector('.nav-label').value.trim()
+      });
+    });
+    var present = new Set(items.map(function(item){ return item.key; }));
+    defaults().forEach(function(base){
+      if(!present.has(base.key)) items.push(Object.assign({}, base, { visible:false, deleted:true }));
+    });
+    return items;
+  }
+  document.getElementById('savePortalUiBtn').addEventListener('click', async function(){
+    status('Wird gespeichert …');
+    var res = await client.from('portal_settings').upsert({
+      key: 'portal_ui_settings',
+      value: { navItems: collect() },
+      updated_by: profile.id,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+    status(res.error ? 'Fehler: ' + res.error.message : 'Portal-Navigation gespeichert.');
+  });
+  document.getElementById('resetNavBtn').addEventListener('click', function(){
+    if(!window.confirm('Navigation wirklich auf Standard zurücksetzen?')) return;
+    render(defaults());
+  });
+})();
+</script>
+</body>
+</html>

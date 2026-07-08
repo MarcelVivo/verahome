@@ -173,6 +173,48 @@ window.VeraDashboard = (function () {
     return (group.label ? '<span class="dash-nav-section-label">' + group.label + "</span>" : "") + itemsHtml;
   }
 
+  function portalNavDefaults(profile, roles) {
+    profile = profile || { category: "admin" };
+    roles = roles || [profile.category];
+    var items = [];
+    NAV_GROUPS.forEach(function (group) {
+      group.items.forEach(function (item) {
+        if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: group.label || "Hauptnavigation" }, item));
+      });
+    });
+    if (profile.category === "admin") {
+      ADMIN_NAV_GROUP.items.forEach(function (item) { items.push(Object.assign({ group: ADMIN_NAV_GROUP.label }, item)); });
+    }
+    SERVICES_NAV_GROUP.items.forEach(function (item) {
+      if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: SERVICES_NAV_GROUP.label }, item));
+    });
+    return items.map(function (item) {
+      return { key: item.key, href: item.href, label: item.label, group: item.group, visible: true };
+    });
+  }
+
+  function applyPortalUiSettingsToDom(settings) {
+    var byKey = {};
+    ((settings && settings.navItems) || []).forEach(function (item) { byKey[item.key] = item; });
+    document.querySelectorAll("[data-nav-key]").forEach(function (el) {
+      var item = byKey[el.getAttribute("data-nav-key")];
+      if (!item) return;
+      el.hidden = item.visible === false;
+      var labelEl = el.querySelector(".dash-nav-label") || el.querySelector("span") || el;
+      if (item.label && labelEl) labelEl.textContent = item.label;
+    });
+  }
+
+  async function loadAndApplyPortalUiSettings() {
+    try {
+      var client = VeraPortal.getClient();
+      var res = await client.from("portal_settings").select("value").eq("key", "portal_ui_settings").maybeSingle();
+      if (!res.error && res.data && res.data.value) applyPortalUiSettingsToDom(res.data.value);
+    } catch (e) {
+      /* Portal bleibt mit Defaults bedienbar. */
+    }
+  }
+
   var badgePollTimerId = null;
 
   /* Renders fetched counts into the sidebar's badge spans. Sections
@@ -378,7 +420,7 @@ window.VeraDashboard = (function () {
       var badge = BADGE_SECTIONS.indexOf(item.key) > -1
         ? '<span class="dash-nav-badge" data-badge-for="' + item.key + '" hidden></span>'
         : "";
-      return '<a class="dash-tab' + (item.key === activeKey ? " active" : "") + '" href="' + item.href + '">' +
+      return '<a class="dash-tab' + (item.key === activeKey ? " active" : "") + '" data-nav-key="' + item.key + '" href="' + item.href + '">' +
         "<span>" + escapeHtml(item.label) + "</span>" + badge +
       "</a>";
     }).join("") +
@@ -462,6 +504,8 @@ window.VeraDashboard = (function () {
     renderAdminQuickbar(profile);
     renderBottomTabBar(activeKey, profile, roles);
     renderTopLogoutButton();
+    if (profile.category === "admin") renderAdminPortalEditorButton(profile);
+    loadAndApplyPortalUiSettings();
   }
 
   /* Ausloggen zusätzlich oben rechtsbündig auf der Seite (Desktop) --
@@ -580,6 +624,22 @@ window.VeraDashboard = (function () {
     actions.insertBefore(link, document.getElementById("dashEmailModeTop") || document.getElementById("dashLogoutTop"));
   }
 
+  function renderAdminPortalEditorButton(profile) {
+    if (!profile || profile.category !== "admin" || document.getElementById("dashPortalEditorTop")) return;
+    var actions = document.getElementById("dashTopActions");
+    if (!actions) {
+      renderTopLogoutButton();
+      actions = document.getElementById("dashTopActions");
+    }
+    if (!actions) return;
+    var link = document.createElement("a");
+    link.id = "dashPortalEditorTop";
+    link.className = "dash-content-editor-top";
+    link.href = "/portal/admin/portal-editor.html";
+    link.textContent = "Portal bearbeiten";
+    actions.insertBefore(link, document.getElementById("dashContentEditorTop") || document.getElementById("dashEmailModeTop") || document.getElementById("dashLogoutTop"));
+  }
+
   /* Call once at the top of every SHARED dashboard page's inline script
      (dashboard/documents/messages/calendar). Handles the auth redirect,
      loads the profile, renders the sidebar, and resolves with
@@ -626,6 +686,8 @@ window.VeraDashboard = (function () {
     downloadCsv: downloadCsv,
     fetchOwnRoles: fetchOwnRoles,
     renderAdminEmailModeSwitch: renderAdminEmailModeSwitch,
-    renderAdminContentEditorButton: renderAdminContentEditorButton
+    renderAdminContentEditorButton: renderAdminContentEditorButton,
+    renderAdminPortalEditorButton: renderAdminPortalEditorButton,
+    portalNavDefaults: portalNavDefaults
   };
 })();
