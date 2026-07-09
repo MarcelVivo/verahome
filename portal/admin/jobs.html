@@ -204,7 +204,12 @@
   function openJobModal(job){
     editingJobId = job ? job.id : null;
     document.getElementById('jobModalTitle').textContent = job ? 'Auftrag bearbeiten' : 'Neuer Auftrag';
-    document.getElementById('jobSaveBtn').textContent = job ? 'Speichern' : 'Anlegen';
+    var saveBtn = document.getElementById('jobSaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = job ? 'Speichern' : 'Anlegen';
+    var deleteBtn = document.getElementById('jobDeleteBtn');
+    deleteBtn.disabled = false;
+    deleteBtn.textContent = 'Archivieren';
     document.getElementById('jobDeleteBtn').hidden = !job;
     document.getElementById('j_profile').value = job ? job.profile_id : '';
     document.getElementById('j_property').value = job ? (job.property_id || '') : '';
@@ -230,10 +235,16 @@
 
   async function saveJob(e){
     e.preventDefault();
+    var saveBtn = document.getElementById('jobSaveBtn');
+    if(saveBtn.disabled) return;
     var statusEl = document.getElementById('jobFormStatus');
     var profileId = document.getElementById('j_profile').value;
     var title = document.getElementById('j_title').value.trim();
     if(!profileId || !title){ statusEl.textContent = 'Bitte Partner/Handwerker/Hauswart und Titel angeben.'; statusEl.classList.add('show'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Wird gespeichert …';
+    statusEl.textContent = 'Auftrag wird gespeichert …';
+    statusEl.classList.add('show');
     var payload = {
       profile_id: profileId,
       property_id: document.getElementById('j_property').value || null,
@@ -247,20 +258,30 @@
       : await client.from('job_assignments').insert(payload);
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
     statusEl.classList.add('show');
-    if(!res.error){
-      if(document.getElementById('j_add_appointment').checked){
-        await createAppointmentForJob(payload);
-      }
-      await loadJobs();
-      closeJobModal();
+    if(res.error){
+      saveBtn.disabled = false;
+      saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
+      return;
     }
+    if(document.getElementById('j_add_appointment').checked){
+      var apptRes = await createAppointmentForJob(payload);
+      if(apptRes && apptRes.error){
+        statusEl.textContent = 'Auftrag gespeichert, Termin konnte aber nicht erstellt werden: ' + apptRes.error.message;
+        saveBtn.disabled = false;
+        saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
+        await loadJobs();
+        return;
+      }
+    }
+    await loadJobs();
+    closeJobModal();
   }
 
   async function createAppointmentForJob(jobPayload){
     var date = document.getElementById('j_appt_date').value;
     var start = document.getElementById('j_appt_start').value;
     var end = document.getElementById('j_appt_end').value;
-    if(!date || !start || !end) return;
+    if(!date || !start || !end) return null;
     var apptPayload = {
       title: jobPayload.title,
       category: 'handwerker',
@@ -272,22 +293,32 @@
       created_by: adminProfileId
     };
     var apptRes = await client.from('appointments').insert(apptPayload).select().single();
-    if(apptRes.error || !apptRes.data) return;
-    await client.from('appointment_participants').insert({ appointment_id: apptRes.data.id, profile_id: jobPayload.profile_id });
+    if(apptRes.error || !apptRes.data) return apptRes;
+    var participantRes = await client.from('appointment_participants').insert({ appointment_id: apptRes.data.id, profile_id: jobPayload.profile_id });
+    if(participantRes.error) return participantRes;
     try{
       await client.functions.invoke('send-appointment-invite', { body: { appointmentId: apptRes.data.id } });
     }catch(e){}
+    return apptRes;
   }
 
   async function deleteJob(){
     if(!editingJobId) return;
     if(!window.confirm('Diesen Auftrag archivieren? Er bleibt im Verlauf erhalten.')) return;
+    var deleteBtn = document.getElementById('jobDeleteBtn');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Wird archiviert …';
     var res = await client.from('job_assignments').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
       archived_reason: 'Auftrag archiviert'
     }).eq('id', editingJobId);
-    if(res.error){ window.alert('Fehler beim Archivieren: ' + res.error.message); return; }
+    if(res.error){
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = 'Archivieren';
+      return;
+    }
     closeJobModal();
     loadJobs();
   }
