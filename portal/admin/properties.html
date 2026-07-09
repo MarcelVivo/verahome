@@ -1601,7 +1601,7 @@
       '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Sichtbar nur für Personen mit expliziter Freigabe in document_shares.</div>' +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-tree-doc="'+doc.file_path+'">Öffnen</button>' +
-        '<a class="dash-btn-sm" href="/portal/documents.html">Im Dokumentenmanager bearbeiten</a>' +
+        '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(doc.id)+'">Im Dokumentenmanager bearbeiten</a>' +
       '</div>' +
     '</div>';
   }
@@ -2483,7 +2483,8 @@
     el.innerHTML = rows.length ? rows.map(function(d){
       return '<div class="obj-assignment-row">' +
         '<span><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong><small>'+VeraDashboard.formatDate(d.created_at)+'</small></span>' +
-        '<button type="button" class="dash-btn-sm" data-open-unit-doc="'+d.file_path+'">Öffnen</button>' +
+        '<div class="dash-btn-row"><button type="button" class="dash-btn-sm" data-open-unit-doc="'+d.file_path+'">Öffnen</button>' +
+        '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(d.id)+'">Dokumente</a></div>' +
       '</div>';
     }).join('') : '<p class="dash-empty">Noch keine Dokumente direkt zugewiesen.</p>';
     el.querySelectorAll('[data-open-unit-doc]').forEach(function(btn){
@@ -3522,6 +3523,7 @@
           '<td>'+VeraDashboard.escapeHtml(visLabel)+'</td>' +
           '<td><div class="dash-btn-row">' +
             '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
+            '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(d.id)+'">Dokumente</a>' +
             '<button type="button" class="dash-btn-sm edit-access-btn" data-id="'+d.id+'">Zugriff bearbeiten</button>' +
             '<button type="button" class="dash-btn-sm danger del-doc-btn" data-id="'+d.id+'" data-path="'+d.file_path+'">Archivieren</button>' +
           '</div></td>' +
