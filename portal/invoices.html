@@ -412,7 +412,12 @@
     resultsEl.querySelectorAll('.confirm-camt-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         var idx = parseInt(btn.getAttribute('data-idx'), 10);
-        var inv = matches[idx].match.invoice;
+        var match = matches[idx].match;
+        var inv = match.invoice;
+        if(match.confidence === 'unsicher'){
+          var ok = window.confirm('Nur der Betrag passt zu dieser Rechnung. Wirklich als bezahlt markieren?');
+          if(!ok) return;
+        }
         btn.disabled = true;
         btn.textContent = 'Wird gebucht …';
         var res = await VeraPortal.markInvoicePaid(inv.id);
@@ -808,12 +813,21 @@
     var newInvoice = res.data;
     btn.textContent = 'E-Mail wird gesendet …';
     var emailSkipped = false;
+    var emailFailed = false;
     try {
       var emailRes = await VeraPortal.sendInvoiceEmail(newInvoice.id);
       emailSkipped = !!(emailRes && emailRes.data && emailRes.data.skipped);
-      if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
-    } catch(e) { console.warn('E-Mail-Versand fehlgeschlagen:', e); }
-    window.alert(emailSkipped
+      if(emailRes.error){
+        emailFailed = true;
+        console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
+      }
+    } catch(e) {
+      emailFailed = true;
+      console.warn('E-Mail-Versand fehlgeschlagen:', e);
+    }
+    window.alert(emailFailed
+      ? 'Rechnung ' + newInvoice.invoice_number + ' wurde erstellt, aber die E-Mail konnte nicht versendet werden. Bitte Versand/Edge-Function prüfen.'
+      : emailSkipped
       ? 'Rechnung ' + newInvoice.invoice_number + ' wurde erstellt. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.'
       : 'Rechnung ' + newInvoice.invoice_number + ' wurde erstellt und E-Mail-Versand angestossen.');
     await loadRecurring();

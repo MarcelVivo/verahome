@@ -332,12 +332,20 @@
         return;
       }
       var emailSkipped = false;
+      var emailFailed = false;
       try {
         var emailRes = await VeraPortal.sendInvoiceEmail(invoice.id);
         emailSkipped = !!(emailRes && emailRes.data && emailRes.data.skipped);
-        if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
-      } catch(e) { console.warn('E-Mail-Versand fehlgeschlagen:', e); }
-      if(emailSkipped) window.alert('Rechnung wurde freigegeben. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.');
+        if(emailRes.error){
+          emailFailed = true;
+          console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
+        }
+      } catch(e) {
+        emailFailed = true;
+        console.warn('E-Mail-Versand fehlgeschlagen:', e);
+      }
+      if(emailFailed) window.alert('Rechnung wurde freigegeben, aber die E-Mail konnte nicht versendet werden. Bitte Versand/Edge-Function prüfen.');
+      else if(emailSkipped) window.alert('Rechnung wurde freigegeben. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.');
       window.location.reload();
     });
     var markPaidBtn = document.getElementById('markPaidBtn');
