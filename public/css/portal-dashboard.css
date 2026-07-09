@@ -828,6 +828,12 @@
 .archive-section-head h2{margin:0;}
 .archive-table td strong{color:var(--color-navy);}
 .archive-restore-btn{white-space:nowrap;}
+.audit-control-card{display:flex;flex-direction:column;gap:10px;}
+.audit-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,240px) minmax(160px,220px) auto;gap:12px;align-items:center;}
+.audit-toolbar input,.audit-toolbar select{min-width:0;}
+.audit-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.audit-table td strong{display:block;color:var(--color-navy);}
+.audit-table td small{display:block;color:var(--color-gray-text);font-size:.72rem;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 @media (max-width:640px){
   .archive-toolbar{flex-direction:column;align-items:stretch;}
@@ -847,6 +853,21 @@
     color:var(--color-gray-text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;
   }
   .archive-restore-btn{width:100%;justify-content:center;margin-top:4px;}
+  .audit-toolbar{display:flex;flex-direction:column;align-items:stretch;}
+  .audit-toolbar input,.audit-toolbar select,.audit-toolbar button{width:100%;min-width:0;}
+  .audit-table{min-width:0!important;}
+  .audit-table tbody,.audit-table tr,.audit-table td{display:block;width:100%;}
+  .audit-table tr:first-child{display:none;}
+  .audit-table tr{
+    border:1px solid var(--color-blue-light);border-radius:16px;margin:0 0 12px;padding:12px;
+    background:#fff;
+  }
+  .audit-table td{border:0!important;padding:7px 0!important;white-space:normal!important;}
+  .audit-table td[data-label]::before{
+    content:attr(data-label);display:block;font-size:.72rem;font-weight:700;
+    color:var(--color-gray-text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;
+  }
+  .audit-table td small{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
 }
 
 /* Termine — Wochenübersicht (Admin) */

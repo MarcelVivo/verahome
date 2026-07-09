@@ -29,6 +29,7 @@ window.VeraDashboard = (function () {
       { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
       { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen" },
       { key: "admin-archive", href: "/portal/admin/archive.html", label: "Archiv", roles: ["admin"] },
+      { key: "admin-audit-log", href: "/portal/admin/audit-log.html", label: "Protokoll", roles: ["admin"] },
       { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Admin", roles: ["admin"], portalOwnerOnly: true }
     ]}
   ];
