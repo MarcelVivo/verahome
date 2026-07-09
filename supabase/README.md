@@ -101,6 +101,13 @@ Supabase SQL Editor ausführen. Das ergänzt zwei weitere Adressen pro Kontakt
 und aktualisiert den Signup-Trigger, damit neu eingeladene Kontakte diese
 Adressfelder direkt mitbekommen.
 
+## 9. Registrierungsstatus für eingeladene Kontakte einspielen
+
+Zusätzlich [`registration-status.sql`](./registration-status.sql) im
+Supabase SQL Editor ausführen. Dadurch sieht der Admin in der Kontaktmaske,
+ob ein eingeladener Kontakt sein Passwort bereits gesetzt hat
+(`Nutzer aktiv`) oder ob die `Registrierung noch ausstehend` ist.
+
 ## Testen
 
 Registrieren → E-Mail bestätigen → einloggen → Status "aktiv" sehen (kein

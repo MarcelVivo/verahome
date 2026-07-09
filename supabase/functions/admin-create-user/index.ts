@@ -13,8 +13,10 @@
 // auth.users row and send Supabase's own invite/set-password email;
 // the existing trigger then creates the matching profiles row from
 // the metadata we pass in, exactly like a self-registration would,
-// already with status 'active' (see handle_new_user()'s hardcoded
-// value) and the correct member_number for the chosen category.
+// already with status 'active' (portal access is technically allowed
+// after password setup) and the correct member_number for the chosen
+// category. portal_invited_at / portal_registered_at track whether the
+// invited contact has actually completed the password setup.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -154,6 +156,17 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    const { error: registrationMarkErr } = await adminClient
+      .from("profiles")
+      .update({
+        portal_invited_at: new Date().toISOString(),
+        portal_registered_at: null,
+      })
+      .eq("id", invited.user.id);
+    if (registrationMarkErr) {
+      console.error("registration status update failed:", registrationMarkErr.message);
     }
 
     // handle_new_user() legt den profiles-Datensatz an; alle Rollen

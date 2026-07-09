@@ -169,6 +169,10 @@
   var client, profile;
 
   var STATUS_LABEL = { pending: 'Ausstehend', active: 'Aktiv', suspended: 'Gesperrt' };
+  var REGISTRATION_LABEL = {
+    active: 'Nutzer aktiv',
+    pending: 'Registrierung noch ausstehend'
+  };
   var CATEGORY_ORDER = ['mieter', 'eigentuemer', 'partner', 'handwerker', 'hauswart', 'firma', 'aemter'];
   var ADDRESS_TYPE_ORDER = ['wohnadresse', 'eigentuemer_immobilie', 'firmenadresse'];
   var ADDRESS_TYPE_LABEL = {
@@ -457,6 +461,21 @@
   function contactPersonName(c){
     return c.last_name + ' ' + c.first_name;
   }
+  function registrationState(c){
+    if(c.portal_registered_at) return 'active';
+    if(c.portal_invited_at) return 'pending';
+    if(c.status === 'active') return 'active';
+    return 'pending';
+  }
+  function registrationBadgeHtml(c){
+    var state = registrationState(c);
+    return '<span class="status-badge '+(state === 'active' ? 'active' : 'pending')+'">'+REGISTRATION_LABEL[state]+'</span>';
+  }
+  function registrationMetaText(c){
+    if(c.portal_registered_at) return 'Passwort gesetzt am ' + VeraDashboard.formatDate(c.portal_registered_at);
+    if(c.portal_invited_at) return 'Einladung versendet am ' + VeraDashboard.formatDate(c.portal_invited_at);
+    return c.status === 'active' ? 'Altkontakt ohne Registrierungszeitpunkt' : 'Noch kein Abschluss gespeichert';
+  }
 
   function refreshColumnRows(key){
     var listEl = document.getElementById('objColumnList-'+key);
@@ -467,6 +486,7 @@
     var filtered = contactsOfType.filter(function(c){
       return VeraDashboard.matchesSearch([
         c.member_number, c.last_name, c.first_name, c.company_name, c.email, c.status,
+        REGISTRATION_LABEL[registrationState(c)],
         c.address_street, c.address_zip, c.address_city,
         c.address2_street, c.address2_zip, c.address2_city,
         c.address3_street, c.address3_zip, c.address3_city
@@ -479,7 +499,7 @@
       return '<button type="button" class="obj-row" data-open-contact="'+c.id+'">' +
         '<strong>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</strong>' +
         '<span class="obj-row-meta">'+(isFirma ? VeraDashboard.escapeHtml(contactPersonName(c))+' · ' : '')+VeraDashboard.escapeHtml(c.email)+'</span>' +
-        '<span class="status-badge '+c.status+'" style="margin-top:4px;">'+(STATUS_LABEL[c.status]||c.status)+'</span>' +
+        '<span class="obj-contact-badges">'+registrationBadgeHtml(c)+'<span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></span>' +
       '</button>';
     }).join('') || '<p class="dash-empty">Keine Einträge.</p>';
   }
@@ -511,7 +531,11 @@
     var cats = contactCategories(c);
     var isFirma = cats.indexOf('firma') > -1;
     return '<h3>'+VeraDashboard.escapeHtml(contactDisplayName(c))+'</h3>' +
-      '<p class="doc-meta" style="margin-bottom:12px;">Mitgliedsnr. '+VeraDashboard.escapeHtml(c.member_number)+' · <span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></p>' +
+      '<div class="obj-registration-panel">' +
+        '<div><span class="obj-modal-section-label">Portal-Registrierung</span><strong>'+REGISTRATION_LABEL[registrationState(c)]+'</strong><p class="doc-meta">'+VeraDashboard.escapeHtml(registrationMetaText(c))+'</p></div>' +
+        registrationBadgeHtml(c) +
+      '</div>' +
+      '<p class="doc-meta" style="margin-bottom:12px;">Mitgliedsnr. '+VeraDashboard.escapeHtml(c.member_number)+' · Konto-Status <span class="status-badge '+c.status+'">'+(STATUS_LABEL[c.status]||c.status)+'</span></p>' +
       '<form class="auth-form" id="contactEditForm-'+id+'">' +
         '<span class="obj-modal-section-label">Kategorien (mehrere möglich)</span>' +
         '<div class="obj-category-checks" id="contactCategories-'+id+'">'+categoryChecksHtml('contact'+id, cats)+'</div>' +
@@ -708,6 +732,8 @@
         return;
       }
       btn.textContent = res.data && res.data.skipped ? 'Testmodus: nicht gesendet' : 'Einladung gesendet ✓';
+      await loadAll();
+      renderAllColumns();
       setTimeout(function(){
         btn.disabled = false;
         btn.textContent = originalText;

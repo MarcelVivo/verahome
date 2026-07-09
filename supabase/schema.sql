@@ -87,6 +87,8 @@ create table public.profiles (
   address3_street  text,
   address3_zip     text,
   address3_city    text,
+  portal_invited_at timestamptz,
+  portal_registered_at timestamptz,
   created_at       timestamptz not null default now(),
   approved_at      timestamptz,
   approved_by      uuid references public.profiles(id)
@@ -305,7 +307,8 @@ begin
      or new.status is distinct from old.status
      or new.member_number is distinct from old.member_number
      or new.approved_at is distinct from old.approved_at
-     or new.approved_by is distinct from old.approved_by then
+     or new.approved_by is distinct from old.approved_by
+     or new.portal_invited_at is distinct from old.portal_invited_at then
     raise exception 'Nicht erlaubt: Kategorie/Status/Mitgliedsnummer können nur vom Admin geändert werden.';
   end if;
   return new;

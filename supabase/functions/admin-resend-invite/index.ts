@@ -86,6 +86,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: linkErr?.message || "Einladungslink konnte nicht erzeugt werden." }, 502);
     }
 
+    const { error: registrationMarkErr } = await adminClient
+      .from("profiles")
+      .update({ portal_invited_at: new Date().toISOString() })
+      .eq("id", profileId)
+      .is("portal_registered_at", null);
+    if (registrationMarkErr) {
+      console.error("registration status update failed:", registrationMarkErr.message);
+    }
+
     if (await outboundEmailsDisabled(adminClient)) {
       return jsonResponse({ ok: true, skipped: true, reason: "outbound_email_mode_test", profileId });
     }
