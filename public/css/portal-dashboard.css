@@ -725,8 +725,12 @@
   border-radius:12px;background:var(--color-bg);
 }
 .obj-archive-docs > strong{font-size:.85rem;color:var(--color-navy);}
-.obj-archive-upload-form{
+.obj-archive-upload-form,.obj-existing-doc-form{
   padding:12px;border:1px dashed var(--color-blue-light);border-radius:12px;background:rgba(255,255,255,.72);
+}
+.obj-existing-doc-form{margin-top:10px;}
+.auth-form select[multiple]{
+  min-height:118px;padding:8px;border-radius:12px;line-height:1.4;
 }
 
 .obj-listing-checklist{

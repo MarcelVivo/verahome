@@ -106,6 +106,22 @@
       <input type="file" id="p_cover_image" accept="image/*">
       <label class="doc-meta" for="p_detail_images">Detailbilder (optional, max. 10 Bilder)</label>
       <input type="file" id="p_detail_images" accept="image/*" multiple>
+      <span class="obj-modal-section-label">Dokumente</span>
+      <select id="p_document_category">
+        <option value="verwaltung" selected>Verwaltung</option>
+        <option value="plaene">Pläne / Baueingaben</option>
+        <option value="grundbucheintrag">Grundbuchauszug</option>
+        <option value="sina">SiNa</option>
+        <option value="reglemente">Reglemente</option>
+        <option value="versicherungen">Versicherungen</option>
+        <option value="hauswartung">Hauswartung</option>
+        <option value="korrespondenz">Korrespondenz</option>
+        <option value="sonstiges">Sonstiges</option>
+      </select>
+      <label class="doc-meta" for="p_document_files">Neue Dokumente hochladen (optional)</label>
+      <input type="file" id="p_document_files" multiple>
+      <label class="doc-meta" for="p_existing_documents">Bereits unter Dokumente abgelegte Dateien verknüpfen</label>
+      <select id="p_existing_documents" multiple size="4"></select>
       <div class="dash-btn-row">
         <button type="submit" class="btn btn-primary">Gebäude anlegen</button>
         <button type="button" class="dash-btn-sm" id="newPropertyCancelBtn">Abbrechen</button>
@@ -139,6 +155,20 @@
       <input type="file" id="u_cover_image" accept="image/*">
       <label class="doc-meta" for="u_detail_images">Weitere Bilder (empfohlen, max. 10 Bilder)</label>
       <input type="file" id="u_detail_images" accept="image/*" multiple>
+
+      <span class="obj-modal-section-label">Dokumente</span>
+      <select id="u_document_category">
+        <option value="unit_mieter" selected>Mieterakte</option>
+        <option value="unit_geraete">Geräte</option>
+        <option value="unit_unterhalt">Unterhalt</option>
+        <option value="unit_renovationen">Renovationen</option>
+        <option value="unit_freigaben">Freigaben</option>
+      </select>
+      <label class="doc-meta" for="u_document_files">Neue Dokumente hochladen (optional)</label>
+      <input type="file" id="u_document_files" multiple>
+      <label class="doc-meta" for="u_existing_documents">Bereits unter Dokumente abgelegte Dateien verknüpfen</label>
+      <select id="u_existing_documents" multiple size="4"></select>
+      <p class="obj-helper-text">Freigaben für Mieter/Eigentümer werden danach in der Einheit gezielt gesetzt.</p>
 
       <span class="obj-modal-section-label">Preis &amp; Verfügbarkeit</span>
       <div class="auth-form-row">
@@ -444,6 +474,9 @@
       var coverInput = document.getElementById('p_cover_image');
       var detailInput = document.getElementById('p_detail_images');
       var detailFiles = Array.prototype.slice.call(detailInput.files);
+      var propertyDocFiles = Array.prototype.slice.call(document.getElementById('p_document_files').files);
+      var propertyExistingDocIds = selectedValues('p_existing_documents');
+      var propertyDocCategory = document.getElementById('p_document_category').value;
       if(detailFiles.length > 10){
         statusEl.textContent = 'Bitte maximal 10 Detailbilder auswählen.';
         statusEl.classList.add('show');
@@ -468,7 +501,19 @@
         statusEl.classList.add('show');
         await uploadNewRecordImages('property', res.data.id, coverFile, detailFiles);
       }
-      statusEl.textContent = 'Objekt angelegt.';
+      var documentResult = { uploaded: 0, linked: 0, errors: [] };
+      if(propertyDocFiles.length || propertyExistingDocIds.length){
+        statusEl.textContent = 'Objekt angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
+        statusEl.classList.add('show');
+        documentResult = await attachNewRecordDocuments({
+          propertyId: res.data.id,
+          unitId: null,
+          files: propertyDocFiles,
+          existingIds: propertyExistingDocIds,
+          archiveCategory: propertyArchiveKeyFromDocCategory(res.data, propertyDocCategory)
+        });
+      }
+      statusEl.textContent = 'Objekt angelegt.' + documentAttachSummary(documentResult);
       statusEl.classList.add('show');
       document.getElementById('newPropertyForm').reset();
       await loadAll();
@@ -484,6 +529,9 @@
       var uCoverInput = document.getElementById('u_cover_image');
       var uDetailInput = document.getElementById('u_detail_images');
       var uDetailFiles = Array.prototype.slice.call(uDetailInput.files);
+      var unitDocFiles = Array.prototype.slice.call(document.getElementById('u_document_files').files);
+      var unitExistingDocIds = selectedValues('u_existing_documents');
+      var unitDocCategory = document.getElementById('u_document_category').value;
       if(uDetailFiles.length > 10){
         statusEl.textContent = 'Bitte maximal 10 Detailbilder auswählen.';
         statusEl.classList.add('show');
@@ -516,7 +564,19 @@
         statusEl.classList.add('show');
         await uploadNewRecordImages('unit', res.data.id, uCoverFile, uDetailFiles);
       }
-      statusEl.textContent = 'Einheit angelegt. Zuweisungen werden geöffnet …';
+      var unitDocumentResult = { uploaded: 0, linked: 0, errors: [] };
+      if(unitDocFiles.length || unitExistingDocIds.length){
+        statusEl.textContent = 'Einheit angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
+        statusEl.classList.add('show');
+        unitDocumentResult = await attachNewRecordDocuments({
+          propertyId: propertyId,
+          unitId: res.data.id,
+          files: unitDocFiles,
+          existingIds: unitExistingDocIds,
+          archiveCategory: unitDocCategory
+        });
+      }
+      statusEl.textContent = 'Einheit angelegt. Zuweisungen werden geöffnet …' + documentAttachSummary(unitDocumentResult);
       statusEl.classList.add('show');
       document.getElementById('newUnitForm').reset();
       closeNewUnitModal();
@@ -585,6 +645,7 @@
     document.getElementById('objColumns').addEventListener('submit', function(e){
       if(e.target && e.target.id === 'applianceForm') saveApplianceRecord(e);
       if(e.target && e.target.id === 'archiveUploadForm') saveArchiveDocument(e);
+      if(e.target && e.target.id === 'archiveExistingForm') attachExistingArchiveDocument(e);
     });
 
     document.getElementById('propertyModalClose').addEventListener('click', closePropertyModal);
@@ -736,10 +797,158 @@
     return scope + ' / ' + node.code + '_' + node.label;
   }
 
+  function archiveLabelForKey(key){
+    var plans = ARCHIVE_PLANS.stweg.concat(ARCHIVE_PLANS.mietobjekt).concat(ARCHIVE_PLANS.unit);
+    var node = plans.filter(function(row){ return row.key === key; })[0];
+    return node ? (node.code + '_' + node.label) : (key || 'Nicht klassiert');
+  }
+
   function profileContactMetaById(profileId){
     var p = allProfilesForPicker.filter(function(row){ return row.id === profileId; })[0];
     if(!p) return '';
     return [p.email, p.phone, [p.address_street, [p.address_zip, p.address_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  }
+
+  function propertyArchiveKeyFromDocCategory(property, category){
+    var type = getPropertyType(property);
+    if(type === 'stweg'){
+      if(['plaene','grundbucheintrag','sina','reglemente'].indexOf(category) > -1) return 'stweg_dauerunterlagen';
+      if(['versicherungen','hauswartung','verwaltung','korrespondenz'].indexOf(category) > -1) return 'stweg_verwaltung';
+      return 'stweg_allgemein';
+    }
+    if(['plaene','grundbucheintrag','sina','reglemente'].indexOf(category) > -1) return 'miet_fixe_unterlagen';
+    if(category === 'versicherungen') return 'miet_versicherungen';
+    if(category === 'hauswartung') return 'miet_unterhalt';
+    if(category === 'korrespondenz') return 'miet_korrespondenz';
+    return 'miet_verwaltung';
+  }
+
+  function documentAssignmentLabel(file){
+    var property = file.property_id ? allProperties.filter(function(p){ return p.id === file.property_id; })[0] : null;
+    var unit = file.unit_id ? allUnits.filter(function(u){ return u.id === file.unit_id; })[0] : null;
+    if(unit && property) return property.label + ' · ' + unit.label;
+    if(property) return property.label;
+    return 'Noch nicht zugewiesen';
+  }
+
+  function existingDocumentOptionsHtml(excludeFileIds){
+    excludeFileIds = excludeFileIds || [];
+    var docs = allDocumentFiles.filter(function(file){ return excludeFileIds.indexOf(file.id) === -1; });
+    return '<option value="">Dokument aus Dokumente wählen …</option>' + docs.map(function(file){
+      return '<option value="'+file.id+'">'+VeraDashboard.escapeHtml(file.title + ' · ' + documentAssignmentLabel(file))+'</option>';
+    }).join('');
+  }
+
+  function existingDocumentMultiOptionsHtml(excludeFileIds){
+    excludeFileIds = excludeFileIds || [];
+    var docs = allDocumentFiles.filter(function(file){ return excludeFileIds.indexOf(file.id) === -1; });
+    if(!docs.length) return '<option value="" disabled>Keine Dokumente vorhanden</option>';
+    return docs.map(function(file){
+      return '<option value="'+file.id+'">'+VeraDashboard.escapeHtml(file.title + ' · ' + documentAssignmentLabel(file))+'</option>';
+    }).join('');
+  }
+
+  function selectedValues(selectId){
+    var select = document.getElementById(selectId);
+    if(!select) return [];
+    return Array.prototype.slice.call(select.selectedOptions || []).map(function(option){ return option.value; }).filter(Boolean);
+  }
+
+  function refreshNewDocumentSelectors(){
+    var propertySelect = document.getElementById('p_existing_documents');
+    if(propertySelect) propertySelect.innerHTML = existingDocumentMultiOptionsHtml([]);
+    var unitSelect = document.getElementById('u_existing_documents');
+    if(unitSelect) unitSelect.innerHTML = existingDocumentMultiOptionsHtml([]);
+  }
+
+  function documentAttachSummary(result){
+    var parts = [];
+    if(result.uploaded) parts.push(result.uploaded + ' hochgeladen');
+    if(result.linked) parts.push(result.linked + ' verknüpft');
+    if(result.errors.length) parts.push(result.errors.length + ' Fehler');
+    return parts.length ? ' Dokumente: ' + parts.join(', ') + '.' : '';
+  }
+
+  async function attachNewRecordDocuments(options){
+    var result = { uploaded: 0, linked: 0, errors: [] };
+    var files = options.files || [];
+    var existingIds = options.existingIds || [];
+    var scopePath = options.unitId ? ('units/' + options.unitId) : ('properties/' + options.propertyId);
+
+    for(var i = 0; i < files.length; i++){
+      var file = files[i];
+      var fileId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var path = scopePath + '/' + fileId + '-' + safeName;
+      var upRes = await client.storage.from('document-vault').upload(path, file);
+      if(upRes.error){
+        result.errors.push(upRes.error.message);
+        continue;
+      }
+      var insertPayload = {
+        id: fileId,
+        folder_id: null,
+        property_id: options.propertyId,
+        unit_id: options.unitId || null,
+        title: file.name,
+        file_path: path,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+        created_by: profile.id
+      };
+      if(supportsArchiveCategory && options.archiveCategory) insertPayload.archive_category = options.archiveCategory;
+      var insRes = await client.from('document_files').insert(insertPayload);
+      if(insRes.error){
+        await client.storage.from('document-vault').remove([path]);
+        result.errors.push(insRes.error.message);
+        continue;
+      }
+      result.uploaded++;
+    }
+
+    for(var j = 0; j < existingIds.length; j++){
+      var updatePayload = {
+        property_id: options.propertyId,
+        unit_id: options.unitId || null
+      };
+      if(supportsArchiveCategory && options.archiveCategory) updatePayload.archive_category = options.archiveCategory;
+      var updateRes = await client.from('document_files').update(updatePayload).eq('id', existingIds[j]);
+      if(updateRes.error){
+        result.errors.push(updateRes.error.message);
+        continue;
+      }
+      result.linked++;
+    }
+
+    return result;
+  }
+
+  async function propertyResidentProfileIds(propertyId){
+    var ids = new Set();
+    var units = allUnits.filter(function(unit){ return unit.property_id === propertyId; });
+    var unitIds = units.map(function(unit){ return unit.id; });
+    allOwnerships.filter(function(o){ return o.property_id === propertyId && !o.unit_id; }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+    allOwnerships.filter(function(o){ return unitIds.indexOf(o.unit_id) > -1; }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+    allTenancies.filter(function(t){ return unitIds.indexOf(t.unit_id) > -1 && t.status === 'active'; }).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
+    return Array.from(ids);
+  }
+
+  async function replaceDocumentShares(fileId, profileIds){
+    await client.from('document_shares').delete().eq('file_id', fileId);
+    if(!profileIds.length) return { error: null };
+    return client.from('document_shares').insert(profileIds.map(function(profileId){
+      return { file_id: fileId, profile_id: profileId, needs_confirmation: false, created_by: profile.id };
+    }));
+  }
+
+  async function addDocumentShare(fileId, profileId){
+    if(!profileId) return { error: null };
+    return client.from('document_shares').upsert({
+      file_id: fileId,
+      profile_id: profileId,
+      needs_confirmation: false,
+      created_by: profile.id
+    }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
   }
 
   var allProperties = [];
@@ -780,6 +989,7 @@
     allPropertyPermissions = permissionsRes.data || [];
     var docsRes = await client.from('document_files').select('*').order('created_at', { ascending:false });
     allDocumentFiles = docsRes.data || [];
+    refreshNewDocumentSelectors();
     try {
       var appliancesRes = await client.from('property_appliances').select('*').order('label');
       allAppliances = appliancesRes.data || [];
@@ -1145,6 +1355,13 @@
         '<button type="submit" class="btn btn-primary">Dokument ablegen</button>' +
         '<p class="form-status" id="archiveDocStatus"></p>' +
       '</form>' +
+      '<form class="auth-form obj-existing-doc-form" id="archiveExistingForm">' +
+        '<span class="obj-modal-section-label">Bereits abgelegtes Dokument verknüpfen</span>' +
+        '<select id="archiveExistingDoc">'+existingDocumentOptionsHtml(docs.map(function(doc){ return doc.id; }))+'</select>' +
+        '<select id="archiveExistingRecipient">'+recipientOptions+'</select>' +
+        '<button type="submit" class="dash-btn-sm">Bestehendes Dokument hier verknüpfen</button>' +
+        '<p class="form-status" id="archiveExistingStatus"></p>' +
+      '</form>' +
     '</div>';
   }
 
@@ -1400,9 +1617,11 @@
 
   function openCreateModal(key, propertyId){
     if(key === 'objekte'){
+      refreshNewDocumentSelectors();
       document.getElementById('newPropertyModalBackdrop').hidden = false;
       return;
     }
+    refreshNewDocumentSelectors();
     var unitType = key === 'unit-for-property' ? 'wohnung' : key;
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml(unitType);
     document.getElementById('u_type_cards').innerHTML = unitTypeCardsHtml(unitType, 'u_type');
@@ -1474,12 +1693,30 @@
         '</select>' +
         '<select id="docVisibility-'+id+'">' +
           '<option value="restricted">Nur bestimmte Nutzer</option>' +
-          '<option value="public">Öffentlich</option>' +
+          '<option value="residents">Allen aktuellen Mietern/Eigentümern freigeben</option>' +
+          '<option value="admin">Nur intern ablegen</option>' +
         '</select>' +
         '<div class="prop-user-picker" id="docUsers-'+id+'"></div>' +
-        '<input type="file" id="docFile-'+id+'" accept="application/pdf" required>' +
-        '<button type="submit" class="btn btn-primary">Dokument hochladen</button>' +
+        '<input type="file" id="docFile-'+id+'" required>' +
+        '<button type="submit" class="btn btn-primary">Dokument hochladen & in Dokumente ablegen</button>' +
         '<p class="form-status" id="docStatus-'+id+'"></p>' +
+      '</form>' +
+      '<form class="auth-form obj-existing-doc-form" id="docExistingForm-'+id+'">' +
+        '<span class="obj-modal-section-label">Bereits unter Dokumente abgelegt</span>' +
+        '<select id="docExistingSelect-'+id+'">'+existingDocumentOptionsHtml([])+'</select>' +
+        '<select id="docExistingCategory-'+id+'">' +
+          '<option value="verwaltung">Verwaltung</option>' +
+          '<option value="plaene">Pläne / Baueingaben</option>' +
+          '<option value="grundbucheintrag">Grundbuchauszug</option>' +
+          '<option value="sina">SiNa</option>' +
+          '<option value="reglemente">Reglemente</option>' +
+          '<option value="versicherungen">Versicherungen</option>' +
+          '<option value="hauswartung">Hauswartung</option>' +
+          '<option value="korrespondenz">Korrespondenz</option>' +
+          '<option value="sonstiges">Sonstiges</option>' +
+        '</select>' +
+        '<button type="submit" class="dash-btn-sm">Bestehendes Dokument mit dieser Liegenschaft verknüpfen</button>' +
+        '<p class="form-status" id="docExistingStatus-'+id+'"></p>' +
       '</form>' +
       '<div class="dash-table-wrap"><table class="dash-table" id="docsTable-'+id+'" style="margin-top:16px;"></table></div>' +
 
@@ -1610,6 +1847,9 @@
     });
     document.getElementById('docForm-'+propertyId).addEventListener('submit', function(e){
       uploadPropertyDocument(e, propertyId);
+    });
+    document.getElementById('docExistingForm-'+propertyId).addEventListener('submit', function(e){
+      linkExistingPropertyDocument(e, propertyId);
     });
     document.getElementById('laundryForm-'+propertyId).addEventListener('submit', function(e){
       addLaundrySlot(e, propertyId);
@@ -1748,6 +1988,11 @@
               '<input type="file" id="unitPrivateDocFile-'+unitId+'" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">' +
               '<button type="button" class="dash-btn-sm" id="unitPrivateDocUpload-'+unitId+'">Nur für diese Person hochladen</button>' +
             '</div>' +
+            '<div class="obj-private-doc-form obj-existing-doc-form">' +
+              '<select id="unitExistingDocSelect-'+unitId+'">'+existingDocumentOptionsHtml([])+'</select>' +
+              '<select id="unitExistingDocRecipient-'+unitId+'"><option value="">Empfänger wählen …</option></select>' +
+              '<button type="button" class="dash-btn-sm" id="unitExistingDocLink-'+unitId+'">Bestehendes Dokument dieser Einheit zuweisen</button>' +
+            '</div>' +
             '<a class="dash-btn-sm" href="/portal/documents.html">Alle Dokumente verwalten</a>' +
           '</section>' +
         '</div>' +
@@ -1801,6 +2046,7 @@
     document.getElementById('unitOwnerAdd-'+unitId).addEventListener('click', function(){ addUnitOwner(unit); });
     document.getElementById('unitHauswartAdd-'+unitId).addEventListener('click', function(){ addUnitHauswart(unit); });
     document.getElementById('unitPrivateDocUpload-'+unitId).addEventListener('click', function(){ uploadUnitPrivateDocument(unit); });
+    document.getElementById('unitExistingDocLink-'+unitId).addEventListener('click', function(){ linkExistingUnitDocument(unit); });
     modalBody.querySelector('.unit-img-upload-btn').addEventListener('click', function(){
       uploadUnitImages(unitId);
     });
@@ -1832,15 +2078,17 @@
     var ids = new Set();
     (tenantRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
     (ownerRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-    var select = document.getElementById('unitPrivateDocRecipient-'+unit.id);
-    if(!select) return;
     var recipients = Array.from(ids).map(function(id){
       var p = allProfilesForPicker.filter(function(row){ return row.id === id; })[0];
       return p ? p : { id: id, first_name: '', last_name: 'Unbekannte Person', category: '' };
     });
-    select.innerHTML = '<option value="">Empfänger wählen …</option>' + recipients.map(function(p){
+    var optionsHtml = '<option value="">Empfänger wählen …</option>' + recipients.map(function(p){
       return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml((p.last_name || '')+' '+(p.first_name || '')+' · '+VeraDashboard.categoryLabel(p.category))+'</option>';
     }).join('');
+    ['unitPrivateDocRecipient-', 'unitExistingDocRecipient-'].forEach(function(prefix){
+      var select = document.getElementById(prefix + unit.id);
+      if(select) select.innerHTML = optionsHtml;
+    });
   }
 
   async function loadUnitTenants(unit){
@@ -1976,7 +2224,7 @@
       return;
     }
 
-    var insRes = await client.from('document_files').insert({
+    var insertPayload = {
       id: fileId,
       folder_id: null,
       property_id: unit.property_id,
@@ -1986,7 +2234,9 @@
       mime_type: file.type || null,
       size_bytes: file.size,
       created_by: profile.id
-    });
+    };
+    if(supportsArchiveCategory) insertPayload.archive_category = 'unit_mieter';
+    var insRes = await client.from('document_files').insert(insertPayload);
     if(insRes.error){
       await client.storage.from('document-vault').remove([path]);
       statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
@@ -2012,7 +2262,51 @@
     recipientSelect.value = '';
     fileInput.value = '';
     statusEl.textContent = 'Dokument wurde nur für die ausgewählte Person freigegeben.';
+    await loadAll();
     loadUnitLinkedDocs(unit);
+    renderAllColumns();
+  }
+
+  async function linkExistingUnitDocument(unit){
+    var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
+    var fileId = document.getElementById('unitExistingDocSelect-'+unit.id).value;
+    var recipientId = document.getElementById('unitExistingDocRecipient-'+unit.id).value;
+    if(!fileId){
+      statusEl.textContent = 'Bitte ein bestehendes Dokument auswählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+    if(!recipientId){
+      statusEl.textContent = 'Bitte Empfänger wählen, damit die Mieterakte datenschutzkonform freigegeben wird.';
+      statusEl.classList.add('show');
+      return;
+    }
+    statusEl.textContent = 'Bestehendes Dokument wird zugewiesen …';
+    statusEl.classList.add('show');
+    var updatePayload = {
+      property_id: unit.property_id,
+      unit_id: unit.id
+    };
+    if(supportsArchiveCategory) updatePayload.archive_category = 'unit_mieter';
+    var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
+    if(updateRes.error){
+      statusEl.textContent = 'Fehler: ' + updateRes.error.message;
+      return;
+    }
+    var shareRes = await addDocumentShare(fileId, recipientId);
+    if(shareRes.error){
+      statusEl.textContent = 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+      return;
+    }
+    try {
+      await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+    } catch(err) {}
+    statusEl.textContent = 'Bestehendes Dokument wurde zugewiesen und freigegeben.';
+    document.getElementById('unitExistingDocSelect-'+unit.id).value = '';
+    document.getElementById('unitExistingDocRecipient-'+unit.id).value = '';
+    await loadAll();
+    loadUnitLinkedDocs(unit);
+    renderAllColumns();
   }
 
   async function openDocumentVaultFile(path){
@@ -2096,6 +2390,51 @@
     titleInput.value = node.label;
     fileInput.value = '';
     statusEl.textContent = recipientId ? 'Dokument abgelegt und freigegeben.' : 'Dokument abgelegt.';
+    await loadAll();
+    renderAllColumns();
+  }
+
+  async function attachExistingArchiveDocument(e){
+    e.preventDefault();
+    var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
+    var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
+    var node = archiveNodeByKey(property, unit, selectedDetailId);
+    var statusEl = document.getElementById('archiveExistingStatus');
+    var fileId = document.getElementById('archiveExistingDoc').value;
+    var recipientId = document.getElementById('archiveExistingRecipient').value;
+    if(!property || !node || !fileId){
+      statusEl.textContent = 'Bitte ein bestehendes Dokument wählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+    if(node.tenant && !recipientId){
+      statusEl.textContent = 'Mieterakten bitte direkt einem Mieter freigeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+    statusEl.textContent = 'Dokument wird verknüpft …';
+    statusEl.classList.add('show');
+    var updatePayload = {
+      property_id: property.id,
+      unit_id: unit ? unit.id : null
+    };
+    if(supportsArchiveCategory) updatePayload.archive_category = node.key;
+    var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
+    if(updateRes.error){
+      statusEl.textContent = 'Fehler: ' + updateRes.error.message;
+      return;
+    }
+    if(recipientId){
+      var shareRes = await addDocumentShare(fileId, recipientId);
+      if(shareRes.error){
+        statusEl.textContent = 'Dokument verknüpft, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+        return;
+      }
+      try {
+        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+      } catch(err) {}
+    }
+    statusEl.textContent = recipientId ? 'Dokument verknüpft und freigegeben.' : 'Dokument verknüpft.';
     await loadAll();
     renderAllColumns();
   }
@@ -2592,8 +2931,10 @@
 
   async function uploadPropertyDocument(e, propertyId){
     e.preventDefault();
+    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
     var statusEl = document.getElementById('docStatus-'+propertyId);
     var title = document.getElementById('docTitle-'+propertyId).value.trim();
+    var category = document.getElementById('docCategory-'+propertyId).value;
     var visibility = document.getElementById('docVisibility-'+propertyId).value;
     var fileInput = document.getElementById('docFile-'+propertyId);
     var file = fileInput.files[0];
@@ -2601,68 +2942,85 @@
 
     var checkedIds = Array.prototype.slice.call(document.querySelectorAll('#docUsers-'+propertyId+' input:checked')).map(function(c){ return c.value; });
     if(visibility === 'restricted' && !checkedIds.length){
-      statusEl.textContent = 'Bitte mindestens einen Nutzer auswählen, oder "Öffentlich" wählen.';
+      statusEl.textContent = 'Bitte mindestens einen Nutzer auswählen, oder eine andere Freigabe wählen.';
       statusEl.classList.add('show');
       return;
     }
+    var shareIds = visibility === 'restricted' ? checkedIds : [];
+    if(visibility === 'residents') shareIds = await propertyResidentProfileIds(propertyId);
 
-    statusEl.textContent = 'Wird hochgeladen …';
+    statusEl.textContent = 'Wird hochgeladen und unter Dokumente abgelegt …';
     statusEl.classList.add('show');
 
     var docId = crypto.randomUUID();
     var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var path = propertyId + '/' + docId + '-' + safeName;
+    var path = 'properties/' + propertyId + '/' + docId + '-' + safeName;
 
-    var upRes = await client.storage.from('property-documents').upload(path, file);
+    var upRes = await client.storage.from('document-vault').upload(path, file);
     if(upRes.error){ statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message; return; }
 
-    var insRes = await client.from('property_documents').insert({
-      id: docId, property_id: propertyId, title: title,
-      category: document.getElementById('docCategory-'+propertyId).value,
-      file_path: path, visibility: visibility, created_by: profile.id
-    });
+    var insertPayload = {
+      id: docId,
+      folder_id: null,
+      property_id: propertyId,
+      unit_id: null,
+      title: title,
+      file_path: path,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      created_by: profile.id
+    };
+    if(supportsArchiveCategory) insertPayload.archive_category = propertyArchiveKeyFromDocCategory(property, category);
+    var insRes = await client.from('document_files').insert(insertPayload);
     if(insRes.error){
-      await client.storage.from('property-documents').remove([path]);
+      await client.storage.from('document-vault').remove([path]);
       statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
       return;
     }
 
-    if(visibility === 'restricted' && checkedIds.length){
-      await client.from('property_document_access').insert(
-        checkedIds.map(function(pid){ return { property_document_id: docId, profile_id: pid }; })
-      );
+    if(shareIds.length){
+      var shareRes = await replaceDocumentShares(docId, shareIds);
+      if(shareRes.error){
+        statusEl.textContent = 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+        return;
+      }
+      try {
+        await client.functions.invoke('send-document-share', { body: { fileIds: [docId], profileIds: shareIds } });
+      } catch(err) {}
     }
 
-    statusEl.textContent = 'Dokument hochgeladen.';
+    statusEl.textContent = 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft.';
     document.getElementById('docForm-'+propertyId).reset();
     document.getElementById('docUsers-'+propertyId).style.display = 'none';
+    await loadAll();
     loadPropertyDocs(propertyId);
+    renderAllColumns();
   }
 
   async function loadPropertyDocs(propertyId){
-    var res = await client.from('property_documents').select('*').eq('property_id', propertyId).order('created_at', { ascending:false });
+    var res = await client.from('document_files').select('*').eq('property_id', propertyId).is('unit_id', null).order('created_at', { ascending:false });
     var docs = res.data || [];
     var table = document.getElementById('docsTable-'+propertyId);
     if(!docs.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Dokumente.</td></tr>'; return; }
 
-    var accessRes = await client.from('property_document_access').select('property_document_id, profile_id').in('property_document_id', docs.map(function(d){ return d.id; }));
+    var accessRes = await client.from('document_shares').select('file_id, profile_id').in('file_id', docs.map(function(d){ return d.id; }));
     var accessByDoc = {};
     (accessRes.data || []).forEach(function(a){
-      accessByDoc[a.property_document_id] = accessByDoc[a.property_document_id] || [];
-      accessByDoc[a.property_document_id].push(a.profile_id);
+      accessByDoc[a.file_id] = accessByDoc[a.file_id] || [];
+      accessByDoc[a.file_id].push(a.profile_id);
     });
 
-    table.innerHTML = '<tr><th>Titel</th><th>Kategorie</th><th>Freigabe</th><th></th></tr>' +
+    table.innerHTML = '<tr><th>Titel</th><th>Akte</th><th>Freigabe</th><th></th></tr>' +
       docs.map(function(d){
         var grantCount = (accessByDoc[d.id] || []).length;
-        var visLabel = d.visibility === 'public' ? 'Öffentlich' : ('Nur bestimmte Nutzer ('+grantCount+')');
+        var visLabel = grantCount ? ('Freigegeben ('+grantCount+')') : 'Nur Admin / intern';
         return '<tr>' +
           '<td>'+VeraDashboard.escapeHtml(d.title)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(DOC_CATEGORY_TEXT[d.category] || d.category)+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(archiveLabelForKey(d.archive_category))+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(visLabel)+'</td>' +
           '<td><div class="dash-btn-row">' +
             '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
-            (d.visibility === 'restricted' ? '<button type="button" class="dash-btn-sm edit-access-btn" data-id="'+d.id+'">Zugriff bearbeiten</button>' : '') +
+            '<button type="button" class="dash-btn-sm edit-access-btn" data-id="'+d.id+'">Zugriff bearbeiten</button>' +
             '<button type="button" class="dash-btn-sm danger del-doc-btn" data-id="'+d.id+'" data-path="'+d.file_path+'">Löschen</button>' +
           '</div></td>' +
         '</tr>';
@@ -2671,15 +3029,19 @@
     table.querySelectorAll('.doc-open-link').forEach(function(a){
       a.addEventListener('click', async function(e){
         e.preventDefault();
-        var res = await client.storage.from('property-documents').createSignedUrl(a.getAttribute('data-path'), 60);
+        var res = await client.storage.from('document-vault').createSignedUrl(a.getAttribute('data-path'), 60);
         if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
       });
     });
     table.querySelectorAll('.del-doc-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.storage.from('property-documents').remove([btn.getAttribute('data-path')]);
-        await client.from('property_documents').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Dokument wirklich löschen?')) return;
+        if(!window.confirm('Letzte Bestätigung: Dokument endgültig löschen?')) return;
+        await client.storage.from('document-vault').remove([btn.getAttribute('data-path')]);
+        await client.from('document_files').delete().eq('id', btn.getAttribute('data-id'));
+        await loadAll();
         loadPropertyDocs(propertyId);
+        renderAllColumns();
       });
     });
     table.querySelectorAll('.edit-access-btn').forEach(function(btn){
@@ -2701,15 +3063,40 @@
 
     document.getElementById('saveAccessBtn-'+propertyId).addEventListener('click', async function(){
       var checkedIds = Array.prototype.slice.call(picker.querySelectorAll('.access-edit-checkbox:checked')).map(function(c){ return c.value; });
-      await client.from('property_document_access').delete().eq('property_document_id', docId);
-      if(checkedIds.length){
-        await client.from('property_document_access').insert(
-          checkedIds.map(function(pid){ return { property_document_id: docId, profile_id: pid }; })
-        );
-      }
+      await replaceDocumentShares(docId, checkedIds);
       loadUserPicker(propertyId);
       loadPropertyDocs(propertyId);
     });
+  }
+
+  async function linkExistingPropertyDocument(e, propertyId){
+    e.preventDefault();
+    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
+    var statusEl = document.getElementById('docExistingStatus-'+propertyId);
+    var fileId = document.getElementById('docExistingSelect-'+propertyId).value;
+    var category = document.getElementById('docExistingCategory-'+propertyId).value;
+    if(!property || !fileId){
+      statusEl.textContent = 'Bitte ein bestehendes Dokument auswählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+    statusEl.textContent = 'Dokument wird mit der Liegenschaft verknüpft …';
+    statusEl.classList.add('show');
+    var updatePayload = {
+      property_id: propertyId,
+      unit_id: null
+    };
+    if(supportsArchiveCategory) updatePayload.archive_category = propertyArchiveKeyFromDocCategory(property, category);
+    var res = await client.from('document_files').update(updatePayload).eq('id', fileId);
+    if(res.error){
+      statusEl.textContent = 'Fehler: ' + res.error.message;
+      return;
+    }
+    statusEl.textContent = 'Bestehendes Dokument wurde verknüpft.';
+    document.getElementById('docExistingSelect-'+propertyId).value = '';
+    await loadAll();
+    loadPropertyDocs(propertyId);
+    renderAllColumns();
   }
 })();
 </script>
