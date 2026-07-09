@@ -761,6 +761,7 @@
   function fmCloseUploadScopeModal(){
     document.getElementById('uploadScopeModalBackdrop').hidden = true;
     fmPendingUploadFiles = [];
+    fmSetButtonLoading(document.querySelector('#uploadScopeForm button[type="submit"]'), false);
     document.getElementById('uploadScopeForm').reset();
     document.getElementById('uploadScopeFiles').hidden = false;
     document.querySelector('input[name="uploadScopeFolderMode"][value="existing"]').checked = true;
@@ -845,6 +846,7 @@
   function fmOpenFolderCreateModal(){
     fmPopulateFolderScopeBase();
     document.getElementById('folderScopeForm').reset();
+    fmSetButtonLoading(document.querySelector('#folderScopeForm button[type="submit"]'), false);
     document.getElementById('folderScopeType').value = fmCurrentFolderSuggestedScopeType();
     fmPreselectFolderScopeFromCurrent();
     fmUpdateFolderScopeForm();
@@ -859,11 +861,14 @@
 
   function fmCloseFolderCreateModal(){
     document.getElementById('folderScopeModalBackdrop').hidden = true;
+    fmSetButtonLoading(document.querySelector('#folderScopeForm button[type="submit"]'), false);
     document.getElementById('folderScopeForm').reset();
   }
 
   async function fmSubmitCreateFolder(e){
     e.preventDefault();
+    var submitBtn = e.submitter || document.querySelector('#folderScopeForm button[type="submit"]');
+    if(submitBtn && submitBtn.disabled) return;
     var statusEl = document.getElementById('folderScopeStatus');
     var name = document.getElementById('folderScopeName').value.trim();
     if(!name){
@@ -880,6 +885,7 @@
     }
     statusEl.textContent = 'Zielordner wird erstellt …';
     statusEl.classList.add('show');
+    fmSetButtonLoading(submitBtn, true, 'Wird erstellt …');
     try {
       var parentFolder = await fmEnsureScopedFolder(scope);
       var payload = fmApplyDocumentScopePayload({
@@ -896,6 +902,7 @@
       setTimeout(fmCloseFolderCreateModal, 500);
     } catch(err) {
       statusEl.textContent = 'Ordner konnte nicht erstellt werden: ' + (err.message || err);
+      fmSetButtonLoading(submitBtn, false);
     }
   }
 
@@ -1001,8 +1008,17 @@
     return '';
   }
 
+  function fmSetButtonLoading(button, isLoading, loadingLabel){
+    if(!button) return;
+    if(!button.dataset.defaultLabel) button.dataset.defaultLabel = button.textContent;
+    button.disabled = !!isLoading;
+    button.textContent = isLoading ? loadingLabel : button.dataset.defaultLabel;
+  }
+
   async function fmSubmitScopedUpload(e){
     e.preventDefault();
+    var submitBtn = e.submitter || document.querySelector('#uploadScopeForm button[type="submit"]');
+    if(submitBtn && submitBtn.disabled) return;
     var statusEl = document.getElementById('uploadScopeStatus');
     var chosenFiles = fmPendingUploadFiles.length
       ? fmPendingUploadFiles
@@ -1023,6 +1039,7 @@
       ? 'Neuer Ordner wird erstellt und Dateien werden hochgeladen …'
       : 'Dateien werden im gewählten Ordner abgelegt …';
     statusEl.classList.add('show');
+    fmSetButtonLoading(submitBtn, true, 'Wird abgelegt …');
     try {
       var uploadedIds = await fmUploadFileList(chosenFiles, scope);
       if(scope.type === 'contact' && scope.contact_profile_id && uploadedIds.length){
@@ -1035,6 +1052,7 @@
       setTimeout(fmCloseUploadScopeModal, 600);
     } catch(err) {
       statusEl.textContent = 'Fehler: ' + (err.message || err);
+      fmSetButtonLoading(submitBtn, false);
     }
   }
 
@@ -1641,6 +1659,7 @@
 
   function fmCloseAssignModal(){
     document.getElementById('assignModalBackdrop').hidden = true;
+    fmSetButtonLoading(document.getElementById('assignModalConfirm'), false);
     fmAssignTarget = null;
   }
 
@@ -1688,16 +1707,21 @@
 
   async function fmSubmitAssignment(){
     if(!fmAssignTarget) return;
+    var confirmBtn = document.getElementById('assignModalConfirm');
+    if(confirmBtn && confirmBtn.disabled) return;
     var statusEl = document.getElementById('assignModalStatus');
     var scope = fmAssignmentScopeFromModal();
     var validation = fmValidateUploadScope(scope);
     if(validation){ statusEl.textContent = validation; return; }
     statusEl.textContent = 'Wird zugewiesen …';
+    statusEl.classList.add('show');
+    fmSetButtonLoading(confirmBtn, true, 'Wird zugewiesen …');
     var targetFolder;
     try {
       targetFolder = await fmEnsureScopedFolder(scope);
     } catch(err) {
       statusEl.textContent = 'Fehler beim Ordner: ' + (err.message || err);
+      fmSetButtonLoading(confirmBtn, false);
       return;
     }
     var fileIds = [];
@@ -1726,13 +1750,13 @@
         var fileUpdatePayload = Object.assign({}, updatePayload);
         delete fileUpdatePayload.folder_id;
         var fileUpdateRes = await client.from('document_files').update(fileUpdatePayload).in('id', fileIds);
-        if(fileUpdateRes.error){ statusEl.textContent = 'Fehler: ' + fileUpdateRes.error.message; return; }
+        if(fileUpdateRes.error){ statusEl.textContent = 'Fehler: ' + fileUpdateRes.error.message; fmSetButtonLoading(confirmBtn, false); return; }
       }
     } else {
       updateRes = await client.from('document_files').update(updatePayload).eq('id', fmAssignTarget.item.id);
       fileIds = [fmAssignTarget.item.id];
     }
-    if(updateRes.error){ statusEl.textContent = 'Fehler: ' + updateRes.error.message; return; }
+    if(updateRes.error){ statusEl.textContent = 'Fehler: ' + updateRes.error.message; fmSetButtonLoading(confirmBtn, false); return; }
     if(scope.type === 'contact' && scope.contact_profile_id && fileIds.length){
       await fmShareFileIdsWithProfiles(fileIds, [scope.contact_profile_id], false);
       statusEl.textContent = 'Kontaktakte zugewiesen und Kontakt freigegeben.';
