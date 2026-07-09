@@ -295,7 +295,7 @@
               '<td data-label="Info">'+VeraDashboard.escapeHtml(cfg.meta(row) || "–")+'</td>' +
               '<td data-label="Archiviert">'+VeraDashboard.escapeHtml(VeraDashboard.formatDateTime(row.archived_at))+'</td>' +
               '<td data-label="Grund">'+VeraDashboard.escapeHtml(row.archived_reason || "–")+'</td>' +
-              '<td data-label="Aktion"><button type="button" class="dash-btn-sm archive-restore-btn" data-table="'+cfg.table+'" data-key="'+cfg.key+'" data-id="'+row.id+'">Wiederherstellen</button></td>' +
+              '<td data-label="Aktion"><button type="button" class="dash-btn-sm archive-restore-btn" data-table="'+cfg.table+'" data-key="'+cfg.key+'" data-id="'+row.id+'" data-label="'+VeraDashboard.escapeHtml(cfg.label(row))+'">Wiederherstellen</button></td>' +
             '</tr>';
           }).join("") +
         '</table></div>';
@@ -306,23 +306,38 @@
     grid.innerHTML = total || archiveSections.length ? html : '<div class="dash-card"><p class="dash-empty">Archiv wird geladen …</p></div>';
     grid.querySelectorAll(".archive-restore-btn").forEach(function(btn){
       btn.addEventListener("click", function(){
-        restoreRecord(btn.getAttribute("data-key"), btn.getAttribute("data-table"), btn.getAttribute("data-id"));
+        restoreRecord(
+          btn.getAttribute("data-key"),
+          btn.getAttribute("data-table"),
+          btn.getAttribute("data-id"),
+          btn.getAttribute("data-label"),
+          btn
+        );
       });
     });
   }
 
-  async function restoreRecord(key, table, id){
+  async function restoreRecord(key, table, id, label, button){
     var cfg = SECTION_CONFIG.filter(function(item){ return item.key === key; })[0];
     if(!cfg || !id) return;
-    if(!window.confirm("Eintrag wirklich wiederherstellen?")) return;
+    var itemLabel = label || "Eintrag";
+    if(!window.confirm('"' + itemLabel + '" wirklich wiederherstellen?')) return;
+    if(button){
+      button.disabled = true;
+      button.textContent = "Wird wiederhergestellt …";
+    }
     setStatus("Eintrag wird wiederhergestellt …");
     var payload = cfg.restorePayload ? cfg.restorePayload() : { archived_at:null, archived_by:null, archived_reason:null };
     var res = await client.from(table).update(payload).eq("id", id);
     if(res.error){
       setStatus("Fehler beim Wiederherstellen: " + res.error.message, true);
+      if(button){
+        button.disabled = false;
+        button.textContent = "Wiederherstellen";
+      }
       return;
     }
-    setStatus("Eintrag wiederhergestellt.");
+    setStatus('"' + itemLabel + '" wurde wiederhergestellt.');
     await loadArchive();
   }
 })();
