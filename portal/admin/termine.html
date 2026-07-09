@@ -182,6 +182,30 @@
     statusEl.classList.add('show');
   }
 
+  async function invokeMailFunction(fnName, body, label, statusEl){
+    try {
+      var res = await client.functions.invoke(fnName, { body: body || {} });
+      if(res && res.error){
+        var failedMsg = label + ' konnte nicht per E-Mail versendet werden: ' + res.error.message;
+        if(statusEl) showFormStatus(statusEl, failedMsg);
+        else window.alert(failedMsg);
+        return { ok:false, skipped:false };
+      }
+      if(res && res.data && res.data.skipped){
+        var skippedMsg = label + ' wurde nicht per E-Mail versendet, weil E-Mail-Aus/Testmodus aktiv ist.';
+        if(statusEl) showFormStatus(statusEl, skippedMsg);
+        else window.alert(skippedMsg);
+        return { ok:true, skipped:true };
+      }
+      return { ok:true, skipped:false };
+    } catch(err) {
+      var message = label + ' konnte nicht per E-Mail versendet werden: ' + (err.message || err);
+      if(statusEl) showFormStatus(statusEl, message);
+      else window.alert(message);
+      return { ok:false, skipped:false };
+    }
+  }
+
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
@@ -356,7 +380,7 @@
             setActionButtonLoading(btn, false);
             return;
           }
-          try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: id } }); } catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+          await invokeMailFunction('send-booking-confirmation', { bookingId: id }, 'Buchungsbestätigung');
           loadBookings();
           loadCalWeek();
         } catch(err) {
@@ -1165,8 +1189,7 @@
           setActionButtonLoading(confirmBtn, false);
           return;
         }
-        try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: cid } }); }
-        catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+        await invokeMailFunction('send-booking-confirmation', { bookingId: cid }, 'Buchungsbestätigung');
         calHidePopover();
         loadCalWeek();
         loadBookings();
@@ -1186,8 +1209,7 @@
           setActionButtonLoading(rescheduleBtn, false);
           return;
         }
-        try { await client.functions.invoke('send-booking-reschedule', { body: { bookingId: rid, message: message } }); }
-        catch(err) { /* Termin ist bereits storniert, Mail-Fehler blockiert nichts */ }
+        await invokeMailFunction('send-booking-reschedule', { bookingId: rid, message: message }, 'Verschiebungs-E-Mail');
         calHidePopover();
         loadCalWeek();
         loadBookings();
@@ -1378,8 +1400,7 @@
           loadCalWeek();
           return;
         }
-        try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: savedAppointmentId } }); }
-        catch(err) { /* Termin und Einladungen stehen, Mail-Fehler blockiert nichts */ }
+        await invokeMailFunction('send-appointment-invite', { appointmentId: savedAppointmentId }, 'Termin-Einladung', statusEl);
       }
 
       calHidePopover();
