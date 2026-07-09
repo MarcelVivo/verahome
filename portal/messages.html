@@ -199,8 +199,7 @@
     container.querySelectorAll('.msg-open-link').forEach(function(a){
       a.addEventListener('click', async function(e){
         e.preventDefault();
-        var res = await client.storage.from(a.getAttribute('data-bucket')).createSignedUrl(a.getAttribute('data-path'), 60);
-        if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+        await VeraDashboard.openSignedDocument(a.getAttribute('data-bucket'), a.getAttribute('data-path'), 60);
       });
     });
     container.querySelectorAll('.msg-voice-audio').forEach(function(audio){

@@ -390,8 +390,7 @@
   }
 
   async function openSignedUrl(bucket, path){
-    var res = await client.storage.from(bucket).createSignedUrl(path, 60);
-    if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+    await VeraDashboard.openSignedDocument(bucket, path, 60);
   }
 
   function wireOpenLinks(container, bucket){
@@ -1309,6 +1308,7 @@
     var token = ++fmPreviewToken;
     var stage = document.getElementById('filemgrPreviewStage');
     if(!stage) return;
+    await VeraDashboard.logDocumentAccess('document-vault', file.file_path, 'preview');
     var signed = await client.storage.from('document-vault').createSignedUrl(file.file_path, 600);
     if(token !== fmPreviewToken || !document.getElementById('filemgrPreviewStage')) return;
     if(signed.error || !signed.data){

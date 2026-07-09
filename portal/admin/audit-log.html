@@ -122,6 +122,7 @@
     "public.document_files": "Dokumente",
     "public.document_folders": "Dokumentordner",
     "public.document_shares": "Dokumentfreigaben",
+    "public.document_access_log": "Dokumentzugriffe",
     "public.invoices": "Rechnungen",
     "portal_settings": "Portal-Einstellungen",
     "public.portal_settings": "Portal-Einstellungen"
@@ -130,7 +131,9 @@
   var ACTION_LABELS = {
     INSERT: "Erstellt",
     UPDATE: "Geändert",
-    DELETE: "Gelöscht"
+    DELETE: "Gelöscht",
+    OPEN: "Geöffnet",
+    PREVIEW: "Vorschau"
   };
 
   VeraPortal.requireAdmin().then(function(ctx){
@@ -163,6 +166,34 @@
       return;
     }
     auditRows = res.data || [];
+    try{
+      var accessRes = await client.from("document_access_log")
+        .select("id, actor_id, bucket, file_path, action, document_file_id, property_document_id, metadata, created_at, actor:profiles!actor_id(first_name,last_name,email)")
+        .order("created_at", { ascending:false })
+        .limit(300);
+      if(!accessRes.error){
+        auditRows = auditRows.concat((accessRes.data || []).map(function(row){
+          return {
+            id: row.id,
+            actor_id: row.actor_id,
+            action: "document_access." + (row.action || "open"),
+            entity_table: "public.document_access_log",
+            entity_id: row.file_path,
+            metadata: {
+              operation: String(row.action || "open").toUpperCase(),
+              changed_columns: [row.bucket],
+              new_record: { title: row.file_path, bucket: row.bucket }
+            },
+            created_at: row.created_at,
+            actor: row.actor
+          };
+        }));
+      }
+    } catch(e) {
+      /* Tabelle existiert erst nach Ausfuehren von supabase/document-access-log.sql. */
+    }
+    auditRows.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+    auditRows = auditRows.slice(0, 300);
     renderAreaOptions();
     renderAudit();
     setStatus("");

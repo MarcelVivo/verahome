@@ -2470,8 +2470,7 @@
   }
 
   async function openDocumentVaultFile(path){
-    var res = await client.storage.from('document-vault').createSignedUrl(path, 60);
-    if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+    await VeraDashboard.openSignedDocument('document-vault', path, 60);
   }
 
   async function saveArchiveDocument(e){
@@ -3197,8 +3196,7 @@
     table.querySelectorAll('.doc-open-link').forEach(function(a){
       a.addEventListener('click', async function(e){
         e.preventDefault();
-        var res = await client.storage.from('document-vault').createSignedUrl(a.getAttribute('data-path'), 60);
-        if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+        await VeraDashboard.openSignedDocument('document-vault', a.getAttribute('data-path'), 60);
       });
     });
     table.querySelectorAll('.del-doc-btn').forEach(function(btn){

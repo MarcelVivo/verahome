@@ -170,6 +170,28 @@ window.VeraDashboard = (function () {
     return !!profile && String(profile.email || "").toLowerCase() === PORTAL_OWNER_EMAIL;
   }
 
+  async function logDocumentAccess(bucket, path, action) {
+    if (!bucket || !path || !window.VeraPortal) return;
+    try {
+      var client = VeraPortal.getClient();
+      if (!client) return;
+      await client.rpc("log_document_access", {
+        p_bucket: bucket,
+        p_file_path: path,
+        p_action: action || "open"
+      });
+    } catch (e) {
+      /* Logging darf das Öffnen nicht blockieren. RLS/Storage bleibt die eigentliche Zugriffskontrolle. */
+    }
+  }
+
+  async function openSignedDocument(bucket, path, expiresIn) {
+    await logDocumentAccess(bucket, path, "open");
+    var res = await VeraPortal.getClient().storage.from(bucket).createSignedUrl(path, expiresIn || 60);
+    if (!res.error && res.data) window.open(res.data.signedUrl, "_blank");
+    return res;
+  }
+
   function rolesOverlap(itemRoles, roles) {
     return itemRoles.some(function (r) { return roles.indexOf(r) > -1; });
   }
@@ -755,6 +777,8 @@ window.VeraDashboard = (function () {
     categoryLabel: categoryLabel,
     canIssueInvoices: canIssueInvoices,
     canManagePortal: canManagePortal,
+    logDocumentAccess: logDocumentAccess,
+    openSignedDocument: openSignedDocument,
     applyQueryParamSearch: applyQueryParamSearch,
     downloadIcs: downloadIcs,
     downloadCsv: downloadCsv,
