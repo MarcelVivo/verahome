@@ -1781,4 +1781,12 @@
   .filemgr-upload-modal .share-modal-actions .btn{
     width:100%;min-height:48px;justify-content:center;border-radius:999px;font-size:.9rem;
   }
+  @supports (-webkit-touch-callout:none){
+    .filemgr-upload-modal{
+      padding-bottom:calc(104px + env(safe-area-inset-bottom));
+    }
+    .filemgr-upload-modal .share-modal-actions{
+      bottom:calc(58px + env(safe-area-inset-bottom));
+    }
+  }
 }
