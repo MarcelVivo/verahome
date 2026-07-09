@@ -68,7 +68,7 @@
           <div class="doc-list" id="propertyDocsUserList"></div>
         </div>
         <div class="dash-card">
-          <h2>Für Sie freigegebene Dokumente</h2>
+          <h2>Ihre Dokumentenablage</h2>
           <div class="doc-list" id="sharedDocsList"></div>
         </div>
       </div>
@@ -411,20 +411,22 @@
   function renderSharedDocs(docs){
     var list = document.getElementById('sharedDocsList');
     if(!docs.length){
-      list.innerHTML = '<p class="dash-empty">Noch keine Dokumente für Sie freigegeben.</p>';
+      list.innerHTML = '<p class="dash-empty">Noch keine Dokumente für Sie sichtbar.</p>';
       return;
     }
     list.innerHTML = docs.map(function(d){
-      var action;
-      if(d.needs_confirmation && !d.confirmed_at){
+      var isExplicitShare = !!d.share_id;
+      var action = '';
+      var badge = isExplicitShare
+        ? '<span class="doc-access-badge shared">Freigegeben</span>'
+        : '<span class="doc-access-badge scoped">Objektberechtigung</span>';
+      if(isExplicitShare && d.needs_confirmation && !d.confirmed_at){
         action = '<button type="button" class="dash-btn-sm confirm-share-btn" data-share-id="'+d.share_id+'">Bestätigen</button>';
-      } else if(d.confirmed_at){
+      } else if(isExplicitShare && d.confirmed_at){
         action = '<span class="doc-confirmed-badge">✓ Bestätigt</span>';
-      } else {
-        action = '';
       }
       return '<div class="doc-row">' +
-        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
+        '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' + badge +
         '<span class="doc-meta">'+(d.folder_path ? VeraDashboard.escapeHtml(d.folder_path)+' · ' : '')+VeraDashboard.formatDate(d.shared_at)+'</span></div>' +
         '<div class="dash-btn-row"><a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' + action + '</div>' +
       '</div>';
