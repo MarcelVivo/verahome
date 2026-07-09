@@ -107,11 +107,26 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await adminClient
       .from("profiles")
-      .select("category")
+      .select("category, email")
       .eq("id", callerData.user.id)
       .single();
     if (callerProfile?.category !== "admin") {
       return new Response(JSON.stringify({ error: "Keine Berechtigung." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Nur der Owner-Admin darf weitere Admin-Konten anlegen -- die
+    // Kontakt-Maske im Portal bietet "admin" als Kategorie ohnehin nicht
+    // an, aber ohne diesen Check koennte ein direkter API-Aufruf von
+    // JEDEM Admin-Konto aus ein weiteres Vollzugriffs-Admin-Konto
+    // erzeugen. Gleiches hardcodiertes Owner-Muster wie
+    // protect_owner_admin_profile()/archive_profile() in
+    // soft-delete-core-records.sql.
+    const OWNER_ADMIN_EMAIL = "kontakt@marcelspahr.ch";
+    if (categoryList.includes("admin") && String(callerProfile?.email ?? "").toLowerCase() !== OWNER_ADMIN_EMAIL) {
+      return new Response(JSON.stringify({ error: "Nur der Owner-Admin darf weitere Admin-Konten anlegen." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
