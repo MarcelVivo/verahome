@@ -108,6 +108,14 @@ Supabase SQL Editor ausführen. Dadurch sieht der Admin in der Kontaktmaske,
 ob ein eingeladener Kontakt sein Passwort bereits gesetzt hat
 (`Nutzer aktiv`) oder ob die `Registrierung noch ausstehend` ist.
 
+## 10. Pflicht-Zuordnung für Dokumente einspielen
+
+Zusätzlich [`document-scope-enforcement.sql`](./document-scope-enforcement.sql)
+im Supabase SQL Editor ausführen. Dadurch können Dokumente im Dokumentenregister
+und in der Objekt-/Wohnungs-Erfassung immer eindeutig einer Liegenschaft,
+Einheit, Kontaktakte oder der privaten Admin-Ablage (`Nur Ich / Admin`)
+zugeordnet werden.
+
 ## Testen
 
 Registrieren → E-Mail bestätigen → einloggen → Status "aktiv" sehen (kein

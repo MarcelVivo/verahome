@@ -508,6 +508,7 @@
         documentResult = await attachNewRecordDocuments({
           propertyId: res.data.id,
           unitId: null,
+          property: res.data,
           files: propertyDocFiles,
           existingIds: propertyExistingDocIds,
           archiveCategory: propertyArchiveKeyFromDocCategory(res.data, propertyDocCategory)
@@ -571,6 +572,8 @@
         unitDocumentResult = await attachNewRecordDocuments({
           propertyId: propertyId,
           unitId: res.data.id,
+          property: allProperties.filter(function(p){ return p.id === propertyId; })[0],
+          unit: res.data,
           files: unitDocFiles,
           existingIds: unitExistingDocIds,
           archiveCategory: unitDocCategory
@@ -824,6 +827,8 @@
   }
 
   function documentAssignmentLabel(file){
+    if(file && file.is_private_admin) return 'Nur Ich / Admin';
+    if(file && file.contact_profile_id) return 'Kontakt · ' + profileLabelById(file.contact_profile_id);
     var property = file.property_id ? allProperties.filter(function(p){ return p.id === file.property_id; })[0] : null;
     var unit = file.unit_id ? allUnits.filter(function(u){ return u.id === file.unit_id; })[0] : null;
     if(unit && property) return property.label + ' · ' + unit.label;
@@ -846,6 +851,43 @@
     return docs.map(function(file){
       return '<option value="'+file.id+'">'+VeraDashboard.escapeHtml(file.title + ' · ' + documentAssignmentLabel(file))+'</option>';
     }).join('');
+  }
+
+  async function findOrCreateDocumentFolder(name, parentId, meta){
+    var query = client.from('document_folders').select('*').eq('name', name);
+    query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
+    var existing = await query.limit(1).maybeSingle();
+    if(existing.data) return existing.data;
+    var payload = {
+      name: name,
+      parent_id: parentId || null,
+      property_id: meta.property_id || null,
+      unit_id: meta.unit_id || null,
+      archive_category: meta.archive_category || null,
+      created_by: profile.id
+    };
+    var inserted = await client.from('document_folders').insert(payload).select('*').single();
+    if(inserted.error) throw inserted.error;
+    return inserted.data;
+  }
+
+  async function ensureObjectDocumentFolder(property, unit, archiveKey){
+    var root = await findOrCreateDocumentFolder('Liegenschaften', null, {});
+    var propertyFolder = await findOrCreateDocumentFolder(property.label || 'Liegenschaft', root.id, {
+      property_id: property.id
+    });
+    var parent = propertyFolder;
+    if(unit){
+      parent = await findOrCreateDocumentFolder(unit.label || 'Einheit', propertyFolder.id, {
+        property_id: property.id,
+        unit_id: unit.id
+      });
+    }
+    return findOrCreateDocumentFolder(archiveLabelForKey(archiveKey), parent.id, {
+      property_id: property.id,
+      unit_id: unit ? unit.id : null,
+      archive_category: archiveKey
+    });
   }
 
   function selectedValues(selectId){
@@ -873,7 +915,10 @@
     var result = { uploaded: 0, linked: 0, errors: [] };
     var files = options.files || [];
     var existingIds = options.existingIds || [];
-    var scopePath = options.unitId ? ('units/' + options.unitId) : ('properties/' + options.propertyId);
+    var property = options.property || allProperties.filter(function(p){ return p.id === options.propertyId; })[0] || { id: options.propertyId, label: 'Liegenschaft' };
+    var unit = options.unit || (options.unitId ? (allUnits.filter(function(u){ return u.id === options.unitId; })[0] || { id: options.unitId, label: 'Einheit' }) : null);
+    var folder = await ensureObjectDocumentFolder(property, unit, options.archiveCategory);
+    var scopePath = 'documents/' + folder.id;
 
     for(var i = 0; i < files.length; i++){
       var file = files[i];
@@ -887,7 +932,7 @@
       }
       var insertPayload = {
         id: fileId,
-        folder_id: null,
+        folder_id: folder.id,
         property_id: options.propertyId,
         unit_id: options.unitId || null,
         title: file.name,
@@ -908,6 +953,7 @@
 
     for(var j = 0; j < existingIds.length; j++){
       var updatePayload = {
+        folder_id: folder.id,
         property_id: options.propertyId,
         unit_id: options.unitId || null
       };
@@ -2217,7 +2263,9 @@
 
     var fileId = crypto.randomUUID();
     var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var path = fileId + '-' + safeName;
+    var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' };
+    var folder = await ensureObjectDocumentFolder(property, unit, 'unit_mieter');
+    var path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
     var upRes = await client.storage.from('document-vault').upload(path, file);
     if(upRes.error){
       statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
@@ -2226,7 +2274,7 @@
 
     var insertPayload = {
       id: fileId,
-      folder_id: null,
+      folder_id: folder.id,
       property_id: unit.property_id,
       unit_id: unit.id,
       title: title,
@@ -2284,6 +2332,11 @@
     statusEl.textContent = 'Bestehendes Dokument wird zugewiesen …';
     statusEl.classList.add('show');
     var updatePayload = {
+      folder_id: (await ensureObjectDocumentFolder(
+        allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' },
+        unit,
+        'unit_mieter'
+      )).id,
       property_id: unit.property_id,
       unit_id: unit.id
     };
@@ -2342,9 +2395,8 @@
 
     var fileId = crypto.randomUUID();
     var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var pathParts = ['archive', property.id];
-    if(unit) pathParts.push(unit.id);
-    var path = pathParts.join('/') + '/' + fileId + '-' + safeName;
+    var folder = await ensureObjectDocumentFolder(property, unit, node.key);
+    var path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
     var upRes = await client.storage.from('document-vault').upload(path, file);
     if(upRes.error){
       statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
@@ -2353,7 +2405,7 @@
 
     var insertPayload = {
       id: fileId,
-      folder_id: null,
+      folder_id: folder.id,
       property_id: property.id,
       unit_id: unit ? unit.id : null,
       title: title,
@@ -2415,6 +2467,7 @@
     statusEl.textContent = 'Dokument wird verknüpft …';
     statusEl.classList.add('show');
     var updatePayload = {
+      folder_id: (await ensureObjectDocumentFolder(property, unit, node.key)).id,
       property_id: property.id,
       unit_id: unit ? unit.id : null
     };
@@ -2954,14 +3007,16 @@
 
     var docId = crypto.randomUUID();
     var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var path = 'properties/' + propertyId + '/' + docId + '-' + safeName;
+    var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
+    var folder = await ensureObjectDocumentFolder(property, null, archiveKey);
+    var path = 'documents/' + folder.id + '/' + docId + '-' + safeName;
 
     var upRes = await client.storage.from('document-vault').upload(path, file);
     if(upRes.error){ statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message; return; }
 
     var insertPayload = {
       id: docId,
-      folder_id: null,
+      folder_id: folder.id,
       property_id: propertyId,
       unit_id: null,
       title: title,
@@ -2970,7 +3025,7 @@
       size_bytes: file.size,
       created_by: profile.id
     };
-    if(supportsArchiveCategory) insertPayload.archive_category = propertyArchiveKeyFromDocCategory(property, category);
+    if(supportsArchiveCategory) insertPayload.archive_category = archiveKey;
     var insRes = await client.from('document_files').insert(insertPayload);
     if(insRes.error){
       await client.storage.from('document-vault').remove([path]);
@@ -3083,6 +3138,7 @@
     statusEl.textContent = 'Dokument wird mit der Liegenschaft verknüpft …';
     statusEl.classList.add('show');
     var updatePayload = {
+      folder_id: (await ensureObjectDocumentFolder(property, null, propertyArchiveKeyFromDocCategory(property, category))).id,
       property_id: propertyId,
       unit_id: null
     };

@@ -109,6 +109,36 @@
         </div>
       </div>
 
+      <!-- Pflicht-Ablage-Modal (admin) -->
+      <div class="share-modal-backdrop" id="uploadScopeModalBackdrop" hidden>
+        <div class="share-modal obj-modal filemgr-upload-modal">
+          <h3>Dokument ablegen</h3>
+          <p class="doc-meta">Jedes Dokument wird direkt einer Liegenschaft, Wohnung, einem Kontakt oder der privaten Admin-Ablage zugeordnet. Der passende Ordnerpfad wird automatisch angelegt.</p>
+          <form class="auth-form" id="uploadScopeForm">
+            <input type="file" id="uploadScopeFiles" multiple required accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx">
+            <select id="uploadScopeType">
+              <option value="property">Liegenschaft / Objekt</option>
+              <option value="unit">Wohnung / Einheit</option>
+              <option value="contact">Kontakt / Rolle</option>
+              <option value="private">Nur Ich / Admin</option>
+            </select>
+            <select id="uploadScopeProperty"></select>
+            <select id="uploadScopeUnit"></select>
+            <select id="uploadScopeContact"></select>
+            <select id="uploadScopeArchive"></select>
+            <label class="filemgr-confirm-label" id="uploadScopeShareWrap">
+              <input type="checkbox" id="uploadScopeShareResidents" checked> Zugehörige Mieter/Eigentümer automatisch freigeben
+            </label>
+            <div class="filemgr-path-preview" id="uploadScopePathPreview"></div>
+            <p class="form-status" id="uploadScopeStatus"></p>
+            <div class="share-modal-actions">
+              <button type="button" class="dash-btn-sm" id="uploadScopeCancel">Abbrechen</button>
+              <button type="submit" class="btn btn-primary">Ablegen</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Teilen-Modal (admin) -->
       <div class="share-modal-backdrop" id="shareModalBackdrop" hidden>
         <div class="share-modal">
@@ -132,15 +162,29 @@
       <!-- Zuweisen-Modal (admin) -->
       <div class="share-modal-backdrop" id="assignModalBackdrop" hidden>
         <div class="share-modal">
-          <h3 id="assignModalTitle">Dokument zuweisen</h3>
-          <p class="doc-meta">Dokument einem Objekt oder einer Wohnung zuordnen und optional automatisch allen aktuellen Bewohnern freigeben.</p>
-          <label class="auth-form-label">Objekt
+          <h3 id="assignModalTitle">Zuordnung bearbeiten</h3>
+          <p class="doc-meta">Dokument einem Objekt, einer Wohnung, einem Kontakt oder der privaten Admin-Ablage zuordnen.</p>
+          <label class="auth-form-label">Ablageart
+            <select id="assignScopeType">
+              <option value="property">Liegenschaft / Objekt</option>
+              <option value="unit">Wohnung / Einheit</option>
+              <option value="contact">Kontakt / Rolle</option>
+              <option value="private">Nur Ich / Admin</option>
+            </select>
+          </label>
+          <label class="auth-form-label" id="assignPropertyWrap">Objekt
             <select id="assignPropertySelect"></select>
           </label>
-          <label class="auth-form-label">Wohnung / Einheit
+          <label class="auth-form-label" id="assignUnitWrap">Wohnung / Einheit
             <select id="assignUnitSelect"></select>
           </label>
-          <label class="filemgr-confirm-label">
+          <label class="auth-form-label" id="assignContactWrap">Kontakt
+            <select id="assignContactSelect"></select>
+          </label>
+          <label class="auth-form-label">Ordner / Akte
+            <select id="assignArchiveSelect"></select>
+          </label>
+          <label class="filemgr-confirm-label" id="assignShareWrap">
             <input type="checkbox" id="assignShareResidents" checked> Allen aktuellen Mietern und Eigentümern freigeben
           </label>
           <p class="form-status" id="assignModalStatus"></p>
@@ -325,6 +369,50 @@
   var fmShareTarget = null; // { type: 'folder'|'file', id, name }
   var fmAssignTarget = null; // file row
   var fmPreviewToken = 0;
+  var fmPendingUploadFiles = [];
+
+  var FM_ARCHIVE_PLANS = {
+    stweg: [
+      { key:'stweg_verwaltung', code:'01', label:'Verwaltung' },
+      { key:'stweg_buchhaltung', code:'02', label:'Buchhaltung' },
+      { key:'stweg_projekte', code:'03', label:'Projekte & Sanierungen' },
+      { key:'stweg_dauerunterlagen', code:'04', label:'Dauerunterlagen' },
+      { key:'stweg_allgemein', code:'05', label:'Allgemein' },
+      { key:'stweg_fixe_unterlagen', code:'06', label:'Fixe Unterlagen' }
+    ],
+    mietobjekt: [
+      { key:'miet_mieter', code:'01', label:'Mieter' },
+      { key:'miet_technische_anlagen', code:'02', label:'Technische Anlagen' },
+      { key:'miet_versicherungen', code:'03', label:'Versicherungen' },
+      { key:'miet_unterhalt', code:'04', label:'Unterhalt' },
+      { key:'miet_renovationen', code:'05', label:'Renovationen' },
+      { key:'miet_korrespondenz', code:'06', label:'Korrespondenz' },
+      { key:'miet_fixe_unterlagen', code:'07', label:'Fixe Unterlagen' },
+      { key:'miet_verwaltung', code:'08', label:'Verwaltung' },
+      { key:'miet_freigaben', code:'09', label:'Freigaben' }
+    ],
+    unit: [
+      { key:'unit_mieter', code:'01', label:'Mieter' },
+      { key:'unit_geraete', code:'02', label:'Geräte' },
+      { key:'unit_unterhalt', code:'03', label:'Unterhalt' },
+      { key:'unit_renovationen', code:'04', label:'Renovationen' },
+      { key:'unit_freigaben', code:'05', label:'Freigaben' }
+    ],
+    contact: [
+      { key:'contact_anmeldeformular', code:'01', label:'Anmeldeformular' },
+      { key:'contact_vertraege', code:'02', label:'Verträge' },
+      { key:'contact_kautionen', code:'03', label:'Kautionen / Bürgschaften' },
+      { key:'contact_haustiere', code:'04', label:'Haustiere' },
+      { key:'contact_mutationen', code:'05', label:'Mutationen' },
+      { key:'contact_nebenkosten', code:'06', label:'Nebenkosten' },
+      { key:'contact_korrespondenz', code:'07', label:'Korrespondenz' },
+      { key:'contact_einzahlungsschein', code:'08', label:'Einzahlungsschein' },
+      { key:'contact_merkblaetter', code:'09', label:'Merkblätter' }
+    ],
+    private: [
+      { key:'private_admin', code:'01', label:'Nur Ich / Admin' }
+    ]
+  };
 
   function fmCurrentFolderId(){
     return fmPath.length ? fmPath[fmPath.length - 1].id : null;
@@ -343,10 +431,13 @@
       fmSelected = null;
       fmLoadCurrentFolder();
     });
-    document.getElementById('fm_upload_btn').addEventListener('click', function(){
-      document.getElementById('fm_upload_input').click();
-    });
+    document.getElementById('fm_upload_btn').addEventListener('click', function(){ fmOpenUploadScopeModal([]); });
     document.getElementById('fm_upload_input').addEventListener('change', fmUploadFiles);
+    document.getElementById('uploadScopeCancel').addEventListener('click', fmCloseUploadScopeModal);
+    document.getElementById('uploadScopeForm').addEventListener('submit', fmSubmitScopedUpload);
+    ['uploadScopeType','uploadScopeProperty','uploadScopeUnit','uploadScopeContact','uploadScopeArchive'].forEach(function(id){
+      document.getElementById(id).addEventListener('change', fmUpdateUploadScopeForm);
+    });
     shell.addEventListener('dragover', fmHandleShellDragOver);
     shell.addEventListener('dragleave', fmHandleShellDragLeave);
     shell.addEventListener('drop', fmHandleShellDrop);
@@ -371,14 +462,17 @@
     document.getElementById('shareModalConfirm').addEventListener('click', fmSubmitShare);
     document.getElementById('assignModalCancel').addEventListener('click', fmCloseAssignModal);
     document.getElementById('assignModalConfirm').addEventListener('click', fmSubmitAssignment);
+    document.getElementById('assignScopeType').addEventListener('change', fmRenderAssignScope);
     document.getElementById('assignPropertySelect').addEventListener('change', fmRenderAssignUnits);
+    document.getElementById('assignUnitSelect').addEventListener('change', fmRenderAssignArchive);
+    document.getElementById('assignContactSelect').addEventListener('change', fmRenderAssignArchive);
 
-    client.from('profiles').select('id, first_name, last_name, category, email')
-      .eq('status', 'active').neq('category', 'admin').order('category').order('last_name')
+    client.from('profiles').select('id, first_name, last_name, company_name, category, email')
+      .neq('category', 'admin').order('category').order('last_name')
       .then(function(res){ fmAllProfiles = res.data || []; });
-    client.from('properties').select('id, label, street, city').order('label')
+    client.from('properties').select('id, label, street, city, property_type').order('label')
       .then(function(res){ fmProperties = res.data || []; });
-    client.from('units').select('id, label, property_id').order('label')
+    client.from('units').select('id, label, property_id, unit_type').order('label')
       .then(function(res){ fmUnits = res.data || []; });
 
     fmLoadCurrentFolder();
@@ -388,6 +482,287 @@
     var el = document.getElementById('fmStatus');
     el.textContent = msg || '';
     el.classList.toggle('show', !!msg);
+  }
+
+  function fmPropertyType(property){
+    return property && property.property_type === 'stweg' ? 'stweg' : 'mietobjekt';
+  }
+
+  function fmArchiveLabel(key){
+    var all = FM_ARCHIVE_PLANS.stweg.concat(FM_ARCHIVE_PLANS.mietobjekt, FM_ARCHIVE_PLANS.unit, FM_ARCHIVE_PLANS.contact, FM_ARCHIVE_PLANS.private);
+    var node = all.filter(function(row){ return row.key === key; })[0];
+    return node ? (node.code + '_' + node.label) : (key || 'Nicht klassiert');
+  }
+
+  function fmPropertyDisplay(property){
+    if(!property) return 'Liegenschaft';
+    return property.label || [property.street, property.city].filter(Boolean).join(', ') || 'Liegenschaft';
+  }
+
+  function fmUnitDisplay(unit){
+    return unit ? unit.label : 'Einheit';
+  }
+
+  function fmProfileDisplay(profileRow){
+    if(!profileRow) return 'Kontakt';
+    return profileRow.company_name || [profileRow.last_name, profileRow.first_name].filter(Boolean).join(' ') || profileRow.email || 'Kontakt';
+  }
+
+  function fmPlanForUploadScope(type, property){
+    if(type === 'unit') return FM_ARCHIVE_PLANS.unit;
+    if(type === 'contact') return FM_ARCHIVE_PLANS.contact;
+    if(type === 'private') return FM_ARCHIVE_PLANS.private;
+    return FM_ARCHIVE_PLANS[fmPropertyType(property)];
+  }
+
+  function fmScopedPathPreview(scope){
+    if(!scope) return '';
+    if(scope.type === 'private') return 'Nur Ich / Admin / ' + fmArchiveLabel(scope.archive_category);
+    if(scope.type === 'contact'){
+      var contact = fmAllProfiles.filter(function(p){ return p.id === scope.contact_profile_id; })[0];
+      return 'Kontakte / ' + fmProfileDisplay(contact) + ' / ' + fmArchiveLabel(scope.archive_category);
+    }
+    var property = fmProperties.filter(function(p){ return p.id === scope.property_id; })[0];
+    if(scope.type === 'unit'){
+      var unit = fmUnits.filter(function(u){ return u.id === scope.unit_id; })[0];
+      return 'Liegenschaften / ' + fmPropertyDisplay(property) + ' / ' + fmUnitDisplay(unit) + ' / ' + fmArchiveLabel(scope.archive_category);
+    }
+    return 'Liegenschaften / ' + fmPropertyDisplay(property) + ' / ' + fmArchiveLabel(scope.archive_category);
+  }
+
+  function fmCurrentUploadScope(){
+    var type = document.getElementById('uploadScopeType').value;
+    var propertyId = document.getElementById('uploadScopeProperty').value || null;
+    var unitId = document.getElementById('uploadScopeUnit').value || null;
+    var contactId = document.getElementById('uploadScopeContact').value || null;
+    var archiveKey = document.getElementById('uploadScopeArchive').value || null;
+    if(type === 'unit' && unitId && !propertyId){
+      var unit = fmUnits.filter(function(u){ return u.id === unitId; })[0];
+      propertyId = unit ? unit.property_id : null;
+    }
+    return {
+      type: type,
+      property_id: type === 'property' || type === 'unit' ? propertyId : null,
+      unit_id: type === 'unit' ? unitId : null,
+      contact_profile_id: type === 'contact' ? contactId : null,
+      is_private_admin: type === 'private',
+      archive_category: archiveKey
+    };
+  }
+
+  function fmPopulateUploadScopeBase(){
+    var propertyOptions = '<option value="">Liegenschaft wählen …</option>' + fmProperties.map(function(p){
+      return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(fmPropertyDisplay(p))+'</option>';
+    }).join('');
+    document.getElementById('uploadScopeProperty').innerHTML = propertyOptions;
+    document.getElementById('uploadScopeContact').innerHTML = '<option value="">Kontakt wählen …</option>' + fmAllProfiles.map(function(p){
+      return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(fmProfileDisplay(p)+' · '+VeraDashboard.categoryLabel(p.category))+'</option>';
+    }).join('');
+  }
+
+  function fmUpdateUploadScopeForm(){
+    var type = document.getElementById('uploadScopeType').value;
+    var propertySelect = document.getElementById('uploadScopeProperty');
+    var unitSelect = document.getElementById('uploadScopeUnit');
+    var contactSelect = document.getElementById('uploadScopeContact');
+    var archiveSelect = document.getElementById('uploadScopeArchive');
+    var shareWrap = document.getElementById('uploadScopeShareWrap');
+    var currentUnit = unitSelect.value;
+
+    propertySelect.hidden = !(type === 'property' || type === 'unit');
+    unitSelect.hidden = type !== 'unit';
+    contactSelect.hidden = type !== 'contact';
+    shareWrap.hidden = !(type === 'property' || type === 'unit');
+
+    var propertyId = propertySelect.value;
+    var units = fmUnits.filter(function(u){ return !propertyId || u.property_id === propertyId; });
+    unitSelect.innerHTML = '<option value="">Einheit wählen …</option>' + units.map(function(u){
+      return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml(fmUnitDisplay(u))+'</option>';
+    }).join('');
+    if(units.some(function(u){ return u.id === currentUnit; })) unitSelect.value = currentUnit;
+
+    var property = fmProperties.filter(function(p){ return p.id === propertySelect.value; })[0] || null;
+    var plan = fmPlanForUploadScope(type, property);
+    var currentArchive = archiveSelect.value;
+    archiveSelect.innerHTML = plan.map(function(node){
+      return '<option value="'+node.key+'">'+VeraDashboard.escapeHtml(node.code + '_' + node.label)+'</option>';
+    }).join('');
+    if(plan.some(function(node){ return node.key === currentArchive; })) archiveSelect.value = currentArchive;
+
+    var scope = fmCurrentUploadScope();
+    document.getElementById('uploadScopePathPreview').innerHTML =
+      '<strong>Zielordner:</strong> ' + VeraDashboard.escapeHtml(fmScopedPathPreview(scope));
+  }
+
+  function fmOpenUploadScopeModal(files){
+    fmPendingUploadFiles = files || [];
+    fmPopulateUploadScopeBase();
+    var fileInput = document.getElementById('uploadScopeFiles');
+    fileInput.value = '';
+    fileInput.required = !fmPendingUploadFiles.length;
+    fileInput.hidden = !!fmPendingUploadFiles.length;
+    document.getElementById('uploadScopeType').value = fmCurrentFolderSuggestedScopeType();
+    document.getElementById('uploadScopeStatus').textContent = fmPendingUploadFiles.length
+      ? fmPendingUploadFiles.length + ' Datei(en) aus Drag & Drop werden abgelegt.'
+      : '';
+    document.getElementById('uploadScopeStatus').classList.toggle('show', !!fmPendingUploadFiles.length);
+    fmPreselectUploadScopeFromFolder();
+    fmUpdateUploadScopeForm();
+    var folder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(folder && folder.unit_id) document.getElementById('uploadScopeUnit').value = folder.unit_id;
+    if(folder && folder.archive_category){
+      document.getElementById('uploadScopeArchive').value = folder.archive_category;
+    }
+    fmUpdateUploadScopeForm();
+    document.getElementById('uploadScopeModalBackdrop').hidden = false;
+  }
+
+  function fmCloseUploadScopeModal(){
+    document.getElementById('uploadScopeModalBackdrop').hidden = true;
+    fmPendingUploadFiles = [];
+    document.getElementById('uploadScopeForm').reset();
+    document.getElementById('uploadScopeFiles').hidden = false;
+  }
+
+  function fmCurrentFolderSuggestedScopeType(){
+    var folder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(folder && folder.is_private_admin) return 'private';
+    if(folder && folder.contact_profile_id) return 'contact';
+    if(folder && folder.unit_id) return 'unit';
+    return 'property';
+  }
+
+  function fmPreselectUploadScopeFromFolder(){
+    var folder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(!folder) return;
+    if(folder.is_private_admin) document.getElementById('uploadScopeType').value = 'private';
+    else if(folder.contact_profile_id) document.getElementById('uploadScopeType').value = 'contact';
+    else if(folder.unit_id) document.getElementById('uploadScopeType').value = 'unit';
+    else if(folder.property_id) document.getElementById('uploadScopeType').value = 'property';
+    if(folder.property_id) document.getElementById('uploadScopeProperty').value = folder.property_id;
+    if(folder.contact_profile_id) document.getElementById('uploadScopeContact').value = folder.contact_profile_id;
+    if(folder.archive_category) document.getElementById('uploadScopeArchive').value = folder.archive_category;
+  }
+
+  async function fmFindOrCreateFolder(name, parentId, meta){
+    var query = client.from('document_folders').select('*').eq('name', name);
+    query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
+    var existing = await query.limit(1).maybeSingle();
+    if(existing.data) return existing.data;
+    var payload = {
+      name: name,
+      parent_id: parentId || null,
+      property_id: meta.property_id || null,
+      unit_id: meta.unit_id || null,
+      contact_profile_id: meta.contact_profile_id || null,
+      is_private_admin: !!meta.is_private_admin,
+      archive_category: meta.archive_category || null,
+      created_by: profile.id
+    };
+    var inserted = await client.from('document_folders').insert(payload).select('*').single();
+    if(inserted.error) throw inserted.error;
+    return inserted.data;
+  }
+
+  async function fmEnsureScopedFolder(scope){
+    var root, property, unit, contact, archive;
+    if(scope.type === 'private'){
+      root = await fmFindOrCreateFolder('Nur Ich / Admin', null, { is_private_admin: true });
+      archive = await fmFindOrCreateFolder(fmArchiveLabel(scope.archive_category), root.id, {
+        is_private_admin: true,
+        archive_category: scope.archive_category
+      });
+      return archive;
+    }
+    if(scope.type === 'contact'){
+      contact = fmAllProfiles.filter(function(p){ return p.id === scope.contact_profile_id; })[0];
+      root = await fmFindOrCreateFolder('Kontakte', null, {});
+      var contactFolder = await fmFindOrCreateFolder(fmProfileDisplay(contact), root.id, { contact_profile_id: scope.contact_profile_id });
+      archive = await fmFindOrCreateFolder(fmArchiveLabel(scope.archive_category), contactFolder.id, {
+        contact_profile_id: scope.contact_profile_id,
+        archive_category: scope.archive_category
+      });
+      return archive;
+    }
+    property = fmProperties.filter(function(p){ return p.id === scope.property_id; })[0];
+    root = await fmFindOrCreateFolder('Liegenschaften', null, {});
+    var propertyFolder = await fmFindOrCreateFolder(fmPropertyDisplay(property), root.id, { property_id: scope.property_id });
+    if(scope.type === 'unit'){
+      unit = fmUnits.filter(function(u){ return u.id === scope.unit_id; })[0];
+      var unitFolder = await fmFindOrCreateFolder(fmUnitDisplay(unit), propertyFolder.id, { property_id: scope.property_id, unit_id: scope.unit_id });
+      archive = await fmFindOrCreateFolder(fmArchiveLabel(scope.archive_category), unitFolder.id, {
+        property_id: scope.property_id,
+        unit_id: scope.unit_id,
+        archive_category: scope.archive_category
+      });
+      return archive;
+    }
+    archive = await fmFindOrCreateFolder(fmArchiveLabel(scope.archive_category), propertyFolder.id, {
+      property_id: scope.property_id,
+      archive_category: scope.archive_category
+    });
+    return archive;
+  }
+
+  async function fmBuildPathToFolder(folderId){
+    var path = [];
+    var currentId = folderId;
+    while(currentId){
+      var res = await client.from('document_folders').select('*').eq('id', currentId).maybeSingle();
+      if(res.error || !res.data) break;
+      path.unshift(res.data);
+      currentId = res.data.parent_id;
+    }
+    return path;
+  }
+
+  async function fmOpenFolderPathForScope(scope, folder){
+    fmPath = await fmBuildPathToFolder(folder.id);
+    fmSelected = null;
+    await fmLoadCurrentFolder();
+  }
+
+  function fmValidateUploadScope(scope){
+    if(scope.type === 'property' && !scope.property_id) return 'Bitte eine Liegenschaft wählen.';
+    if(scope.type === 'unit' && !scope.unit_id) return 'Bitte eine Wohnung / Einheit wählen.';
+    if(scope.type === 'contact' && !scope.contact_profile_id) return 'Bitte einen Kontakt wählen.';
+    if(!scope.archive_category) return 'Bitte einen Ordner / Aktenbereich wählen.';
+    return '';
+  }
+
+  async function fmSubmitScopedUpload(e){
+    e.preventDefault();
+    var statusEl = document.getElementById('uploadScopeStatus');
+    var chosenFiles = fmPendingUploadFiles.length
+      ? fmPendingUploadFiles
+      : Array.prototype.slice.call(document.getElementById('uploadScopeFiles').files);
+    if(!chosenFiles.length){
+      statusEl.textContent = 'Bitte mindestens eine Datei wählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+    var scope = fmCurrentUploadScope();
+    var validation = fmValidateUploadScope(scope);
+    if(validation){
+      statusEl.textContent = validation;
+      statusEl.classList.add('show');
+      return;
+    }
+    statusEl.textContent = 'Ordner wird angelegt und Dateien werden hochgeladen …';
+    statusEl.classList.add('show');
+    try {
+      var uploadedIds = await fmUploadFileList(chosenFiles, scope);
+      if(scope.type === 'contact' && scope.contact_profile_id && uploadedIds.length){
+        await fmShareFileIdsWithProfiles(uploadedIds, [scope.contact_profile_id], false);
+      } else if(document.getElementById('uploadScopeShareResidents').checked && (scope.property_id || scope.unit_id)){
+        var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
+        if(residents.length && uploadedIds.length) await fmShareFileIdsWithProfiles(uploadedIds, residents, false);
+      }
+      statusEl.textContent = 'Dokumente abgelegt.';
+      setTimeout(fmCloseUploadScopeModal, 600);
+    } catch(err) {
+      statusEl.textContent = 'Fehler: ' + (err.message || err);
+    }
   }
 
   async function fmLoadCurrentFolder(){
@@ -453,6 +828,15 @@
 
   async function fmMoveDraggedToFolder(targetFolderId){
     if(!fmDragged) return;
+    var targetAssignment = await fmGetFolderAssignment(targetFolderId);
+    var assignmentPayload = {
+      property_id: targetAssignment.property_id || null,
+      unit_id: targetAssignment.unit_id || null,
+      contact_profile_id: targetAssignment.contact_profile_id || null,
+      is_private_admin: !!targetAssignment.is_private_admin,
+      archive_category: targetAssignment.archive_category || null
+    };
+    var targetIsConcreteArchive = !!targetAssignment.archive_category;
     if(fmDragged.type === 'folder'){
       if(fmDragged.id === targetFolderId) return;
       var canMove = await fmCanMoveFolder(fmDragged.id, targetFolderId);
@@ -461,9 +845,22 @@
         fmDragged = null;
         return;
       }
-      await client.from('document_folders').update({ parent_id: targetFolderId, updated_at: new Date().toISOString() }).eq('id', fmDragged.id);
+      var folderIds = await fmCollectFolderIdsRecursive(fmDragged.id);
+      var fileIds = (await fmCollectFilesRecursive(fmDragged.id)).map(function(f){ return f.id; });
+      var folderMovePayload = {
+        parent_id: targetFolderId,
+        updated_at: new Date().toISOString()
+      };
+      if(targetIsConcreteArchive) folderMovePayload = Object.assign(folderMovePayload, assignmentPayload);
+      await client.from('document_folders').update(folderMovePayload).in('id', folderIds);
+      if(targetIsConcreteArchive && fileIds.length) await client.from('document_files').update(assignmentPayload).in('id', fileIds);
     } else {
-      await client.from('document_files').update({ folder_id: targetFolderId }).eq('id', fmDragged.id);
+      if(!targetIsConcreteArchive){
+        fmSetStatus('Dateien bitte in einen konkreten Aktenordner verschieben, nicht in einen Sammelordner.');
+        fmDragged = null;
+        return;
+      }
+      await client.from('document_files').update(Object.assign({ folder_id: targetFolderId }, assignmentPayload)).eq('id', fmDragged.id);
     }
     fmDragged = null;
     fmSelected = null;
@@ -546,7 +943,7 @@
         if(btn.getAttribute('data-type') !== 'folder') return;
         var id = btn.getAttribute('data-id');
         var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
-        if(folder){ fmPath.push({ id: folder.id, name: folder.name }); fmSelected = null; fmLoadCurrentFolder(); }
+        if(folder){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); }
       });
       btn.addEventListener('dragstart', function(e){
         fmDragged = { type: btn.getAttribute('data-type'), id: btn.getAttribute('data-id') };
@@ -598,6 +995,11 @@
   }
 
   function fmPropertyLabel(file){
+    if(file && file.is_private_admin) return 'Nur Ich / Admin';
+    if(file && file.contact_profile_id){
+      var contact = fmAllProfiles.filter(function(p){ return p.id === file.contact_profile_id; })[0];
+      return 'Kontakt · ' + fmProfileDisplay(contact);
+    }
     if(!file || !file.property_id) return 'Nicht zugewiesen';
     var prop = fmProperties.filter(function(p){ return p.id === file.property_id; })[0];
     var unit = file.unit_id ? fmUnits.filter(function(u){ return u.id === file.unit_id; })[0] : null;
@@ -618,11 +1020,11 @@
         '<div class="filemgr-detail-actions">' +
           '<button type="button" class="btn btn-primary" id="fmDetailOpenFolder">Öffnen</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailShareFolder">Senden</button>' +
-          '<button type="button" class="dash-btn-sm" id="fmDetailAssignFolder">Objekt/Wohnung zuweisen</button>' +
+          '<button type="button" class="dash-btn-sm" id="fmDetailAssignFolder">Zuordnung bearbeiten</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailRenameFolder">Umbenennen</button>' +
           '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFolder">Löschen</button>' +
         '</div>';
-      document.getElementById('fmDetailOpenFolder').onclick = function(){ fmPath.push({ id: folder.id, name: folder.name }); fmSelected = null; fmLoadCurrentFolder(); };
+      document.getElementById('fmDetailOpenFolder').onclick = function(){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); };
       document.getElementById('fmDetailShareFolder').onclick = function(){ fmOpenShareModal('folder', folder.id, folder.name); };
       document.getElementById('fmDetailAssignFolder').onclick = function(){ fmOpenAssignModal('folder', folder); };
       document.getElementById('fmDetailRenameFolder').onclick = function(){ fmRenameFolder(folder.id, folder.name); };
@@ -634,11 +1036,12 @@
       '<h2>'+VeraDashboard.escapeHtml(file.title)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml(file.mime_type || 'Datei')+' · '+fmFormatSize(file.size_bytes)+'</p>' +
       '<div class="filemgr-detail-info"><strong>Zuweisung</strong><span>'+VeraDashboard.escapeHtml(fmPropertyLabel(file))+'</span></div>' +
+      '<div class="filemgr-detail-info"><strong>Akte</strong><span>'+VeraDashboard.escapeHtml(fmArchiveLabel(file.archive_category))+'</span></div>' +
       '<div class="filemgr-detail-info"><strong>Erstellt</strong><span>'+VeraDashboard.formatDateTime(file.created_at)+'</span></div>' +
       '<div class="filemgr-detail-actions">' +
         '<button type="button" class="btn btn-primary" id="fmDetailOpenFile">Öffnen</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailShareFile">Senden</button>' +
-        '<button type="button" class="dash-btn-sm" id="fmDetailAssignFile">Objekt/Wohnung zuweisen</button>' +
+        '<button type="button" class="dash-btn-sm" id="fmDetailAssignFile">Zuordnung bearbeiten</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailRenameFile">Umbenennen</button>' +
         '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFile">Löschen</button>' +
       '</div>';
@@ -658,6 +1061,9 @@
       parent_id: fmCurrentFolderId(),
       property_id: assignment.property_id,
       unit_id: assignment.unit_id,
+      contact_profile_id: assignment.contact_profile_id || null,
+      is_private_admin: !!assignment.is_private_admin,
+      archive_category: assignment.archive_category || null,
       created_by: profile.id
     });
     fmLoadCurrentFolder();
@@ -718,30 +1124,45 @@
   async function fmUploadFiles(){
     var input = document.getElementById('fm_upload_input');
     var files = Array.prototype.slice.call(input.files);
-    await fmUploadFileList(files);
+    fmOpenUploadScopeModal(files);
     input.value = '';
   }
 
-  async function fmUploadFileList(files){
-    if(!files.length) return;
-    var folderId = fmCurrentFolderId();
-    var assignment = await fmGetFolderAssignment(folderId);
+  async function fmUploadFileList(files, scope){
+    if(!files.length) return [];
+    scope = scope || fmCurrentUploadScope();
+    var validation = fmValidateUploadScope(scope);
+    if(validation) throw new Error(validation);
+    var folder = await fmEnsureScopedFolder(scope);
+    var folderId = folder.id;
     fmSetStatus('Wird hochgeladen …');
+    var uploadedIds = [];
     for(var i = 0; i < files.length; i++){
       var file = files[i];
       var fileId = crypto.randomUUID();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      var filePath = fileId + '-' + safeName;
+      var filePath = 'documents/' + folderId + '/' + fileId + '-' + safeName;
       var upRes = await client.storage.from('document-vault').upload(filePath, file);
       if(upRes.error){ fmSetStatus('Fehler beim Hochladen von "'+file.name+'": ' + upRes.error.message); continue; }
-      await client.from('document_files').insert({
+      var insertRes = await client.from('document_files').insert({
         id: fileId, folder_id: folderId, title: file.name, file_path: filePath,
-        property_id: assignment.property_id, unit_id: assignment.unit_id,
+        property_id: scope.property_id || null,
+        unit_id: scope.unit_id || null,
+        contact_profile_id: scope.contact_profile_id || null,
+        is_private_admin: !!scope.is_private_admin,
+        archive_category: scope.archive_category || null,
         mime_type: file.type || null, size_bytes: file.size, created_by: profile.id
       });
+      if(insertRes.error){
+        await client.storage.from('document-vault').remove([filePath]);
+        fmSetStatus('Fehler beim Speichern von "'+file.name+'": ' + insertRes.error.message);
+        continue;
+      }
+      uploadedIds.push(fileId);
     }
     fmSetStatus('Hochladen abgeschlossen.');
-    fmLoadCurrentFolder();
+    await fmOpenFolderPathForScope(scope, folder);
+    return uploadedIds;
   }
 
   function fmHandleShellDragOver(e){
@@ -761,7 +1182,7 @@
     if(!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
     e.preventDefault();
     document.getElementById('filemgrShell').classList.remove('is-upload-drag');
-    await fmUploadFileList(Array.prototype.slice.call(e.dataTransfer.files));
+    fmOpenUploadScopeModal(Array.prototype.slice.call(e.dataTransfer.files));
   }
 
   function fmOpenShareModal(type, id, name){
@@ -821,32 +1242,65 @@
   }
 
   async function fmGetFolderAssignment(folderId){
-    if(!folderId) return { property_id: null, unit_id: null };
-    var res = await client.from('document_folders').select('property_id, unit_id').eq('id', folderId).maybeSingle();
-    return res.data || { property_id: null, unit_id: null };
+    if(!folderId) return { property_id: null, unit_id: null, contact_profile_id: null, is_private_admin: false, archive_category: null };
+    var res = await client.from('document_folders').select('property_id, unit_id, contact_profile_id, is_private_admin, archive_category').eq('id', folderId).maybeSingle();
+    return res.data || { property_id: null, unit_id: null, contact_profile_id: null, is_private_admin: false, archive_category: null };
   }
 
   function fmOpenAssignModal(type, item){
     fmAssignTarget = { type: type, item: item };
     var name = type === 'folder' ? item.name : item.title;
-    document.getElementById('assignModalTitle').textContent = 'Zuweisen: ' + name;
+    document.getElementById('assignModalTitle').textContent = 'Zuordnung: ' + name;
+    var scopeType = item.is_private_admin ? 'private' : (item.contact_profile_id ? 'contact' : (item.unit_id ? 'unit' : 'property'));
+    document.getElementById('assignScopeType').value = scopeType;
     var propSelect = document.getElementById('assignPropertySelect');
+    document.getElementById('assignUnitSelect').innerHTML = '';
+    document.getElementById('assignUnitSelect').value = '';
     propSelect.innerHTML = '<option value="">Kein Objekt</option>' + fmProperties.map(function(p){
       return '<option value="'+p.id+'"'+(item.property_id === p.id ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(p.label || [p.street,p.city].filter(Boolean).join(', ') || 'Objekt')+'</option>';
     }).join('');
-    fmRenderAssignUnits();
+    document.getElementById('assignContactSelect').innerHTML = '<option value="">Kontakt wählen …</option>' + fmAllProfiles.map(function(p){
+      return '<option value="'+p.id+'"'+(item.contact_profile_id === p.id ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(fmProfileDisplay(p)+' · '+VeraDashboard.categoryLabel(p.category))+'</option>';
+    }).join('');
+    fmRenderAssignScope();
+    if(item.archive_category) document.getElementById('assignArchiveSelect').value = item.archive_category;
     document.getElementById('assignModalStatus').textContent = '';
     document.getElementById('assignModalBackdrop').hidden = false;
+  }
+
+  function fmRenderAssignScope(){
+    var type = document.getElementById('assignScopeType').value;
+    document.getElementById('assignPropertyWrap').hidden = !(type === 'property' || type === 'unit');
+    document.getElementById('assignUnitWrap').hidden = type !== 'unit';
+    document.getElementById('assignContactWrap').hidden = type !== 'contact';
+    document.getElementById('assignShareWrap').hidden = !(type === 'property' || type === 'unit');
+    fmRenderAssignUnits();
+    fmRenderAssignArchive();
   }
 
   function fmRenderAssignUnits(){
     var propertyId = document.getElementById('assignPropertySelect').value;
     var unitSelect = document.getElementById('assignUnitSelect');
     var item = fmAssignTarget ? fmAssignTarget.item : {};
+    var currentUnit = unitSelect.value || item.unit_id;
     var units = fmUnits.filter(function(u){ return !propertyId || u.property_id === propertyId; });
     unitSelect.innerHTML = '<option value="">Gesamtes Objekt</option>' + units.map(function(u){
       return '<option value="'+u.id+'"'+(item.unit_id === u.id ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(u.label)+'</option>';
     }).join('');
+    if(units.some(function(u){ return u.id === currentUnit; })) unitSelect.value = currentUnit;
+    fmRenderAssignArchive();
+  }
+
+  function fmRenderAssignArchive(){
+    var type = document.getElementById('assignScopeType').value;
+    var property = fmProperties.filter(function(p){ return p.id === document.getElementById('assignPropertySelect').value; })[0] || null;
+    var archiveSelect = document.getElementById('assignArchiveSelect');
+    var current = archiveSelect.value || (fmAssignTarget && fmAssignTarget.item.archive_category);
+    var plan = fmPlanForUploadScope(type, property);
+    archiveSelect.innerHTML = plan.map(function(node){
+      return '<option value="'+node.key+'">'+VeraDashboard.escapeHtml(node.code + '_' + node.label)+'</option>';
+    }).join('');
+    if(plan.some(function(node){ return node.key === current; })) archiveSelect.value = current;
   }
 
   function fmCloseAssignModal(){
@@ -878,33 +1332,76 @@
     return Array.from(ids);
   }
 
-  async function fmSubmitAssignment(){
-    if(!fmAssignTarget) return;
-    var statusEl = document.getElementById('assignModalStatus');
+  function fmAssignmentScopeFromModal(){
+    var type = document.getElementById('assignScopeType').value;
     var propertyId = document.getElementById('assignPropertySelect').value || null;
     var unitId = document.getElementById('assignUnitSelect').value || null;
-    if(unitId && !propertyId){
+    if(type === 'unit' && unitId && !propertyId){
       var selectedUnit = fmUnits.filter(function(u){ return u.id === unitId; })[0];
       propertyId = selectedUnit ? selectedUnit.property_id : null;
     }
+    return {
+      type: type,
+      property_id: type === 'property' || type === 'unit' ? propertyId : null,
+      unit_id: type === 'unit' ? unitId : null,
+      contact_profile_id: type === 'contact' ? (document.getElementById('assignContactSelect').value || null) : null,
+      is_private_admin: type === 'private',
+      archive_category: document.getElementById('assignArchiveSelect').value || null
+    };
+  }
+
+  async function fmSubmitAssignment(){
+    if(!fmAssignTarget) return;
+    var statusEl = document.getElementById('assignModalStatus');
+    var scope = fmAssignmentScopeFromModal();
+    var validation = fmValidateUploadScope(scope);
+    if(validation){ statusEl.textContent = validation; return; }
     statusEl.textContent = 'Wird zugewiesen …';
+    var targetFolder;
+    try {
+      targetFolder = await fmEnsureScopedFolder(scope);
+    } catch(err) {
+      statusEl.textContent = 'Fehler beim Ordner: ' + (err.message || err);
+      return;
+    }
     var fileIds = [];
     var updateRes;
+    var updatePayload = {
+      folder_id: targetFolder.id,
+      property_id: scope.property_id || null,
+      unit_id: scope.unit_id || null,
+      contact_profile_id: scope.contact_profile_id || null,
+      is_private_admin: !!scope.is_private_admin,
+      archive_category: scope.archive_category || null
+    };
+    var folderPayload = {
+      property_id: updatePayload.property_id,
+      unit_id: updatePayload.unit_id,
+      contact_profile_id: updatePayload.contact_profile_id,
+      is_private_admin: updatePayload.is_private_admin,
+      archive_category: updatePayload.archive_category,
+      updated_at: new Date().toISOString()
+    };
     if(fmAssignTarget.type === 'folder'){
       var folderIds = await fmCollectFolderIdsRecursive(fmAssignTarget.item.id);
-      updateRes = await client.from('document_folders').update({ property_id: propertyId, unit_id: unitId, updated_at: new Date().toISOString() }).in('id', folderIds);
+      updateRes = await client.from('document_folders').update(folderPayload).in('id', folderIds);
       fileIds = (await fmCollectFilesRecursive(fmAssignTarget.item.id)).map(function(f){ return f.id; });
       if(fileIds.length){
-        var fileUpdateRes = await client.from('document_files').update({ property_id: propertyId, unit_id: unitId }).in('id', fileIds);
+        var fileUpdatePayload = Object.assign({}, updatePayload);
+        delete fileUpdatePayload.folder_id;
+        var fileUpdateRes = await client.from('document_files').update(fileUpdatePayload).in('id', fileIds);
         if(fileUpdateRes.error){ statusEl.textContent = 'Fehler: ' + fileUpdateRes.error.message; return; }
       }
     } else {
-      updateRes = await client.from('document_files').update({ property_id: propertyId, unit_id: unitId }).eq('id', fmAssignTarget.item.id);
+      updateRes = await client.from('document_files').update(updatePayload).eq('id', fmAssignTarget.item.id);
       fileIds = [fmAssignTarget.item.id];
     }
     if(updateRes.error){ statusEl.textContent = 'Fehler: ' + updateRes.error.message; return; }
-    if(document.getElementById('assignShareResidents').checked && (propertyId || unitId)){
-      var residents = await fmResidentProfileIds(propertyId, unitId);
+    if(scope.type === 'contact' && scope.contact_profile_id && fileIds.length){
+      await fmShareFileIdsWithProfiles(fileIds, [scope.contact_profile_id], false);
+      statusEl.textContent = 'Kontaktakte zugewiesen und Kontakt freigegeben.';
+    } else if(document.getElementById('assignShareResidents').checked && (scope.property_id || scope.unit_id)){
+      var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
       if(residents.length && fileIds.length) await fmShareFileIdsWithProfiles(fileIds, residents, false);
       statusEl.textContent = residents.length ? 'Zugewiesen und Bewohner freigegeben.' : 'Zugewiesen. Keine aktiven Bewohner gefunden.';
     } else {

@@ -3672,12 +3672,20 @@ create table public.document_folders (
   parent_id   uuid references public.document_folders(id) on delete cascade,
   property_id uuid references public.properties(id) on delete set null,
   unit_id     uuid references public.units(id) on delete set null,
+  contact_profile_id uuid references public.profiles(id) on delete set null,
+  is_private_admin boolean not null default false,
+  archive_category text,
   created_by  uuid references public.profiles(id),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 alter table public.document_folders add column if not exists property_id uuid references public.properties(id) on delete set null;
 alter table public.document_folders add column if not exists unit_id uuid references public.units(id) on delete set null;
+alter table public.document_folders add column if not exists contact_profile_id uuid references public.profiles(id) on delete set null;
+alter table public.document_folders add column if not exists is_private_admin boolean not null default false;
+alter table public.document_folders add column if not exists archive_category text;
+create index if not exists document_folders_contact_idx on public.document_folders(contact_profile_id);
+create index if not exists document_folders_archive_category_idx on public.document_folders(archive_category);
 alter table public.document_folders enable row level security;
 alter table public.document_folders force row level security;
 create policy document_folders_admin_all on public.document_folders
@@ -3688,6 +3696,9 @@ create table public.document_files (
   folder_id          uuid references public.document_folders(id) on delete cascade,
   property_id        uuid references public.properties(id) on delete set null,
   unit_id            uuid references public.units(id) on delete set null,
+  contact_profile_id uuid references public.profiles(id) on delete set null,
+  is_private_admin   boolean not null default false,
+  archive_category   text,
   title              text not null,
   file_path          text not null,
   mime_type          text,
@@ -3698,6 +3709,12 @@ create table public.document_files (
 );
 alter table public.document_files add column if not exists property_id uuid references public.properties(id) on delete set null;
 alter table public.document_files add column if not exists unit_id uuid references public.units(id) on delete set null;
+alter table public.document_files add column if not exists contact_profile_id uuid references public.profiles(id) on delete set null;
+alter table public.document_files add column if not exists is_private_admin boolean not null default false;
+alter table public.document_files add column if not exists archive_category text;
+create index if not exists document_files_contact_idx on public.document_files(contact_profile_id);
+create index if not exists document_files_private_admin_idx on public.document_files(is_private_admin) where is_private_admin = true;
+create index if not exists document_files_archive_category_idx on public.document_files(archive_category);
 alter table public.document_files enable row level security;
 alter table public.document_files force row level security;
 create policy document_files_admin_all on public.document_files
