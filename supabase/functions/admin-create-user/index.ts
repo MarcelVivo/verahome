@@ -28,6 +28,25 @@ const corsHeaders = {
 
 const VALID_CATEGORIES = ["mieter", "eigentuemer", "partner", "handwerker", "hauswart", "firma", "aemter", "admin"];
 
+function envFlagEnabled(name: string): boolean {
+  return ["1", "true", "yes", "on"].includes(String(Deno.env.get(name) ?? "").toLowerCase());
+}
+
+async function outboundEmailsDisabled(adminClient: any): Promise<boolean> {
+  if (envFlagEnabled("DISABLE_OUTBOUND_EMAILS")) return true;
+  const { data, error } = await adminClient
+    .from("portal_settings")
+    .select("value")
+    .eq("key", "outbound_email_mode")
+    .maybeSingle();
+  if (error) return false;
+  return data?.value?.mode === "test" || data?.value?.disabled === true;
+}
+
+function randomTemporaryPassword(): string {
+  return `${crypto.randomUUID()}-${crypto.randomUUID()}-Aa1!`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -98,40 +117,50 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: invited, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        category,
-        first_name,
-        last_name,
-        email2: email2 || null,
-        email3: email3 || null,
-        phone: phone || null,
-        phone2: phone2 || null,
-        phone3: phone3 || null,
-        company_name: company_name || null,
-        address_type: address_type || null,
-        address_street: address_street || null,
-        address_zip: address_zip || null,
-        address_city: address_city || null,
-        address2_type: address2_type || null,
-        address2_street: address2_street || null,
-        address2_zip: address2_zip || null,
-        address2_city: address2_city || null,
-        address3_type: address3_type || null,
-        address3_street: address3_street || null,
-        address3_zip: address3_zip || null,
-        address3_city: address3_city || null,
-      },
-      // update-password.html, nicht login.html: der Einladungs-Link
-      // liefert per Hash-Fragment ein access_token, aus dem
-      // supabase-js (detectSessionInUrl, Standardverhalten) automatisch
-      // eine Session herstellt -- der neue Kontakt hat noch kein
-      // Passwort und kann sich daher nicht einloggen, sondern muss
-      // erst eines setzen (exakt der gleiche Ablauf wie beim
-      // "Passwort vergessen"-Link, siehe resetPasswordForEmail in
-      // portal-auth.js).
-      redirectTo: "https://www.verahome.ch/portal/update-password.html",
-    });
+    const userMetadata = {
+      category,
+      first_name,
+      last_name,
+      email2: email2 || null,
+      email3: email3 || null,
+      phone: phone || null,
+      phone2: phone2 || null,
+      phone3: phone3 || null,
+      company_name: company_name || null,
+      address_type: address_type || null,
+      address_street: address_street || null,
+      address_zip: address_zip || null,
+      address_city: address_city || null,
+      address2_type: address2_type || null,
+      address2_street: address2_street || null,
+      address2_zip: address2_zip || null,
+      address2_city: address2_city || null,
+      address3_type: address3_type || null,
+      address3_street: address3_street || null,
+      address3_zip: address3_zip || null,
+      address3_city: address3_city || null,
+    };
+
+    const emailsDisabled = await outboundEmailsDisabled(adminClient);
+    const { data: invited, error: inviteErr } = emailsDisabled
+      ? await adminClient.auth.admin.createUser({
+          email,
+          password: randomTemporaryPassword(),
+          email_confirm: true,
+          user_metadata: userMetadata,
+        })
+      : await adminClient.auth.admin.inviteUserByEmail(email, {
+          data: userMetadata,
+          // update-password.html, nicht login.html: der Einladungs-Link
+          // liefert per Hash-Fragment ein access_token, aus dem
+          // supabase-js (detectSessionInUrl, Standardverhalten) automatisch
+          // eine Session herstellt -- der neue Kontakt hat noch kein
+          // Passwort und kann sich daher nicht einloggen, sondern muss
+          // erst eines setzen (exakt der gleiche Ablauf wie beim
+          // "Passwort vergessen"-Link, siehe resetPasswordForEmail in
+          // portal-auth.js).
+          redirectTo: "https://www.verahome.ch/portal/update-password.html",
+        });
 
     if (inviteErr || !invited?.user) {
       return new Response(JSON.stringify({ error: inviteErr?.message || "Einladung fehlgeschlagen." }), {
@@ -158,15 +187,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { error: registrationMarkErr } = await adminClient
-      .from("profiles")
-      .update({
-        portal_invited_at: new Date().toISOString(),
-        portal_registered_at: null,
-      })
-      .eq("id", invited.user.id);
-    if (registrationMarkErr) {
-      console.error("registration status update failed:", registrationMarkErr.message);
+    if (!emailsDisabled) {
+      const { error: registrationMarkErr } = await adminClient
+        .from("profiles")
+        .update({
+          portal_invited_at: new Date().toISOString(),
+          portal_registered_at: null,
+        })
+        .eq("id", invited.user.id);
+      if (registrationMarkErr) {
+        console.error("registration status update failed:", registrationMarkErr.message);
+      }
     }
 
     // handle_new_user() legt den profiles-Datensatz an; alle Rollen
@@ -183,7 +214,7 @@ Deno.serve(async (req) => {
       console.error("profile_role_assignments insert failed:", rolesErr.message);
     }
 
-    return new Response(JSON.stringify({ ok: true, profileId: invited.user.id }), {
+    return new Response(JSON.stringify({ ok: true, profileId: invited.user.id, skipped: emailsDisabled }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

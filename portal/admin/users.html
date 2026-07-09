@@ -785,13 +785,18 @@
         btn.textContent = originalText;
         return;
       }
-      btn.textContent = res.data && res.data.skipped ? 'Testmodus: nicht gesendet' : 'Einladung gesendet ✓';
+      var skipped = res.data && res.data.skipped;
+      btn.textContent = skipped ? 'Testmodus: nicht gesendet' : 'Einladung gesendet ✓';
       await loadAll();
       renderAllColumns();
-      setTimeout(function(){
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }, 2200);
+      openContactModal(contactId);
+      var statusEl = document.getElementById('contactEditStatus-'+contactId);
+      if(statusEl){
+        statusEl.textContent = skipped
+          ? 'Testmodus aktiv: Einladungs-E-Mail wurde nicht versendet und nicht als versendet markiert.'
+          : 'Einladungslink wurde versendet und der Registrierungsstatus aktualisiert.';
+        statusEl.classList.add('show');
+      }
     } catch(err) {
       window.alert('Fehler beim Senden: ' + (err && err.message ? err.message : err));
       btn.disabled = false;

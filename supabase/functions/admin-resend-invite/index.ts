@@ -77,6 +77,10 @@ Deno.serve(async (req) => {
     if (contactErr || !contact) return jsonResponse({ error: "Kontakt nicht gefunden." }, 404);
     if (!contact.email) return jsonResponse({ error: "Kontakt hat keine Login-E-Mail-Adresse." }, 422);
 
+    if (await outboundEmailsDisabled(adminClient)) {
+      return jsonResponse({ ok: true, skipped: true, reason: "outbound_email_mode_test", profileId });
+    }
+
     const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email: contact.email,
@@ -93,10 +97,6 @@ Deno.serve(async (req) => {
       .is("portal_registered_at", null);
     if (registrationMarkErr) {
       console.error("registration status update failed:", registrationMarkErr.message);
-    }
-
-    if (await outboundEmailsDisabled(adminClient)) {
-      return jsonResponse({ ok: true, skipped: true, reason: "outbound_email_mode_test", profileId });
     }
 
     const displayName = contact.company_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Kontakt";
