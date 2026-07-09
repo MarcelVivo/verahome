@@ -678,13 +678,10 @@
         address3_city: address3.city
       }).eq('id', id);
       if(!res.error){
-        // Rollen-Zuordnungen komplett ersetzen -- einfacher und bei der
-        // ueberschaubaren Anzahl Kategorien pro Kontakt guenstig genug,
-        // statt die Differenz zu berechnen.
-        await client.from('profile_role_assignments').delete().eq('profile_id', id);
-        var rolesRes = await client.from('profile_role_assignments').insert(
-          categories.map(function(cat){ return { profile_id: id, category: cat }; })
-        );
+        var rolesRes = await client.rpc('set_profile_roles', {
+          p_profile_id: id,
+          p_categories: categories
+        });
         if(rolesRes.error) res = rolesRes;
       }
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Kontakt gespeichert.';
@@ -698,7 +695,12 @@
     modalBody.querySelectorAll('.status-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         btn.disabled = true;
-        await client.from('profiles').update({ status: btn.getAttribute('data-status') }).eq('id', id);
+        var res = await client.from('profiles').update({ status: btn.getAttribute('data-status') }).eq('id', id);
+        if(res.error){
+          window.alert('Fehler beim Statuswechsel: ' + res.error.message);
+          btn.disabled = false;
+          return;
+        }
         await loadAll();
         renderAllColumns();
         openContactModal(id);
@@ -790,12 +792,10 @@
       'Der Kontakt verschwindet aus der aktiven Ansicht, bleibt aber für Verlauf, Dokumente und Audit nachvollziehbar erhalten.'
     )) return;
     try {
-      var res = await client.from('profiles').update({
-        archived_at: new Date().toISOString(),
-        archived_by: profile.id,
-        archived_reason: 'Kontakt archiviert',
-        status: 'suspended'
-      }).eq('id', contactId);
+      var res = await client.rpc('archive_profile', {
+        p_profile_id: contactId,
+        p_reason: 'Kontakt archiviert'
+      });
       if(res.error){
         window.alert('Fehler beim Archivieren: ' + res.error.message);
         return;
