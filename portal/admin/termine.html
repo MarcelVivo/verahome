@@ -163,6 +163,25 @@
   var STATUS_LABEL = { angefragt: 'Angefragt', bestaetigt: 'Bestätigt', storniert: 'Storniert' };
   var STATUS_BADGE_CLASS = { angefragt: 'pending', bestaetigt: 'active', storniert: 'suspended' };
 
+  function setActionButtonLoading(button, isLoading, label){
+    if(!button) return;
+    if(isLoading){
+      button.dataset.originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = label || 'Speichert …';
+      return;
+    }
+    button.disabled = false;
+    if(button.dataset.originalText) button.textContent = button.dataset.originalText;
+    delete button.dataset.originalText;
+  }
+
+  function showFormStatus(statusEl, message){
+    if(!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.classList.add('show');
+  }
+
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
@@ -310,18 +329,40 @@
     table.querySelectorAll('.confirm-booking-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         var id = btn.getAttribute('data-id');
-        await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', id);
-        try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: id } }); } catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
-        loadBookings();
-        loadCalWeek();
+        setActionButtonLoading(btn, true, 'Bestätigt …');
+        try {
+          var res = await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', id);
+          if(res.error){
+            window.alert('Buchung konnte nicht bestätigt werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: id } }); } catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+          loadBookings();
+          loadCalWeek();
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
     table.querySelectorAll('.cancel-booking-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Buchung wirklich stornieren? Der Termin wird dadurch wieder frei.')) return;
-        await client.from('bookings').update({ status: 'storniert' }).eq('id', btn.getAttribute('data-id'));
-        loadBookings();
-        loadCalWeek();
+        setActionButtonLoading(btn, true, 'Storniert …');
+        try {
+          var res = await client.from('bookings').update({ status: 'storniert' }).eq('id', btn.getAttribute('data-id'));
+          if(res.error){
+            window.alert('Buchung konnte nicht storniert werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadBookings();
+          loadCalWeek();
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
   }
@@ -1097,69 +1138,102 @@
       });
     } else if(confirmBtn){
       var cid = confirmBtn.getAttribute('data-confirm-id');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Wird bestätigt …';
-      await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', cid);
-      try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: cid } }); }
-      catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
-      calHidePopover();
-      loadCalWeek();
-      loadBookings();
+      setActionButtonLoading(confirmBtn, true, 'Wird bestätigt …');
+      try {
+        var confirmRes = await client.from('bookings').update({ status: 'bestaetigt' }).eq('id', cid);
+        if(confirmRes.error){
+          window.alert('Buchung konnte nicht bestätigt werden: ' + confirmRes.error.message);
+          setActionButtonLoading(confirmBtn, false);
+          return;
+        }
+        try { await client.functions.invoke('send-booking-confirmation', { body: { bookingId: cid } }); }
+        catch(err) { /* Bestätigung steht, Mail-Fehler blockiert nichts */ }
+        calHidePopover();
+        loadCalWeek();
+        loadBookings();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(confirmBtn, false);
+      }
     } else if(rescheduleBtn){
       var rid = rescheduleBtn.getAttribute('data-reschedule-id');
       if(!window.confirm('Diesen Termin wirklich verschieben? Die anfragende Person wird per E-Mail gebeten, einen neuen Termin zu buchen.')) return;
       var message = window.prompt('Optionale Nachricht an die Person (wird in die E-Mail eingefügt):', '') || '';
-      rescheduleBtn.disabled = true;
-      rescheduleBtn.textContent = 'Wird verschoben …';
-      await client.from('bookings').update({ status: 'storniert' }).eq('id', rid);
-      try { await client.functions.invoke('send-booking-reschedule', { body: { bookingId: rid, message: message } }); }
-      catch(err) { /* Termin ist bereits storniert, Mail-Fehler blockiert nichts */ }
-      calHidePopover();
-      loadCalWeek();
-      loadBookings();
+      setActionButtonLoading(rescheduleBtn, true, 'Wird verschoben …');
+      try {
+        var rescheduleRes = await client.from('bookings').update({ status: 'storniert' }).eq('id', rid);
+        if(rescheduleRes.error){
+          window.alert('Termin konnte nicht verschoben werden: ' + rescheduleRes.error.message);
+          setActionButtonLoading(rescheduleBtn, false);
+          return;
+        }
+        try { await client.functions.invoke('send-booking-reschedule', { body: { bookingId: rid, message: message } }); }
+        catch(err) { /* Termin ist bereits storniert, Mail-Fehler blockiert nichts */ }
+        calHidePopover();
+        loadCalWeek();
+        loadBookings();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(rescheduleBtn, false);
+      }
     } else if(deleteBtn){
       var did = deleteBtn.getAttribute('data-delete-id');
       if(!window.confirm('Diese öffentliche Terminbuchung stornieren? Der Termin wird dadurch wieder frei.')) return;
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Wird storniert …';
-      await client.from('bookings').update({ status: 'storniert' }).eq('id', did);
-      calHidePopover();
-      loadCalWeek();
-      loadBookings();
+      setActionButtonLoading(deleteBtn, true, 'Wird storniert …');
+      try {
+        var deleteRes = await client.from('bookings').update({ status: 'storniert' }).eq('id', did);
+        if(deleteRes.error){
+          window.alert('Buchung konnte nicht storniert werden: ' + deleteRes.error.message);
+          setActionButtonLoading(deleteBtn, false);
+          return;
+        }
+        calHidePopover();
+        loadCalWeek();
+        loadBookings();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(deleteBtn, false);
+      }
     } else if(deleteApptBtn){
       var daid = deleteApptBtn.getAttribute('data-delete-appt-id');
       if(!window.confirm('Diesen internen Termin archivieren? Teilnehmer werden NICHT per E-Mail benachrichtigt.')) return;
-      deleteApptBtn.disabled = true;
-      deleteApptBtn.textContent = 'Wird archiviert …';
-      var archiveRes = await client.rpc('archive_appointment', {
-        p_appointment_id: daid,
-        p_reason: 'Termin archiviert'
-      });
-      if(archiveRes.error){
-        window.alert('Termin konnte nicht archiviert werden: ' + archiveRes.error.message);
-        deleteApptBtn.disabled = false;
-        deleteApptBtn.textContent = 'Archivieren';
-        return;
+      setActionButtonLoading(deleteApptBtn, true, 'Wird archiviert …');
+      try {
+        var archiveRes = await client.rpc('archive_appointment', {
+          p_appointment_id: daid,
+          p_reason: 'Termin archiviert'
+        });
+        if(archiveRes.error){
+          window.alert('Termin konnte nicht archiviert werden: ' + archiveRes.error.message);
+          setActionButtonLoading(deleteApptBtn, false);
+          return;
+        }
+        calHidePopover();
+        loadCalWeek();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(deleteApptBtn, false);
       }
-      calHidePopover();
-      loadCalWeek();
     } else if(editApptBtn){
       var editId = editApptBtn.getAttribute('data-edit-appt-id');
       var editAppointment = calAppointments.find(function(x){ return x.id === editId; });
       if(editAppointment && calLastTargetEl) calShowApptForm(calLastTargetEl, editAppointment);
     } else if(unblockBtn){
       if(!window.confirm('Sperrung wirklich aufheben?')) return;
-      unblockBtn.disabled = true;
-      unblockBtn.textContent = 'Wird freigegeben …';
-      var unblockRes = await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
-      if(unblockRes.error){
-        window.alert('Sperrung konnte nicht aufgehoben werden: ' + unblockRes.error.message);
-        unblockBtn.disabled = false;
-        unblockBtn.textContent = 'Freigeben';
-        return;
+      setActionButtonLoading(unblockBtn, true, 'Wird freigegeben …');
+      try {
+        var unblockRes = await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
+        if(unblockRes.error){
+          window.alert('Sperrung konnte nicht aufgehoben werden: ' + unblockRes.error.message);
+          setActionButtonLoading(unblockBtn, false);
+          return;
+        }
+        calHidePopover();
+        loadCalWeek();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(unblockBtn, false);
       }
-      calHidePopover();
-      loadCalWeek();
     } else if(blockSlotBtn){
       var bsDate = blockSlotBtn.getAttribute('data-date');
       var bsHour = parseInt(blockSlotBtn.getAttribute('data-hour'), 10);
@@ -1168,11 +1242,22 @@
       var reason = window.prompt('Grund (optional):', '') || null;
       var bsStarts = new Date(bsDate + 'T' + String(bsHour).padStart(2,'0') + ':00:00');
       var bsEnds = new Date(bsStarts.getTime() + 60 * 60000);
-      await client.from('booking_blocks').insert({
-        starts_at: bsStarts.toISOString(), ends_at: bsEnds.toISOString(), reason: reason, created_by: profile.id
-      });
-      calHidePopover();
-      loadCalWeek();
+      setActionButtonLoading(blockSlotBtn, true, 'Wird gesperrt …');
+      try {
+        var blockRes = await client.from('booking_blocks').insert({
+          starts_at: bsStarts.toISOString(), ends_at: bsEnds.toISOString(), reason: reason, created_by: profile.id
+        });
+        if(blockRes.error){
+          window.alert('Stunde konnte nicht gesperrt werden: ' + blockRes.error.message);
+          setActionButtonLoading(blockSlotBtn, false);
+          return;
+        }
+        calHidePopover();
+        loadCalWeek();
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(blockSlotBtn, false);
+      }
     } else if(newApptBtn){
       var naDate = newApptBtn.getAttribute('data-date');
       var naHour = parseInt(newApptBtn.getAttribute('data-hour'), 10);
@@ -1187,6 +1272,7 @@
     if(e.target.id !== 'calNewApptForm') return;
     e.preventDefault();
     var statusEl = document.getElementById('naStatus');
+    var submitBtn = e.target.querySelector('button[type="submit"]');
     var name = document.getElementById('na_name').value.trim();
     if(!name){
       statusEl.textContent = 'Bitte einen Titel angeben.';
@@ -1235,48 +1321,55 @@
     }
 
     statusEl.textContent = 'Wird gespeichert …';
-    var payload = {
-      title: name,
-      category: primaryParticipantCategory,
-      note: document.getElementById('na_note').value.trim() || null,
-      property_id: document.getElementById('na_property').value || null,
-      starts_at: startsAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-      admin_participates: adminParticipates
-    };
-    var res = appointmentId
-      ? await client.from('appointments').update(payload).eq('id', appointmentId).select().single()
-      : await client.from('appointments').insert(Object.assign({}, payload, { created_by: profile.id })).select().single();
-    if(res.error){
-      statusEl.textContent = 'Fehler: ' + res.error.message;
-      return;
-    }
-
-    var savedAppointmentId = appointmentId || res.data.id;
-    if(appointmentId){
-      var deleteParticipantsRes = await client.from('appointment_participants').delete().eq('appointment_id', savedAppointmentId);
-      if(deleteParticipantsRes.error){
-        statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht aktualisiert werden: ' + deleteParticipantsRes.error.message;
-        loadCalWeek();
+    setActionButtonLoading(submitBtn, true, 'Speichert …');
+    try {
+      var payload = {
+        title: name,
+        category: primaryParticipantCategory,
+        note: document.getElementById('na_note').value.trim() || null,
+        property_id: document.getElementById('na_property').value || null,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        admin_participates: adminParticipates
+      };
+      var res = appointmentId
+        ? await client.from('appointments').update(payload).eq('id', appointmentId).select().single()
+        : await client.from('appointments').insert(Object.assign({}, payload, { created_by: profile.id })).select().single();
+      if(res.error){
+        statusEl.textContent = 'Fehler: ' + res.error.message;
         return;
       }
-    }
-    if(participantIds.length){
-      var participantRows = participantIds.map(function(pid){
-        return { appointment_id: savedAppointmentId, profile_id: pid, status: participantStatusById[pid] || 'eingeladen' };
-      });
-      var partRes = await client.from('appointment_participants').insert(participantRows);
-      if(partRes.error){
-        statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht hinzugefügt werden: ' + partRes.error.message;
-        loadCalWeek();
-        return;
-      }
-      try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: savedAppointmentId } }); }
-      catch(err) { /* Termin und Einladungen stehen, Mail-Fehler blockiert nichts */ }
-    }
 
-    calHidePopover();
-    loadCalWeek();
+      var savedAppointmentId = appointmentId || res.data.id;
+      if(appointmentId){
+        var deleteParticipantsRes = await client.from('appointment_participants').delete().eq('appointment_id', savedAppointmentId);
+        if(deleteParticipantsRes.error){
+          statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht aktualisiert werden: ' + deleteParticipantsRes.error.message;
+          loadCalWeek();
+          return;
+        }
+      }
+      if(participantIds.length){
+        var participantRows = participantIds.map(function(pid){
+          return { appointment_id: savedAppointmentId, profile_id: pid, status: participantStatusById[pid] || 'eingeladen' };
+        });
+        var partRes = await client.from('appointment_participants').insert(participantRows);
+        if(partRes.error){
+          statusEl.textContent = 'Termin gespeichert, aber Teilnehmer konnten nicht hinzugefügt werden: ' + partRes.error.message;
+          loadCalWeek();
+          return;
+        }
+        try { await client.functions.invoke('send-appointment-invite', { body: { appointmentId: savedAppointmentId } }); }
+        catch(err) { /* Termin und Einladungen stehen, Mail-Fehler blockiert nichts */ }
+      }
+
+      calHidePopover();
+      loadCalWeek();
+    } catch(err) {
+      statusEl.textContent = 'Unerwarteter Fehler: ' + err.message;
+    } finally {
+      setActionButtonLoading(submitBtn, false);
+    }
   });
 
   function attachCalHandlers(grid){
