@@ -158,13 +158,16 @@
 	          var photoId = crypto.randomUUID();
 	          var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 	          var path = ticketId + '/' + photoId + '-' + safeName;
-	          var upRes = await client.storage.from('admin-ticket-photos').upload(path, file);
-	          if(upRes.error){
-	            photoErrors.push(file.name);
-	            continue;
-	          }
-	          var photoRes = await client.from('admin_ticket_photos').insert({ id: photoId, ticket_id: ticketId, file_path: path, sort_order: i });
-	          if(photoRes.error) photoErrors.push(file.name);
+		          var upRes = await client.storage.from('admin-ticket-photos').upload(path, file);
+		          if(upRes.error){
+		            photoErrors.push(file.name);
+		            continue;
+		          }
+		          var photoRes = await client.from('admin_ticket_photos').insert({ id: photoId, ticket_id: ticketId, file_path: path, sort_order: i });
+		          if(photoRes.error){
+		            await client.storage.from('admin-ticket-photos').remove([path]);
+		            photoErrors.push(file.name);
+		          }
 	        }
 
 	        try { await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } }); }
@@ -175,9 +178,10 @@
 	          : 'Ticket wurde übermittelt.';
 	        document.getElementById('newTicketForm').reset();
 	        loadTickets();
-	      } catch(err) {
-	        statusEl.textContent = 'Fehler: ' + (err.message || err);
-	      } finally {
+		      } catch(err) {
+		        statusEl.textContent = 'Fehler: ' + (err.message || err);
+		        statusEl.classList.add('show');
+		      } finally {
 	        if(submitBtn){
 	          submitBtn.disabled = false;
 	          submitBtn.textContent = originalText;
