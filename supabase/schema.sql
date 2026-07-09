@@ -1410,6 +1410,9 @@ create table public.laundry_schedule_slots (
   label         text,                                -- free text, e.g. "Whg. Müller"
   created_at    timestamptz not null default now(),
   created_by    uuid references public.profiles(id),
+  archived_at   timestamptz,
+  archived_by   uuid references public.profiles(id) on delete set null,
+  archived_reason text,
   check (end_time > start_time)
 );
 
@@ -1428,13 +1431,16 @@ create policy property_permissions_admin_write on public.property_permissions
 -- coordinator's own permission grant.
 create policy laundry_schedule_slots_select on public.laundry_schedule_slots
   for select using (
-    public.is_admin()
-    or public.has_property_permission(laundry_schedule_slots.property_id, 'waschplan')
-    or exists (
-      select 1 from public.units u
-      join public.tenancies t on t.unit_id = u.id
-      where u.property_id = laundry_schedule_slots.property_id
-        and t.tenant_profile_id = auth.uid() and public.is_approved()
+    archived_at is null
+    and (
+      public.is_admin()
+      or public.has_property_permission(laundry_schedule_slots.property_id, 'waschplan')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = laundry_schedule_slots.property_id
+          and t.tenant_profile_id = auth.uid() and public.is_approved()
+      )
     )
   );
 create policy laundry_schedule_slots_write on public.laundry_schedule_slots
@@ -1811,7 +1817,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -2047,7 +2054,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -2108,7 +2116,10 @@ create table public.property_announcements (
   title        text not null,
   body         text not null,
   created_at   timestamptz not null default now(),
-  created_by   uuid references public.profiles(id)
+  created_by   uuid references public.profiles(id),
+  archived_at  timestamptz,
+  archived_by  uuid references public.profiles(id) on delete set null,
+  archived_reason text
 );
 
 alter table public.property_announcements enable row level security;
@@ -2116,22 +2127,25 @@ alter table public.property_announcements force row level security;
 
 create policy property_announcements_select on public.property_announcements
   for select using (
-    public.is_admin()
-    or exists (
-      select 1 from public.units u
-      join public.tenancies t on t.unit_id = u.id
-      where u.property_id = property_announcements.property_id
-        and t.tenant_profile_id = auth.uid() and t.status = 'active' and public.is_approved()
-    )
-    or exists (
-      select 1 from public.ownerships o
-      where (
-        o.property_id = property_announcements.property_id
-        or o.unit_id in (select id from public.units where property_id = property_announcements.property_id)
+    archived_at is null
+    and (
+      public.is_admin()
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = property_announcements.property_id
+          and t.tenant_profile_id = auth.uid() and t.status = 'active' and public.is_approved()
       )
-      and o.owner_profile_id = auth.uid()
-      and (o.end_date is null or o.end_date >= current_date)
-      and public.is_approved()
+      or exists (
+        select 1 from public.ownerships o
+        where (
+          o.property_id = property_announcements.property_id
+          or o.unit_id in (select id from public.units where property_id = property_announcements.property_id)
+        )
+        and o.owner_profile_id = auth.uid()
+        and (o.end_date is null or o.end_date >= current_date)
+        and public.is_approved()
+      )
     )
   );
 
@@ -2211,7 +2225,8 @@ begin
 
   select count(*) into c_announcements
   from public.property_announcements pa
-  where created_at > coalesce(
+  where pa.archived_at is null
+    and created_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
       '-infinity'::timestamptz
     )
@@ -2243,7 +2258,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -2386,10 +2402,10 @@ create policy storage_property_documents_select_hauswart on storage.objects
   );
 
 create policy property_announcements_select_hauswart on public.property_announcements
-  for select using (public.has_property_permission(property_announcements.property_id, 'hauswart'));
+  for select using (archived_at is null and public.has_property_permission(property_announcements.property_id, 'hauswart'));
 
 create policy laundry_schedule_slots_select_hauswart on public.laundry_schedule_slots
-  for select using (public.has_property_permission(laundry_schedule_slots.property_id, 'hauswart'));
+  for select using (archived_at is null and public.has_property_permission(laundry_schedule_slots.property_id, 'hauswart'));
 
 create policy properties_hauswart_read on public.properties
   for select using (public.has_property_permission(properties.id, 'hauswart'));
@@ -2588,7 +2604,8 @@ begin
 
   select count(*) into c_announcements
   from public.property_announcements pa
-  where created_at > coalesce(
+  where pa.archived_at is null
+    and created_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
       '-infinity'::timestamptz
     )
@@ -2621,7 +2638,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -2938,7 +2956,8 @@ begin
 
   select count(*) into c_announcements
   from public.property_announcements pa
-  where created_at > coalesce(
+  where pa.archived_at is null
+    and created_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
       '-infinity'::timestamptz
     )
@@ -2971,7 +2990,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -3346,7 +3366,8 @@ begin
 
   select count(*) into c_announcements
   from public.property_announcements pa
-  where created_at > coalesce(
+  where pa.archived_at is null
+    and created_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
       '-infinity'::timestamptz
     )
@@ -3379,7 +3400,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -3952,7 +3974,8 @@ begin
 
   select count(*) into c_announcements
   from public.property_announcements pa
-  where created_at > coalesce(
+  where pa.archived_at is null
+    and created_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'documents'),
       '-infinity'::timestamptz
     )
@@ -3985,7 +4008,8 @@ begin
 
   select count(*) into c_waschplan
   from public.laundry_schedule_slots l
-  where l.updated_at > coalesce(
+  where l.archived_at is null
+    and l.updated_at > coalesce(
       (select sv.last_seen_at from public.section_views sv where sv.profile_id = me and sv.section = 'waschplan'),
       '-infinity'::timestamptz
     )
@@ -4334,6 +4358,7 @@ begin
     and weekday = new.weekday
     and start_time = new.start_time
     and end_time = new.end_time
+    and archived_at is null
     and id is distinct from new.id;
 
   if v_count >= coalesce(v_capacity, 2) then
@@ -4362,8 +4387,21 @@ create table if not exists public.laundry_bookings (
   booking_date      date not null,
   period            text not null check (period in ('vormittag', 'nachmittag')),
   created_at        timestamptz not null default now(),
-  unique (property_id, booking_date, period, tenant_profile_id)
+  archived_at       timestamptz,
+  archived_by       uuid references public.profiles(id) on delete set null,
+  archived_reason   text
 );
+
+alter table public.laundry_bookings add column if not exists archived_at timestamptz;
+alter table public.laundry_bookings add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.laundry_bookings add column if not exists archived_reason text;
+
+alter table public.laundry_bookings
+  drop constraint if exists laundry_bookings_property_id_booking_date_period_tenant_profile_id_key;
+
+create unique index if not exists laundry_bookings_active_unique_idx
+  on public.laundry_bookings(property_id, booking_date, period, tenant_profile_id)
+  where archived_at is null;
 
 alter table public.laundry_bookings enable row level security;
 alter table public.laundry_bookings force row level security;
@@ -4376,13 +4414,16 @@ alter table public.laundry_bookings force row level security;
 drop policy if exists laundry_bookings_select on public.laundry_bookings;
 create policy laundry_bookings_select on public.laundry_bookings
   for select using (
-    public.is_admin()
-    or public.has_property_permission(laundry_bookings.property_id, 'waschplan')
-    or exists (
-      select 1 from public.units u
-      join public.tenancies t on t.unit_id = u.id
-      where u.property_id = laundry_bookings.property_id
-        and t.tenant_profile_id = auth.uid() and public.is_approved()
+    archived_at is null
+    and (
+      public.is_admin()
+      or public.has_property_permission(laundry_bookings.property_id, 'waschplan')
+      or exists (
+        select 1 from public.units u
+        join public.tenancies t on t.unit_id = u.id
+        where u.property_id = laundry_bookings.property_id
+          and t.tenant_profile_id = auth.uid() and public.is_approved()
+      )
     )
   );
 drop policy if exists laundry_bookings_admin_all on public.laundry_bookings;
@@ -4445,13 +4486,15 @@ begin
     select 1 from public.laundry_bookings
     where property_id = p_property_id and booking_date = p_booking_date and period = p_period
       and tenant_profile_id = auth.uid()
+      and archived_at is null
   ) then
     raise exception 'Sie sind für diesen Zeitraum bereits eingetragen.';
   end if;
 
   select count(*) into v_count
   from public.laundry_bookings
-  where property_id = p_property_id and booking_date = p_booking_date and period = p_period;
+  where property_id = p_property_id and booking_date = p_booking_date and period = p_period
+    and archived_at is null;
 
   if v_count >= v_capacity then
     raise exception 'Dieser Zeitraum ist bereits ausgebucht.';
@@ -4462,6 +4505,84 @@ begin
   returning * into result;
 
   return result;
+end;
+$$;
+
+create or replace function public.archive_property_announcement(p_announcement_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.property_announcements
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Rundschreiben archiviert')
+  where id = p_announcement_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.archive_laundry_schedule_slot(p_slot_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (
+    public.is_admin()
+    or exists (
+      select 1
+      from public.laundry_schedule_slots s
+      where s.id = p_slot_id
+        and public.has_property_permission(s.property_id, 'waschplan')
+    )
+  ) then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.laundry_schedule_slots
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Waschplan-Slot archiviert')
+  where id = p_slot_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.cancel_laundry_booking(p_booking_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1
+    from public.laundry_bookings b
+    where b.id = p_booking_id
+      and b.archived_at is null
+      and (
+        b.tenant_profile_id = auth.uid()
+        or public.is_admin()
+        or public.has_property_permission(b.property_id, 'waschplan')
+      )
+  ) then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.laundry_bookings
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Waschplan-Buchung storniert')
+  where id = p_booking_id
+    and archived_at is null;
 end;
 $$;
 
@@ -5111,6 +5232,21 @@ drop trigger if exists trg_audit_appointments on public.appointments;
 create trigger trg_audit_appointments
   after insert or update or delete on public.appointments
   for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_property_announcements on public.property_announcements;
+create trigger trg_audit_property_announcements
+  after insert or update or delete on public.property_announcements
+  for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_laundry_schedule_slots on public.laundry_schedule_slots;
+create trigger trg_audit_laundry_schedule_slots
+  after insert or update or delete on public.laundry_schedule_slots
+  for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_laundry_bookings on public.laundry_bookings;
+create trigger trg_audit_laundry_bookings
+  after insert or update or delete on public.laundry_bookings
+  for each row execute function public.audit_table_change();
 -- =====================================================================
 -- Vera Portal Soft-Delete — wichtige Geschäftsdaten werden archiviert
 -- statt endgültig gelöscht. Wiederholbar ausführbar.
@@ -5194,6 +5330,9 @@ create index if not exists document_files_archived_at_idx on public.document_fil
 create index if not exists invoices_archived_at_idx on public.invoices(archived_at);
 create index if not exists property_appliances_archived_at_idx on public.property_appliances(archived_at);
 create index if not exists appointments_archived_at_idx on public.appointments(archived_at);
+create index if not exists property_announcements_archived_at_idx on public.property_announcements(archived_at);
+create index if not exists laundry_schedule_slots_archived_at_idx on public.laundry_schedule_slots(archived_at);
+create index if not exists laundry_bookings_archived_at_idx on public.laundry_bookings(archived_at);
 
 create or replace function public.archive_document_folder(p_folder_id uuid, p_reason text default null)
 returns void

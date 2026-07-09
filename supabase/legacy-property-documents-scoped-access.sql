@@ -138,4 +138,7 @@ drop policy if exists property_announcements_select on public.property_announcem
 drop policy if exists property_announcements_select_hauswart on public.property_announcements;
 drop policy if exists property_announcements_select_scoped on public.property_announcements;
 create policy property_announcements_select_scoped on public.property_announcements
-  for select using (public.can_access_property_scope(property_announcements.property_id));
+  for select using (
+    property_announcements.archived_at is null
+    and public.can_access_property_scope(property_announcements.property_id)
+  );

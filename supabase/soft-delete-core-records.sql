@@ -47,6 +47,18 @@ alter table public.appointments add column if not exists archived_at timestamptz
 alter table public.appointments add column if not exists archived_by uuid references public.profiles(id) on delete set null;
 alter table public.appointments add column if not exists archived_reason text;
 
+alter table public.property_announcements add column if not exists archived_at timestamptz;
+alter table public.property_announcements add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.property_announcements add column if not exists archived_reason text;
+
+alter table public.laundry_schedule_slots add column if not exists archived_at timestamptz;
+alter table public.laundry_schedule_slots add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.laundry_schedule_slots add column if not exists archived_reason text;
+
+alter table public.laundry_bookings add column if not exists archived_at timestamptz;
+alter table public.laundry_bookings add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.laundry_bookings add column if not exists archived_reason text;
+
 create or replace function public.protect_profile_columns()
 returns trigger
 language plpgsql
@@ -81,6 +93,9 @@ create index if not exists document_files_archived_at_idx on public.document_fil
 create index if not exists invoices_archived_at_idx on public.invoices(archived_at);
 create index if not exists property_appliances_archived_at_idx on public.property_appliances(archived_at);
 create index if not exists appointments_archived_at_idx on public.appointments(archived_at);
+create index if not exists property_announcements_archived_at_idx on public.property_announcements(archived_at);
+create index if not exists laundry_schedule_slots_archived_at_idx on public.laundry_schedule_slots(archived_at);
+create index if not exists laundry_bookings_archived_at_idx on public.laundry_bookings(archived_at);
 
 create or replace function public.archive_document_folder(p_folder_id uuid, p_reason text default null)
 returns void
@@ -157,6 +172,84 @@ begin
       archived_by = auth.uid(),
       archived_reason = coalesce(p_reason, 'Termin archiviert')
   where id = p_appointment_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.archive_property_announcement(p_announcement_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.property_announcements
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Rundschreiben archiviert')
+  where id = p_announcement_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.archive_laundry_schedule_slot(p_slot_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (
+    public.is_admin()
+    or exists (
+      select 1
+      from public.laundry_schedule_slots s
+      where s.id = p_slot_id
+        and public.has_property_permission(s.property_id, 'waschplan')
+    )
+  ) then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.laundry_schedule_slots
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Waschplan-Slot archiviert')
+  where id = p_slot_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.cancel_laundry_booking(p_booking_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1
+    from public.laundry_bookings b
+    where b.id = p_booking_id
+      and b.archived_at is null
+      and (
+        b.tenant_profile_id = auth.uid()
+        or public.is_admin()
+        or public.has_property_permission(b.property_id, 'waschplan')
+      )
+  ) then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.laundry_bookings
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Waschplan-Buchung storniert')
+  where id = p_booking_id
     and archived_at is null;
 end;
 $$;

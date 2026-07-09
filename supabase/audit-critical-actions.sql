@@ -121,3 +121,18 @@ drop trigger if exists trg_audit_appointments on public.appointments;
 create trigger trg_audit_appointments
   after insert or update or delete on public.appointments
   for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_property_announcements on public.property_announcements;
+create trigger trg_audit_property_announcements
+  after insert or update or delete on public.property_announcements
+  for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_laundry_schedule_slots on public.laundry_schedule_slots;
+create trigger trg_audit_laundry_schedule_slots
+  after insert or update or delete on public.laundry_schedule_slots
+  for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_laundry_bookings on public.laundry_bookings;
+create trigger trg_audit_laundry_bookings
+  after insert or update or delete on public.laundry_bookings
+  for each row execute function public.audit_table_change();

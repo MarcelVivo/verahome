@@ -2721,7 +2721,7 @@
   }
 
   async function loadPropertyAnnouncements(propertyId){
-    var res = await client.from('property_announcements').select('*').eq('property_id', propertyId).order('created_at', { ascending:false });
+    var res = await client.from('property_announcements').select('*').eq('property_id', propertyId).is('archived_at', null).order('created_at', { ascending:false });
     var rows = res.data || [];
     var readCounts = {};
     if(rows.length){
@@ -2748,8 +2748,15 @@
     }).join('');
     el.querySelectorAll('.del-announce-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        if(!window.confirm('Rundschreiben wirklich löschen?')) return;
-        await client.from('property_announcements').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Rundschreiben archivieren? Es bleibt im geschützten Archiv nachvollziehbar.')) return;
+        var archiveRes = await client.rpc('archive_property_announcement', {
+          p_announcement_id: btn.getAttribute('data-id'),
+          p_reason: 'Rundschreiben archiviert'
+        });
+        if(archiveRes.error){
+          window.alert('Rundschreiben konnte nicht archiviert werden: ' + archiveRes.error.message);
+          return;
+        }
         loadPropertyAnnouncements(propertyId);
       });
     });
@@ -2787,7 +2794,7 @@
   }
 
   async function loadLaundryWeek(propertyId){
-    var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', propertyId).order('start_time');
+    var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', propertyId).is('archived_at', null).order('start_time');
     var slots = res.data || [];
     var el = document.getElementById('laundryWeek-'+propertyId);
     el.innerHTML = LAUNDRY_WEEKDAYS.map(function(day){
@@ -2806,7 +2813,15 @@
 
     el.querySelectorAll('.del-laundry-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.from('laundry_schedule_slots').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Waschplan-Slot archivieren?')) return;
+        var archiveRes = await client.rpc('archive_laundry_schedule_slot', {
+          p_slot_id: btn.getAttribute('data-id'),
+          p_reason: 'Waschplan-Slot archiviert'
+        });
+        if(archiveRes.error){
+          window.alert('Waschplan-Slot konnte nicht archiviert werden: ' + archiveRes.error.message);
+          return;
+        }
         loadLaundryWeek(propertyId);
       });
     });
@@ -2848,6 +2863,7 @@
     var res = await client.from('laundry_bookings')
       .select('*, units(label), tenant:tenant_profile_id(first_name,last_name)')
       .eq('property_id', propertyId)
+      .is('archived_at', null)
       .gte('booking_date', new Date().toISOString().slice(0,10))
       .order('booking_date').order('period');
     var bookings = res.data || [];
@@ -2865,8 +2881,15 @@
       }).join('');
     table.querySelectorAll('.del-booking-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        if(!window.confirm('Diese Eintragung wirklich entfernen?')) return;
-        await client.from('laundry_bookings').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Diese Waschplan-Eintragung stornieren?')) return;
+        var cancelRes = await client.rpc('cancel_laundry_booking', {
+          p_booking_id: btn.getAttribute('data-id'),
+          p_reason: 'Waschplan-Buchung durch Admin storniert'
+        });
+        if(cancelRes.error){
+          window.alert('Eintragung konnte nicht storniert werden: ' + cancelRes.error.message);
+          return;
+        }
         loadLaundryBookings(propertyId);
       });
     });

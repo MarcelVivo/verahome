@@ -195,6 +195,33 @@
       order: "starts_at",
       label: function(r){ return r.title || "Termin"; },
       meta: function(r){ return [VeraDashboard.formatDateTime(r.starts_at), VeraDashboard.formatDateTime(r.ends_at)].filter(Boolean).join(" – "); }
+    },
+    {
+      key: "property_announcements",
+      table: "property_announcements",
+      title: "Rundschreiben",
+      select: "id, title, property_id, archived_at, archived_reason",
+      order: "title",
+      label: function(r){ return r.title || "Rundschreiben"; },
+      meta: function(r){ return r.property_id ? "Objekt: " + r.property_id : ""; }
+    },
+    {
+      key: "laundry_schedule_slots",
+      table: "laundry_schedule_slots",
+      title: "Waschplan-Slots",
+      select: "id, weekday, start_time, end_time, label, archived_at, archived_reason",
+      order: "weekday",
+      label: function(r){ return r.label || "Waschplan-Slot"; },
+      meta: function(r){ return [r.weekday, r.start_time, r.end_time].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "laundry_bookings",
+      table: "laundry_bookings",
+      title: "Waschplan-Buchungen",
+      select: "id, booking_date, period, tenant_profile_id, archived_at, archived_reason",
+      order: "booking_date",
+      label: function(r){ return "Waschplan " + (r.booking_date || ""); },
+      meta: function(r){ return [r.period, r.tenant_profile_id].filter(Boolean).join(" · "); }
     }
   ];
 

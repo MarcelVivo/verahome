@@ -239,6 +239,7 @@
     var res = await client.from('laundry_bookings')
       .select('*, tenant:tenant_profile_id(first_name,last_name)')
       .eq('property_id', p.id)
+      .is('archived_at', null)
       .gte('booking_date', startStr)
       .lte('booking_date', endStr);
     var bookings = res.data || [];
@@ -285,14 +286,18 @@
     });
     el.querySelectorAll('.cancel-booking-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.from('laundry_bookings').delete().eq('id', btn.getAttribute('data-id'));
+        var res = await client.rpc('cancel_laundry_booking', {
+          p_booking_id: btn.getAttribute('data-id'),
+          p_reason: 'Waschplan-Buchung storniert'
+        });
+        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
         loadSelfServiceCalendar(p);
       });
     });
   }
 
   async function loadWeek(p){
-    var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', p.id).order('start_time');
+    var res = await client.from('laundry_schedule_slots').select('*, units(label)').eq('property_id', p.id).is('archived_at', null).order('start_time');
     var slots = res.data || [];
     var weekEl = document.getElementById('week-'+p.id);
     weekEl.innerHTML = WEEKDAYS.map(function(day){
@@ -311,7 +316,12 @@
 
     weekEl.querySelectorAll('.del-slot-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.from('laundry_schedule_slots').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Waschplan-Slot archivieren?')) return;
+        var res = await client.rpc('archive_laundry_schedule_slot', {
+          p_slot_id: btn.getAttribute('data-id'),
+          p_reason: 'Waschplan-Slot archiviert'
+        });
+        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
         loadWeek(p);
       });
     });
