@@ -1659,6 +1659,11 @@
   .obj-dossier-head{flex-direction:column;align-items:stretch;}
   .obj-dossier-head > span{align-self:flex-start;}
   .obj-dossier-actions{grid-template-columns:1fr;}
+  .obj-assignment-row{align-items:flex-start;flex-direction:column;}
+  .obj-assignment-row > span{width:100%;}
+  .obj-assignment-row > .dash-btn-row{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .obj-assignment-row > .dash-btn-row .dash-btn-sm,
+  .obj-assignment-row > .dash-btn-row .btn{width:100%;justify-content:center;}
   .filemgr-toolbar-left{display:grid;grid-template-columns:1fr 1fr;width:100%;}
   .filemgr-breadcrumb{grid-column:1 / -1;order:3;}
   .filemgr-toolbar-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;}
@@ -1713,6 +1718,7 @@
   .filemgr-preview-column{min-width:88vw;flex-basis:88vw;}
   .filemgr-preview-stage,.filemgr-preview-frame{min-height:280px;}
   .filemgr-detail-actions{grid-template-columns:1fr;}
+  .obj-assignment-row > .dash-btn-row{grid-template-columns:1fr;}
   .cal-grid{min-width:860px;}
   .cal-day-col{min-width:calc(100vw - 72px);}
   .cal-hour-slot,.cal-hour-label{height:52px;}
