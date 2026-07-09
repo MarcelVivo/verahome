@@ -468,6 +468,8 @@
   function init(){
     document.getElementById('newPropertyForm').addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.submitter || document.querySelector('#newPropertyForm button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
       var label = document.getElementById('p_label').value.trim();
       var statusEl = document.getElementById('newPropertyStatus');
       if(!label){ statusEl.textContent = 'Bitte Bezeichnung angeben.'; statusEl.classList.add('show'); return; }
@@ -489,40 +491,59 @@
         city: document.getElementById('p_city').value.trim() || null
       };
       if(supportsPropertyType) propertyPayload.property_type = document.getElementById('p_type').value;
-      var res = await client.from('properties').insert(propertyPayload).select().single();
-      if(res.error){
-        statusEl.textContent = 'Fehler: ' + res.error.message;
-        statusEl.classList.add('show');
-        return;
+      var originalText = submitBtn ? submitBtn.textContent : '';
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird angelegt …';
       }
-      var coverFile = coverInput.files[0] || null;
-      if(coverFile || detailFiles.length){
-        statusEl.textContent = 'Objekt angelegt, Bilder werden hochgeladen …';
-        statusEl.classList.add('show');
-        await uploadNewRecordImages('property', res.data.id, coverFile, detailFiles);
-      }
-      var documentResult = { uploaded: 0, linked: 0, errors: [] };
-      if(propertyDocFiles.length || propertyExistingDocIds.length){
-        statusEl.textContent = 'Objekt angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
-        statusEl.classList.add('show');
-        documentResult = await attachNewRecordDocuments({
-          propertyId: res.data.id,
-          unitId: null,
-          property: res.data,
-          files: propertyDocFiles,
-          existingIds: propertyExistingDocIds,
-          archiveCategory: propertyArchiveKeyFromDocCategory(res.data, propertyDocCategory)
-        });
-      }
-      statusEl.textContent = 'Objekt angelegt.' + documentAttachSummary(documentResult);
+      statusEl.textContent = 'Objekt wird angelegt …';
       statusEl.classList.add('show');
-      document.getElementById('newPropertyForm').reset();
-      await loadAll();
-      renderAllColumns();
+      try {
+        var res = await client.from('properties').insert(propertyPayload).select().single();
+        if(res.error){
+          statusEl.textContent = 'Fehler: ' + res.error.message;
+          statusEl.classList.add('show');
+          return;
+        }
+        var coverFile = coverInput.files[0] || null;
+        if(coverFile || detailFiles.length){
+          statusEl.textContent = 'Objekt angelegt, Bilder werden hochgeladen …';
+          statusEl.classList.add('show');
+          await uploadNewRecordImages('property', res.data.id, coverFile, detailFiles);
+        }
+        var documentResult = { uploaded: 0, linked: 0, errors: [] };
+        if(propertyDocFiles.length || propertyExistingDocIds.length){
+          statusEl.textContent = 'Objekt angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
+          statusEl.classList.add('show');
+          documentResult = await attachNewRecordDocuments({
+            propertyId: res.data.id,
+            unitId: null,
+            property: res.data,
+            files: propertyDocFiles,
+            existingIds: propertyExistingDocIds,
+            archiveCategory: propertyArchiveKeyFromDocCategory(res.data, propertyDocCategory)
+          });
+        }
+        statusEl.textContent = 'Objekt angelegt.' + documentAttachSummary(documentResult);
+        statusEl.classList.add('show');
+        document.getElementById('newPropertyForm').reset();
+        await loadAll();
+        renderAllColumns();
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + (err.message || err);
+        statusEl.classList.add('show');
+      } finally {
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      }
     });
 
     document.getElementById('newUnitForm').addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.submitter || document.querySelector('#newUnitForm button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
       var propertyId = document.getElementById('u_property').value;
       var label = document.getElementById('u_label').value.trim();
       var statusEl = document.getElementById('newUnitStatus');
@@ -538,56 +559,73 @@
         statusEl.classList.add('show');
         return;
       }
-      var res = await client.from('units').insert({
-        property_id: propertyId,
-        unit_type: document.getElementById('u_type').value,
-        label: label,
-        visibility: document.getElementById('u_visibility').value,
-        offer_type: document.getElementById('u_offer_type').value || null,
-        living_area_m2: numberOrNull(document.getElementById('u_area').value),
-        rooms: numberOrNull(document.getElementById('u_rooms').value),
-        floor: document.getElementById('u_floor').value.trim() || null,
-        rent_chf: numberOrNull(document.getElementById('u_rent').value),
-        extra_costs_chf: numberOrNull(document.getElementById('u_extra_costs').value),
-        available_from: document.getElementById('u_available').value.trim() || null,
-        teaser: document.getElementById('u_teaser').value.trim() || null,
-        description: document.getElementById('u_description').value.trim() || null,
-        features: document.getElementById('u_features').value.trim() || null
-      }).select().single();
-      if(res.error){
-        statusEl.textContent = 'Fehler: ' + res.error.message;
-        statusEl.classList.add('show');
-        return;
+      var originalText = submitBtn ? submitBtn.textContent : '';
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird angelegt …';
       }
-      var uCoverFile = uCoverInput.files[0] || null;
-      if(uCoverFile || uDetailFiles.length){
-        statusEl.textContent = 'Einheit angelegt, Bilder werden hochgeladen …';
-        statusEl.classList.add('show');
-        await uploadNewRecordImages('unit', res.data.id, uCoverFile, uDetailFiles);
-      }
-      var unitDocumentResult = { uploaded: 0, linked: 0, errors: [] };
-      if(unitDocFiles.length || unitExistingDocIds.length){
-        statusEl.textContent = 'Einheit angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
-        statusEl.classList.add('show');
-        unitDocumentResult = await attachNewRecordDocuments({
-          propertyId: propertyId,
-          unitId: res.data.id,
-          property: allProperties.filter(function(p){ return p.id === propertyId; })[0],
-          unit: res.data,
-          files: unitDocFiles,
-          existingIds: unitExistingDocIds,
-          archiveCategory: unitDocCategory
-        });
-      }
-      statusEl.textContent = 'Einheit angelegt. Zuweisungen werden geöffnet …' + documentAttachSummary(unitDocumentResult);
+      statusEl.textContent = 'Einheit wird angelegt …';
       statusEl.classList.add('show');
-      document.getElementById('newUnitForm').reset();
-      closeNewUnitModal();
-      selectedPropertyId = res.data.property_id;
-      selectedUnitId = res.data.id;
-      await loadAll();
-      renderAllColumns();
-      openUnitModal(res.data.id);
+      try {
+        var res = await client.from('units').insert({
+          property_id: propertyId,
+          unit_type: document.getElementById('u_type').value,
+          label: label,
+          visibility: document.getElementById('u_visibility').value,
+          offer_type: document.getElementById('u_offer_type').value || null,
+          living_area_m2: numberOrNull(document.getElementById('u_area').value),
+          rooms: numberOrNull(document.getElementById('u_rooms').value),
+          floor: document.getElementById('u_floor').value.trim() || null,
+          rent_chf: numberOrNull(document.getElementById('u_rent').value),
+          extra_costs_chf: numberOrNull(document.getElementById('u_extra_costs').value),
+          available_from: document.getElementById('u_available').value.trim() || null,
+          teaser: document.getElementById('u_teaser').value.trim() || null,
+          description: document.getElementById('u_description').value.trim() || null,
+          features: document.getElementById('u_features').value.trim() || null
+        }).select().single();
+        if(res.error){
+          statusEl.textContent = 'Fehler: ' + res.error.message;
+          statusEl.classList.add('show');
+          return;
+        }
+        var uCoverFile = uCoverInput.files[0] || null;
+        if(uCoverFile || uDetailFiles.length){
+          statusEl.textContent = 'Einheit angelegt, Bilder werden hochgeladen …';
+          statusEl.classList.add('show');
+          await uploadNewRecordImages('unit', res.data.id, uCoverFile, uDetailFiles);
+        }
+        var unitDocumentResult = { uploaded: 0, linked: 0, errors: [] };
+        if(unitDocFiles.length || unitExistingDocIds.length){
+          statusEl.textContent = 'Einheit angelegt, Dokumente werden in Dokumente abgelegt/verknüpft …';
+          statusEl.classList.add('show');
+          unitDocumentResult = await attachNewRecordDocuments({
+            propertyId: propertyId,
+            unitId: res.data.id,
+            property: allProperties.filter(function(p){ return p.id === propertyId; })[0],
+            unit: res.data,
+            files: unitDocFiles,
+            existingIds: unitExistingDocIds,
+            archiveCategory: unitDocCategory
+          });
+        }
+        statusEl.textContent = 'Einheit angelegt. Zuweisungen werden geöffnet …' + documentAttachSummary(unitDocumentResult);
+        statusEl.classList.add('show');
+        document.getElementById('newUnitForm').reset();
+        closeNewUnitModal();
+        selectedPropertyId = res.data.property_id;
+        selectedUnitId = res.data.id;
+        await loadAll();
+        renderAllColumns();
+        openUnitModal(res.data.id);
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + (err.message || err);
+        statusEl.classList.add('show');
+      } finally {
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      }
     });
 
     // "+"-Buttons, Zeilen-Klicks und Such-Eingaben laufen über
@@ -1733,15 +1771,28 @@
       window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + body;
     });
 
-    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(){
+    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(evt){
+      var btn = evt.currentTarget;
+      if(btn.disabled) return;
       var recipientId = section.querySelector('.obj-send-chat-select').value;
       if(!recipientId){ statusEl.textContent = 'Bitte Nutzer auswählen.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('messages').insert({
-        sender_profile_id: profile.id, recipient_profile_id: recipientId,
-        attachment_type: 'location_property', attachment_label: getLabel()
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
-      statusEl.classList.add('show');
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Wird gesendet …';
+      try {
+        var res = await client.from('messages').insert({
+          sender_profile_id: profile.id, recipient_profile_id: recipientId,
+          attachment_type: 'location_property', attachment_label: getLabel()
+        });
+        statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
+        statusEl.classList.add('show');
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + (err.message || err);
+        statusEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
   }
 
