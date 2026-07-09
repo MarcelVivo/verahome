@@ -397,8 +397,12 @@
         if(q.length < 2){ resultsEl.innerHTML = ''; return; }
         debounceId = setTimeout(async function(){
           var pattern = '%' + q.replace(/[%,]/g,'') + '%';
-          var filesRes = await client.from('document_files').select('id, title, file_path, mime_type, size_bytes').ilike('title', pattern).limit(6);
-          var foldersRes = await client.from('document_folders').select('id, name').ilike('name', pattern).limit(6);
+          var filesRes = await client.from('document_files').select('id, title, file_path, mime_type, size_bytes').is('archived_at', null).ilike('title', pattern).limit(6);
+          var foldersRes = await client.from('document_folders').select('id, name').is('archived_at', null).ilike('name', pattern).limit(6);
+          if(filesRes.error || foldersRes.error){
+            resultsEl.innerHTML = '<p class="cal-jump-no-results">Dokumentensuche fehlgeschlagen.</p>';
+            return;
+          }
           var html = '';
           (filesRes.data || []).forEach(function(f){
             html += '<button type="button" class="msg-doc-result-item" data-type="file" data-id="'+f.id+'" data-label="'+VeraDashboard.escapeHtml(f.title)+'" data-path="'+f.file_path+'">📄 '+VeraDashboard.escapeHtml(f.title)+'</button>';
@@ -416,9 +420,9 @@
     }
 
     async function collectDocumentFilesRecursive(folderId){
-      var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId);
+      var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId).is('archived_at', null);
       var files = filesRes.data || [];
-      var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+      var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId).is('archived_at', null);
       var subFolders = subRes.data || [];
       for(var i = 0; i < subFolders.length; i++){
         var nested = await collectDocumentFilesRecursive(subFolders[i].id);
@@ -453,11 +457,19 @@
         return;
       }
       var rows = fileIds.map(function(fid){ return { file_id: fid, profile_id: recipientId, created_by: profile.id }; });
-      await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      var shareRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      if(shareRes.error){
+        previewEl.innerHTML = '<p class="cal-jump-no-results">Freigabe fehlgeschlagen: '+VeraDashboard.escapeHtml(shareRes.error.message)+'</p>';
+        return;
+      }
       try { await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: [recipientId] } }); }
       catch(err) { /* Freigabe steht, Mail-Fehler blockiert nichts */ }
 
-      await client.from('messages').insert(payload);
+      var msgRes = await client.from('messages').insert(payload);
+      if(msgRes.error){
+        previewEl.innerHTML = '<p class="cal-jump-no-results">Nachricht konnte nicht erstellt werden: '+VeraDashboard.escapeHtml(msgRes.error.message)+'</p>';
+        return;
+      }
       previewEl.innerHTML = '';
       cfg.reload();
     }
