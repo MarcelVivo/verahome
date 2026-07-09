@@ -934,6 +934,25 @@
     return Array.prototype.slice.call(select.selectedOptions || []).map(function(option){ return option.value; }).filter(Boolean);
   }
 
+  function setActionButtonLoading(button, isLoading, label){
+    if(!button) return;
+    if(isLoading){
+      button.dataset.originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = label || 'Speichern …';
+      return;
+    }
+    button.disabled = false;
+    if(button.dataset.originalText) button.textContent = button.dataset.originalText;
+    delete button.dataset.originalText;
+  }
+
+  function showFormStatus(statusEl, message){
+    if(!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.classList.add('show');
+  }
+
   function refreshNewDocumentSelectors(){
     var propertySelect = document.getElementById('p_existing_documents');
     if(propertySelect) propertySelect.innerHTML = existingDocumentMultiOptionsHtml([]);
@@ -1983,20 +2002,27 @@
 
     document.getElementById('propertyEditForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
       var statusEl = document.getElementById('propertyEditStatus-'+propertyId);
-      var updatePayload = {
-        label: document.getElementById('propLabel-'+propertyId).value.trim(),
-        street: document.getElementById('propStreet-'+propertyId).value.trim() || null,
-        zip: document.getElementById('propZip-'+propertyId).value.trim() || null,
-        city: document.getElementById('propCity-'+propertyId).value.trim() || null
-      };
-      if(supportsPropertyType) updatePayload.property_type = document.getElementById('propType-'+propertyId).value;
-      var res = await client.from('properties').update(updatePayload).eq('id', propertyId);
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt gespeichert.';
-      statusEl.classList.add('show');
-      if(!res.error){
-        await loadAll();
-        renderAllColumns();
+      setActionButtonLoading(submitBtn, true, 'Speichert …');
+      try {
+        var updatePayload = {
+          label: document.getElementById('propLabel-'+propertyId).value.trim(),
+          street: document.getElementById('propStreet-'+propertyId).value.trim() || null,
+          zip: document.getElementById('propZip-'+propertyId).value.trim() || null,
+          city: document.getElementById('propCity-'+propertyId).value.trim() || null
+        };
+        if(supportsPropertyType) updatePayload.property_type = document.getElementById('propType-'+propertyId).value;
+        var res = await client.from('properties').update(updatePayload).eq('id', propertyId);
+        showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Objekt gespeichert.');
+        if(!res.error){
+          await loadAll();
+          renderAllColumns();
+        }
+      } catch(err) {
+        showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      } finally {
+        setActionButtonLoading(submitBtn, false);
       }
     });
     modalBody.querySelector('.delete-property-btn').addEventListener('click', function(btnEvt){
@@ -2017,18 +2043,25 @@
 
     document.getElementById('announceForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
       var statusEl = document.getElementById('announceStatus-'+propertyId);
       var title = document.getElementById('announceTitle-'+propertyId).value.trim();
       var body = document.getElementById('announceBody-'+propertyId).value.trim();
-      if(!title || !body){ statusEl.textContent = 'Bitte Titel und Text angeben.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('property_announcements').insert({
-        property_id: propertyId, title: title, body: body, created_by: profile.id
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Rundschreiben veröffentlicht.';
-      statusEl.classList.add('show');
-      if(!res.error){
-        document.getElementById('announceForm-'+propertyId).reset();
-        loadPropertyAnnouncements(propertyId);
+      if(!title || !body){ showFormStatus(statusEl, 'Bitte Titel und Text angeben.'); return; }
+      setActionButtonLoading(submitBtn, true, 'Veröffentlicht …');
+      try {
+        var res = await client.from('property_announcements').insert({
+          property_id: propertyId, title: title, body: body, created_by: profile.id
+        });
+        showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Rundschreiben veröffentlicht.');
+        if(!res.error){
+          document.getElementById('announceForm-'+propertyId).reset();
+          loadPropertyAnnouncements(propertyId);
+        }
+      } catch(err) {
+        showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      } finally {
+        setActionButtonLoading(submitBtn, false);
       }
     });
 
@@ -2061,18 +2094,26 @@
   async function deleteProperty(propertyId, label){
     if(!window.confirm('Objekt "' + label + '" archivieren? Einheiten und verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
     if(!window.confirm('Zweite Bestätigung: Objekt "' + label + '" jetzt wirklich archivieren?')) return;
-    var res = await client.from('properties').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Objekt archiviert'
-    }).eq('id', propertyId);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
-      return;
+    var button = document.querySelector('.delete-property-btn[data-id="'+propertyId+'"]');
+    setActionButtonLoading(button, true, 'Archiviert …');
+    try {
+      var res = await client.from('properties').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Objekt archiviert'
+      }).eq('id', propertyId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        setActionButtonLoading(button, false);
+        return;
+      }
+      closePropertyModal();
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
+      setActionButtonLoading(button, false);
     }
-    closePropertyModal();
-    await loadAll();
-    renderAllColumns();
   }
 
   /* ============================================================
@@ -2301,12 +2342,23 @@
     el.querySelectorAll('[data-remove-tenancy]').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Mietverhältnis archivieren?')) return;
-        await client.from('tenancies').update({
-          archived_at: new Date().toISOString(),
-          archived_by: profile.id,
-          archived_reason: 'Mietverhältnis bei Einheit archiviert'
-        }).eq('id', btn.getAttribute('data-remove-tenancy'));
-        loadUnitTenants(unit);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var res = await client.from('tenancies').update({
+            archived_at: new Date().toISOString(),
+            archived_by: profile.id,
+            archived_reason: 'Mietverhältnis bei Einheit archiviert'
+          }).eq('id', btn.getAttribute('data-remove-tenancy'));
+          if(res.error){
+            window.alert('Mietverhältnis konnte nicht archiviert werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadUnitTenants(unit);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
   }
@@ -2315,11 +2367,18 @@
     var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
     var profileId = document.getElementById('unitTenantSelect-'+unit.id).value;
     var startDate = document.getElementById('unitTenantStart-'+unit.id).value || new Date().toISOString().slice(0,10);
-    if(!profileId){ statusEl.textContent = 'Bitte Mieter auswählen.'; statusEl.classList.add('show'); return; }
-    var res = await client.from('tenancies').insert({ unit_id: unit.id, tenant_profile_id: profileId, start_date: startDate, status: 'active' });
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Mieter zugewiesen.';
-    statusEl.classList.add('show');
-    if(!res.error){ document.getElementById('unitTenantSelect-'+unit.id).value = ''; loadUnitTenants(unit); refreshUnitPrivateDocRecipients(unit); }
+    var button = document.getElementById('unitTenantAdd-'+unit.id);
+    if(!profileId){ showFormStatus(statusEl, 'Bitte Mieter auswählen.'); return; }
+    setActionButtonLoading(button, true, 'Zuweisen …');
+    try {
+      var res = await client.from('tenancies').insert({ unit_id: unit.id, tenant_profile_id: profileId, start_date: startDate, status: 'active' });
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Mieter zugewiesen.');
+      if(!res.error){ document.getElementById('unitTenantSelect-'+unit.id).value = ''; loadUnitTenants(unit); refreshUnitPrivateDocRecipients(unit); }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
+    }
   }
 
   async function loadUnitOwners(unit){
@@ -2335,12 +2394,23 @@
     el.querySelectorAll('[data-remove-ownership]').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Eigentümerschaft archivieren?')) return;
-        await client.from('ownerships').update({
-          archived_at: new Date().toISOString(),
-          archived_by: profile.id,
-          archived_reason: 'Eigentümerschaft bei Einheit archiviert'
-        }).eq('id', btn.getAttribute('data-remove-ownership'));
-        loadUnitOwners(unit);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var res = await client.from('ownerships').update({
+            archived_at: new Date().toISOString(),
+            archived_by: profile.id,
+            archived_reason: 'Eigentümerschaft bei Einheit archiviert'
+          }).eq('id', btn.getAttribute('data-remove-ownership'));
+          if(res.error){
+            window.alert('Eigentümerschaft konnte nicht archiviert werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadUnitOwners(unit);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
   }
@@ -2349,11 +2419,18 @@
     var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
     var profileId = document.getElementById('unitOwnerSelect-'+unit.id).value;
     var share = numberOrNull(document.getElementById('unitOwnerShare-'+unit.id).value);
-    if(!profileId){ statusEl.textContent = 'Bitte Eigentümer auswählen.'; statusEl.classList.add('show'); return; }
-    var res = await client.from('ownerships').insert({ unit_id: unit.id, owner_profile_id: profileId, share_percent: share, start_date: new Date().toISOString().slice(0,10) });
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Eigentümer zugewiesen.';
-    statusEl.classList.add('show');
-    if(!res.error){ document.getElementById('unitOwnerSelect-'+unit.id).value = ''; loadUnitOwners(unit); refreshUnitPrivateDocRecipients(unit); }
+    var button = document.getElementById('unitOwnerAdd-'+unit.id);
+    if(!profileId){ showFormStatus(statusEl, 'Bitte Eigentümer auswählen.'); return; }
+    setActionButtonLoading(button, true, 'Zuweisen …');
+    try {
+      var res = await client.from('ownerships').insert({ unit_id: unit.id, owner_profile_id: profileId, share_percent: share, start_date: new Date().toISOString().slice(0,10) });
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Eigentümer zugewiesen.');
+      if(!res.error){ document.getElementById('unitOwnerSelect-'+unit.id).value = ''; loadUnitOwners(unit); refreshUnitPrivateDocRecipients(unit); }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
+    }
   }
 
   async function loadUnitHauswarts(unit){
@@ -2386,13 +2463,20 @@
   async function addUnitHauswart(unit){
     var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
     var profileId = document.getElementById('unitHauswartSelect-'+unit.id).value;
-    if(!profileId){ statusEl.textContent = 'Bitte Hauswart auswählen.'; statusEl.classList.add('show'); return; }
-    var res = await client.from('property_permissions').upsert({
-      property_id: unit.property_id, profile_id: profileId, permission: 'hauswart', created_by: profile.id
-    }, { onConflict: 'property_id,profile_id,permission', ignoreDuplicates: true });
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Hauswart zugewiesen.';
-    statusEl.classList.add('show');
-    if(!res.error){ document.getElementById('unitHauswartSelect-'+unit.id).value = ''; loadUnitHauswarts(unit); }
+    var button = document.getElementById('unitHauswartAdd-'+unit.id);
+    if(!profileId){ showFormStatus(statusEl, 'Bitte Hauswart auswählen.'); return; }
+    setActionButtonLoading(button, true, 'Zuweisen …');
+    try {
+      var res = await client.from('property_permissions').upsert({
+        property_id: unit.property_id, profile_id: profileId, permission: 'hauswart', created_by: profile.id
+      }, { onConflict: 'property_id,profile_id,permission', ignoreDuplicates: true });
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Hauswart zugewiesen.');
+      if(!res.error){ document.getElementById('unitHauswartSelect-'+unit.id).value = ''; loadUnitHauswarts(unit); }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
+    }
   }
 
   async function loadUnitLinkedDocs(unit){
@@ -2711,45 +2795,60 @@
 
   async function saveUnitListingDetails(e, unitId){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var statusEl = document.getElementById('unitListingStatus-'+unitId);
-    var res = await client.from('units').update({
-      unit_type: document.getElementById('unitType-'+unitId).value,
-      label: document.getElementById('unitLabel-'+unitId).value.trim(),
-      visibility: document.getElementById('unitVisibility-'+unitId).value,
-      offer_type: document.getElementById('unitOfferType-'+unitId).value || null,
-      living_area_m2: numberOrNull(document.getElementById('unitArea-'+unitId).value),
-      rooms: numberOrNull(document.getElementById('unitRooms-'+unitId).value),
-      floor: document.getElementById('unitFloor-'+unitId).value.trim() || null,
-      rent_chf: numberOrNull(document.getElementById('unitRent-'+unitId).value),
-      extra_costs_chf: numberOrNull(document.getElementById('unitExtraCosts-'+unitId).value),
-      available_from: document.getElementById('unitAvailable-'+unitId).value.trim() || null,
-      teaser: document.getElementById('unitTeaser-'+unitId).value.trim() || null,
-      description: document.getElementById('unitDescription-'+unitId).value.trim() || null,
-      features: document.getElementById('unitFeatures-'+unitId).value.trim() || null
-    }).eq('id', unitId);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einheit gespeichert.';
-    statusEl.classList.add('show');
-    if(!res.error){
-      await loadAll();
-      renderAllColumns();
+    setActionButtonLoading(submitBtn, true, 'Speichert …');
+    try {
+      var res = await client.from('units').update({
+        unit_type: document.getElementById('unitType-'+unitId).value,
+        label: document.getElementById('unitLabel-'+unitId).value.trim(),
+        visibility: document.getElementById('unitVisibility-'+unitId).value,
+        offer_type: document.getElementById('unitOfferType-'+unitId).value || null,
+        living_area_m2: numberOrNull(document.getElementById('unitArea-'+unitId).value),
+        rooms: numberOrNull(document.getElementById('unitRooms-'+unitId).value),
+        floor: document.getElementById('unitFloor-'+unitId).value.trim() || null,
+        rent_chf: numberOrNull(document.getElementById('unitRent-'+unitId).value),
+        extra_costs_chf: numberOrNull(document.getElementById('unitExtraCosts-'+unitId).value),
+        available_from: document.getElementById('unitAvailable-'+unitId).value.trim() || null,
+        teaser: document.getElementById('unitTeaser-'+unitId).value.trim() || null,
+        description: document.getElementById('unitDescription-'+unitId).value.trim() || null,
+        features: document.getElementById('unitFeatures-'+unitId).value.trim() || null
+      }).eq('id', unitId);
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Einheit gespeichert.');
+      if(!res.error){
+        await loadAll();
+        renderAllColumns();
+      }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
     }
   }
 
   async function deleteUnit(unitId, label){
     if(!window.confirm('Einheit "' + label + '" archivieren? Verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
     if(!window.confirm('Zweite Bestätigung: Einheit "' + label + '" jetzt wirklich archivieren?')) return;
-    var res = await client.from('units').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Einheit archiviert'
-    }).eq('id', unitId);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
-      return;
+    var button = document.querySelector('.delete-unit-btn[data-id="'+unitId+'"]');
+    setActionButtonLoading(button, true, 'Archiviert …');
+    try {
+      var res = await client.from('units').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Einheit archiviert'
+      }).eq('id', unitId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        setActionButtonLoading(button, false);
+        return;
+      }
+      closeUnitModal();
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
+      setActionButtonLoading(button, false);
     }
-    closeUnitModal();
-    await loadAll();
-    renderAllColumns();
   }
 
   async function loadHauswartAssignments(propertyId){
@@ -2767,26 +2866,31 @@
 
   async function saveHauswartAssignments(propertyId){
     var statusEl = document.getElementById('hauswartStatus-'+propertyId);
+    var button = document.getElementById('hauswartSaveBtn-'+propertyId);
     var checkedIds = Array.prototype.slice.call(
       document.querySelectorAll('#hauswartUsers-'+propertyId+' input:checked')
     ).map(function(c){ return c.value; });
 
-    statusEl.textContent = 'Zuweisung wird gespeichert …';
-    statusEl.classList.add('show');
-    var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'hauswart');
-    if(deleteRes.error){
-      statusEl.textContent = 'Fehler: bestehende Hauswart-Zuweisungen konnten nicht aktualisiert werden: ' + deleteRes.error.message;
-      statusEl.classList.add('show');
-      return;
+    showFormStatus(statusEl, 'Zuweisung wird gespeichert …');
+    setActionButtonLoading(button, true, 'Speichert …');
+    try {
+      var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'hauswart');
+      if(deleteRes.error){
+        showFormStatus(statusEl, 'Fehler: bestehende Hauswart-Zuweisungen konnten nicht aktualisiert werden: ' + deleteRes.error.message);
+        return;
+      }
+      if(checkedIds.length){
+        var insRes = await client.from('property_permissions').insert(
+          checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'hauswart', created_by: profile.id }; })
+        );
+        if(insRes.error){ showFormStatus(statusEl, 'Fehler: ' + insRes.error.message); return; }
+      }
+      showFormStatus(statusEl, 'Zuweisung gespeichert.');
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
     }
-    if(checkedIds.length){
-      var insRes = await client.from('property_permissions').insert(
-        checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'hauswart', created_by: profile.id }; })
-      );
-      if(insRes.error){ statusEl.textContent = 'Fehler: ' + insRes.error.message; statusEl.classList.add('show'); return; }
-    }
-    statusEl.textContent = 'Zuweisung gespeichert.';
-    statusEl.classList.add('show');
   }
 
   async function loadPropertyAnnouncements(propertyId){
@@ -2848,17 +2952,24 @@
 
   async function saveLaundrySettings(propertyId, property){
     var statusEl = document.getElementById('laundrySettingsStatus-'+propertyId);
-    var res = await client.from('properties').update({
-      laundry_machine_count: parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10),
-      laundry_mode: document.getElementById('laundryMode-'+propertyId).value
-    }).eq('id', propertyId);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Einstellungen gespeichert.';
-    statusEl.classList.add('show');
-    if(!res.error){
-      property.laundry_machine_count = parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10);
-      property.laundry_mode = document.getElementById('laundryMode-'+propertyId).value;
-      applyLaundryMode(property);
-      await loadAll();
+    var button = document.getElementById('laundrySettingsSaveBtn-'+propertyId);
+    setActionButtonLoading(button, true, 'Speichert …');
+    try {
+      var res = await client.from('properties').update({
+        laundry_machine_count: parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10),
+        laundry_mode: document.getElementById('laundryMode-'+propertyId).value
+      }).eq('id', propertyId);
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Einstellungen gespeichert.');
+      if(!res.error){
+        property.laundry_machine_count = parseInt(document.getElementById('laundryMachineCount-'+propertyId).value, 10);
+        property.laundry_mode = document.getElementById('laundryMode-'+propertyId).value;
+        applyLaundryMode(property);
+        await loadAll();
+      }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
     }
   }
 
@@ -2909,22 +3020,29 @@
   async function addLaundrySlot(e, propertyId){
     e.preventDefault();
     var statusEl = document.getElementById('laundryStatus-'+propertyId);
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var period = document.getElementById('laundryPeriod-'+propertyId).value;
     var times = LAUNDRY_PERIOD_TIMES[period];
-    var res = await client.from('laundry_schedule_slots').insert({
-      property_id: propertyId,
-      weekday: document.getElementById('laundryWeekday-'+propertyId).value,
-      start_time: times[0],
-      end_time: times[1],
-      unit_id: document.getElementById('laundryUnit-'+propertyId).value || null,
-      label: document.getElementById('laundryLabel-'+propertyId).value.trim() || null,
-      created_by: profile.id
-    });
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Slot hinzugefügt.';
-    statusEl.classList.add('show');
-    if(!res.error){
-      document.getElementById('laundryForm-'+propertyId).reset();
-      loadLaundryWeek(propertyId);
+    setActionButtonLoading(submitBtn, true, 'Fügt hinzu …');
+    try {
+      var res = await client.from('laundry_schedule_slots').insert({
+        property_id: propertyId,
+        weekday: document.getElementById('laundryWeekday-'+propertyId).value,
+        start_time: times[0],
+        end_time: times[1],
+        unit_id: document.getElementById('laundryUnit-'+propertyId).value || null,
+        label: document.getElementById('laundryLabel-'+propertyId).value.trim() || null,
+        created_by: profile.id
+      });
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Slot hinzugefügt.');
+      if(!res.error){
+        document.getElementById('laundryForm-'+propertyId).reset();
+        loadLaundryWeek(propertyId);
+      }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
     }
   }
 
@@ -2979,26 +3097,31 @@
 
   async function saveLaundryPermissions(propertyId){
     var statusEl = document.getElementById('laundryPermStatus-'+propertyId);
+    var button = document.getElementById('laundryPermSaveBtn-'+propertyId);
     var checkedIds = Array.prototype.slice.call(
       document.querySelectorAll('#laundryPermUsers-'+propertyId+' input:checked')
     ).map(function(c){ return c.value; });
 
-    statusEl.textContent = 'Berechtigung wird gespeichert …';
-    statusEl.classList.add('show');
-    var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'waschplan');
-    if(deleteRes.error){
-      statusEl.textContent = 'Fehler: bestehende Waschplan-Berechtigungen konnten nicht aktualisiert werden: ' + deleteRes.error.message;
-      statusEl.classList.add('show');
-      return;
+    showFormStatus(statusEl, 'Berechtigung wird gespeichert …');
+    setActionButtonLoading(button, true, 'Speichert …');
+    try {
+      var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'waschplan');
+      if(deleteRes.error){
+        showFormStatus(statusEl, 'Fehler: bestehende Waschplan-Berechtigungen konnten nicht aktualisiert werden: ' + deleteRes.error.message);
+        return;
+      }
+      if(checkedIds.length){
+        var insRes = await client.from('property_permissions').insert(
+          checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'waschplan', created_by: profile.id }; })
+        );
+        if(insRes.error){ showFormStatus(statusEl, 'Fehler: ' + insRes.error.message); return; }
+      }
+      showFormStatus(statusEl, 'Berechtigung gespeichert.');
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
     }
-    if(checkedIds.length){
-      var insRes = await client.from('property_permissions').insert(
-        checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'waschplan', created_by: profile.id }; })
-      );
-      if(insRes.error){ statusEl.textContent = 'Fehler: ' + insRes.error.message; statusEl.classList.add('show'); return; }
-    }
-    statusEl.textContent = 'Berechtigung gespeichert.';
-    statusEl.classList.add('show');
   }
 
   async function loadThumbs(propertyId){
