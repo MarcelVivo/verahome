@@ -339,13 +339,11 @@
         var res = await client.functions.invoke('admin-create-user', { body: payload });
         if(res.error || (res.data && res.data.error)){
           statusEl.textContent = 'Fehler: ' + (await edgeFunctionErrorMessage(res));
-          if(submitBtn){
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-          }
           return;
         }
-        statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
+        statusEl.textContent = res.data && res.data.skipped
+          ? 'Kontakt angelegt. Testmodus aktiv: Einladung wurde nicht versendet.'
+          : 'Kontakt angelegt, Einladung versendet.';
         document.getElementById('newContactForm').reset();
         document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
         applyContactCategoryUI(
@@ -356,12 +354,10 @@
         );
         await loadAll();
         renderAllColumns();
-        if(submitBtn){
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-        }
       } catch(err) {
         statusEl.textContent = 'Fehler: ' + err.message;
+        statusEl.classList.add('show');
+      } finally {
         if(submitBtn){
           submitBtn.disabled = false;
           submitBtn.textContent = originalText;
@@ -795,7 +791,7 @@
         btn.textContent = originalText;
       }, 2200);
     } catch(err) {
-      window.alert('Fehler beim Senden: ' + err);
+      window.alert('Fehler beim Senden: ' + (err && err.message ? err.message : err));
       btn.disabled = false;
       btn.textContent = originalText;
     }
