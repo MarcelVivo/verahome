@@ -323,8 +323,14 @@
     if(issueBtn) issueBtn.addEventListener('click', async function(){
       if(!window.confirm('Rechnung jetzt senden? Der Empfänger sieht sie danach in seinen Rechnungen.')) return;
       issueBtn.disabled = true;
+      issueBtn.textContent = 'Wird gesendet …';
       var issueRes = await client.rpc('issue_invoice', { p_invoice_id: invoice.id });
-      if(issueRes.error){ window.alert('Fehler: ' + issueRes.error.message); issueBtn.disabled = false; return; }
+      if(issueRes.error){
+        window.alert('Fehler: ' + issueRes.error.message);
+        issueBtn.disabled = false;
+        issueBtn.textContent = 'Senden';
+        return;
+      }
       try {
         var emailRes = await VeraPortal.sendInvoiceEmail(invoice.id);
         if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
@@ -333,19 +339,34 @@
     });
     var markPaidBtn = document.getElementById('markPaidBtn');
     if(markPaidBtn) markPaidBtn.addEventListener('click', async function(){
+      if(!window.confirm('Diese Rechnung wirklich als bezahlt markieren?')) return;
+      markPaidBtn.disabled = true;
+      markPaidBtn.textContent = 'Wird markiert …';
       var res = await VeraPortal.markInvoicePaid(invoice.id);
-      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      if(res.error){
+        window.alert('Fehler: ' + res.error.message);
+        markPaidBtn.disabled = false;
+        markPaidBtn.textContent = 'Als bezahlt markieren';
+        return;
+      }
       window.location.reload();
     });
     var cancelBtn = document.getElementById('cancelBtn');
     if(cancelBtn) cancelBtn.addEventListener('click', async function(){
       if(!window.confirm('Rechnung wirklich stornieren?')) return;
       var reason = window.prompt('Grund für die Stornierung (optional):', '') || '';
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = 'Wird storniert …';
       var cancelRes = await client.rpc('cancel_invoice', {
         p_invoice_id: invoice.id,
         p_reason: reason
       });
-      if(cancelRes.error){ window.alert('Fehler: ' + cancelRes.error.message); return; }
+      if(cancelRes.error){
+        window.alert('Fehler: ' + cancelRes.error.message);
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = 'Stornieren';
+        return;
+      }
       window.location.reload();
     });
   }
