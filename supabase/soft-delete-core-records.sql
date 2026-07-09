@@ -253,3 +253,25 @@ begin
     and archived_at is null;
 end;
 $$;
+
+create or replace function public.archive_invoice(p_invoice_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.invoices
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Rechnung archiviert')
+  where id = p_invoice_id
+    and archived_at is null
+    and status in ('entwurf', 'bezahlt', 'storniert')
+    and (issuer_profile_id = auth.uid() or public.is_admin());
+
+  if not found then
+    raise exception 'Rechnung nicht gefunden, offene Rechnung nicht archivierbar oder keine Berechtigung.';
+  end if;
+end;
+$$;

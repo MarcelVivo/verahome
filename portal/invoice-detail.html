@@ -225,7 +225,7 @@
     var invoiceId = params.get('id');
     if(!invoiceId){ showError(); return; }
 
-    var invRes = await client.from('invoices').select('*').eq('id', invoiceId).single();
+    var invRes = await client.from('invoices').select('*').eq('id', invoiceId).is('archived_at', null).single();
     if(invRes.error || !invRes.data){ showError(); return; }
     invoice = invRes.data;
 
@@ -323,8 +323,8 @@
     if(issueBtn) issueBtn.addEventListener('click', async function(){
       if(!window.confirm('Rechnung jetzt senden? Der Empfänger sieht sie danach in seinen Rechnungen.')) return;
       issueBtn.disabled = true;
-      var updRes = await client.from('invoices').update({ status: 'offen' }).eq('id', invoice.id);
-      if(updRes.error){ window.alert('Fehler: ' + updRes.error.message); issueBtn.disabled = false; return; }
+      var issueRes = await client.rpc('issue_invoice', { p_invoice_id: invoice.id });
+      if(issueRes.error){ window.alert('Fehler: ' + issueRes.error.message); issueBtn.disabled = false; return; }
       try {
         var emailRes = await VeraPortal.sendInvoiceEmail(invoice.id);
         if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
@@ -340,7 +340,12 @@
     var cancelBtn = document.getElementById('cancelBtn');
     if(cancelBtn) cancelBtn.addEventListener('click', async function(){
       if(!window.confirm('Rechnung wirklich stornieren?')) return;
-      await client.from('invoices').update({ status: 'storniert' }).eq('id', invoice.id);
+      var reason = window.prompt('Grund für die Stornierung (optional):', '') || '';
+      var cancelRes = await client.rpc('cancel_invoice', {
+        p_invoice_id: invoice.id,
+        p_reason: reason
+      });
+      if(cancelRes.error){ window.alert('Fehler: ' + cancelRes.error.message); return; }
       window.location.reload();
     });
   }

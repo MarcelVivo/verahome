@@ -428,7 +428,7 @@
     var editingInvoice = null;
 
     if(editInvoiceId){
-      var invRes = await client.from('invoices').select('*').eq('id', editInvoiceId).single();
+      var invRes = await client.from('invoices').select('*').eq('id', editInvoiceId).is('archived_at', null).single();
       if(invRes.error || !invRes.data || invRes.data.status !== 'entwurf' ||
          (invRes.data.issuer_profile_id !== profile.id && profile.category !== 'admin')){
         window.alert('Diese Rechnung kann nicht korrigiert werden (nicht gefunden, keine Berechtigung, oder bereits versendet).');
@@ -655,8 +655,8 @@
   }
 
   /* Correcting a draft: update the invoice's own fields, then replace
-     its line items wholesale (delete + re-insert) rather than diffing —
-     simplest correct approach, and cheap since drafts have few rows. */
+     its line items wholesale (delete + re-insert). The DB now allows
+     invoice_line_items changes only while the invoice is an active draft. */
   async function updateInvoice(invoiceId){
     var statusEl = document.getElementById('newInvoiceStatus');
     var recipientId = document.getElementById('inv_recipient').value;
