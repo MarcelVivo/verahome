@@ -1361,7 +1361,7 @@
           '<button type="button" class="dash-btn-sm" id="fmDetailShareFolder">Senden</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailAssignFolder">Zuordnung bearbeiten</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailRenameFolder">Umbenennen</button>' +
-          '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFolder">Löschen</button>' +
+          '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFolder">Archivieren</button>' +
         '</div>';
       document.getElementById('fmDetailOpenFolder').onclick = function(){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); };
       document.getElementById('fmDetailShareFolder').onclick = function(){ fmOpenShareModal('folder', folder.id, folder.name); };
@@ -1382,7 +1382,7 @@
         '<button type="button" class="dash-btn-sm" id="fmDetailShareFile">Senden</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailAssignFile">Zuordnung bearbeiten</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailRenameFile">Umbenennen</button>' +
-        '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFile">Löschen</button>' +
+        '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFile">Archivieren</button>' +
       '</div>';
     document.getElementById('fmDetailOpenFile').onclick = function(){ openSignedUrl('document-vault', file.file_path); };
     document.getElementById('fmDetailShareFile').onclick = function(){ fmOpenShareModal('file', file.id, file.title); };
@@ -1426,16 +1426,22 @@
 
   async function fmDeleteFolder(id, name){
     if(!window.confirm('Ordner "'+name+'" archivieren? Alle Unterordner und Dateien bleiben im geschützten Archiv erhalten.')) return;
-    await client.rpc('archive_document_folder', {
+    if(!window.confirm('Zweite Bestätigung: Ordner "'+name+'" jetzt wirklich archivieren?')) return;
+    var res = await client.rpc('archive_document_folder', {
       p_folder_id: id,
       p_reason: 'Ordner archiviert'
     });
+    if(res.error){
+      window.alert('Ordner konnte nicht archiviert werden: ' + res.error.message);
+      return;
+    }
     fmSelected = null;
     fmLoadCurrentFolder();
   }
 
   async function fmDeleteFile(id, path, name){
     if(!window.confirm('Datei "'+name+'" archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
+    if(!window.confirm('Zweite Bestätigung: Datei "'+name+'" jetzt wirklich archivieren?')) return;
     var res = await client.rpc('archive_document_file', {
       p_file_id: id,
       p_reason: 'Datei archiviert'

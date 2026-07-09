@@ -3214,7 +3214,7 @@
           '<td><div class="dash-btn-row">' +
             '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
             '<button type="button" class="dash-btn-sm edit-access-btn" data-id="'+d.id+'">Zugriff bearbeiten</button>' +
-            '<button type="button" class="dash-btn-sm danger del-doc-btn" data-id="'+d.id+'" data-path="'+d.file_path+'">Löschen</button>' +
+            '<button type="button" class="dash-btn-sm danger del-doc-btn" data-id="'+d.id+'" data-path="'+d.file_path+'">Archivieren</button>' +
           '</div></td>' +
         '</tr>';
       }).join('');
@@ -3228,6 +3228,7 @@
     table.querySelectorAll('.del-doc-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Dokument archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
+        if(!window.confirm('Zweite Bestätigung: Dokument jetzt wirklich archivieren?')) return;
         var archiveRes = await client.rpc('archive_document_file', {
           p_file_id: btn.getAttribute('data-id'),
           p_reason: 'Dokument archiviert'
