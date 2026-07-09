@@ -117,51 +117,73 @@
     VeraDashboard.renderSidebar('tickets', ctx.profile);
     client = VeraPortal.getClient();
 
-    document.getElementById('newTicketForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      var statusEl = document.getElementById('newTicketStatus');
-      var title = document.getElementById('tk_title').value.trim();
-      var description = document.getElementById('tk_description').value.trim();
+	    document.getElementById('newTicketForm').addEventListener('submit', async function(e){
+	      e.preventDefault();
+	      var statusEl = document.getElementById('newTicketStatus');
+	      var submitBtn = e.submitter || document.querySelector('#newTicketForm button[type="submit"]');
+	      if(submitBtn && submitBtn.disabled) return;
+	      var title = document.getElementById('tk_title').value.trim();
+	      var description = document.getElementById('tk_description').value.trim();
       if(!title || !description){
         statusEl.textContent = 'Bitte Titel und Beschreibung angeben.';
         statusEl.classList.add('show');
         return;
       }
 
-      statusEl.textContent = 'Wird gesendet …';
-      statusEl.classList.add('show');
+	      statusEl.textContent = 'Wird gesendet …';
+	      statusEl.classList.add('show');
+	      var originalText = submitBtn ? submitBtn.textContent : '';
+	      if(submitBtn){
+	        submitBtn.disabled = true;
+	        submitBtn.textContent = 'Wird gesendet …';
+	      }
 
-      var insRes = await client.from('admin_tickets').insert({
-        created_by: profile.id,
-        title: title,
-        description: description
-      }).select().single();
+	      try {
+	        var insRes = await client.from('admin_tickets').insert({
+	          created_by: profile.id,
+	          title: title,
+	          description: description
+	        }).select().single();
 
-      if(insRes.error){
-        statusEl.textContent = 'Fehler: ' + insRes.error.message;
-        return;
-      }
+	        if(insRes.error){
+	          statusEl.textContent = 'Fehler: ' + insRes.error.message;
+	          return;
+	        }
 
-      var ticketId = insRes.data.id;
-      var files = Array.prototype.slice.call(document.getElementById('tk_photos').files);
-      for(var i = 0; i < files.length; i++){
-        var file = files[i];
-        var photoId = crypto.randomUUID();
-        var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        var path = ticketId + '/' + photoId + '-' + safeName;
-        var upRes = await client.storage.from('admin-ticket-photos').upload(path, file);
-        if(!upRes.error){
-          await client.from('admin_ticket_photos').insert({ id: photoId, ticket_id: ticketId, file_path: path, sort_order: i });
-        }
-      }
+	        var ticketId = insRes.data.id;
+	        var files = Array.prototype.slice.call(document.getElementById('tk_photos').files);
+	        var photoErrors = [];
+	        for(var i = 0; i < files.length; i++){
+	          var file = files[i];
+	          var photoId = crypto.randomUUID();
+	          var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+	          var path = ticketId + '/' + photoId + '-' + safeName;
+	          var upRes = await client.storage.from('admin-ticket-photos').upload(path, file);
+	          if(upRes.error){
+	            photoErrors.push(file.name);
+	            continue;
+	          }
+	          var photoRes = await client.from('admin_ticket_photos').insert({ id: photoId, ticket_id: ticketId, file_path: path, sort_order: i });
+	          if(photoRes.error) photoErrors.push(file.name);
+	        }
 
-      try { await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } }); }
-      catch(err) { /* Ticket steht, Mail-Fehler blockiert nichts */ }
+	        try { await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } }); }
+	        catch(err) { /* Ticket steht, Mail-Fehler blockiert nichts */ }
 
-      statusEl.textContent = 'Ticket wurde übermittelt.';
-      document.getElementById('newTicketForm').reset();
-      loadTickets();
-    });
+	        statusEl.textContent = photoErrors.length
+	          ? 'Ticket wurde übermittelt. Einige Fotos konnten nicht gespeichert werden: ' + photoErrors.join(', ')
+	          : 'Ticket wurde übermittelt.';
+	        document.getElementById('newTicketForm').reset();
+	        loadTickets();
+	      } catch(err) {
+	        statusEl.textContent = 'Fehler: ' + (err.message || err);
+	      } finally {
+	        if(submitBtn){
+	          submitBtn.disabled = false;
+	          submitBtn.textContent = originalText;
+	        }
+	      }
+	    });
 
     loadTickets();
   });
@@ -195,15 +217,31 @@
 
     tickets.forEach(function(t){ loadTicketPhotos(t.id); });
 
-    list.querySelectorAll('.save-status-btn').forEach(function(btn){
-      btn.addEventListener('click', async function(){
-        var id = btn.getAttribute('data-id');
-        var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
-        var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
-        await client.from('admin_tickets').update({ status: status, resolution_note: note || null, updated_by: profile.id }).eq('id', id);
-        loadTickets();
-      });
-    });
+	    list.querySelectorAll('.save-status-btn').forEach(function(btn){
+	      btn.addEventListener('click', async function(){
+	        if(btn.disabled) return;
+	        var id = btn.getAttribute('data-id');
+	        var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
+	        var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
+	        var originalText = btn.textContent;
+	        btn.disabled = true;
+	        btn.textContent = 'Wird gespeichert …';
+	        try {
+	          var res = await client.from('admin_tickets').update({ status: status, resolution_note: note || null, updated_by: profile.id }).eq('id', id);
+	          if(res.error){
+	            window.alert('Ticket konnte nicht gespeichert werden: ' + res.error.message);
+	            btn.disabled = false;
+	            btn.textContent = originalText;
+	            return;
+	          }
+	          loadTickets();
+	        } catch(err) {
+	          window.alert('Ticket konnte nicht gespeichert werden: ' + (err.message || err));
+	          btn.disabled = false;
+	          btn.textContent = originalText;
+	        }
+	      });
+	    });
   }
 
   async function loadTicketPhotos(ticketId){
