@@ -1239,7 +1239,7 @@
     return rows.map(function(a){
       return '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="appliance" data-detail-id="'+a.id+'">' +
         '<strong>'+VeraDashboard.escapeHtml(a.label)+'</strong>' +
-      '<span class="obj-row-meta">'+VeraDashboard.escapeHtml([a.manufacturer, a.model, a.serial_number].filter(Boolean).join(' · ') || a.category || 'Gerät')+'</span></button>';
+        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml([a.manufacturer, a.model, a.serial_number].filter(Boolean).join(' · ') || a.category || 'Gerät')+'</span></button>';
     }).join('');
   }
 
