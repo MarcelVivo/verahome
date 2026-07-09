@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archiv | Vera Portal Admin – Vera Home Immobilien</title>
+<meta name="description" content="Archivierte Vera Portal Daten wiederherstellen.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<link rel="alternate icon" type="image/png" href="/public/images/logo/VeraHomePiktogramm.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/public/css/styles.css">
+<link rel="stylesheet" href="/public/css/portal.css">
+<link rel="stylesheet" href="/public/css/portal-dashboard.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Zum Inhalt springen</a>
+
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+      <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Immobilien</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/index.html#leistungen">Leistungen</a></li>
+      <li><a href="/index.html#objekte">Objekte</a></li>
+      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
+      <li><a href="/index.html#ueber-mich">Über uns</a></li>
+      <li><a href="/index.html#kontakt">Kontakt</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="dash-layout">
+    <aside id="dashSidebar" class="dash-sidebar"></aside>
+    <section class="dash-content">
+      <h1>Archiv</h1>
+      <p class="dash-lead">Archivierte Geschäftsdaten bleiben nachvollziehbar erhalten und können hier wieder aktiviert werden.</p>
+
+      <div class="dash-card archive-control-card">
+        <div class="archive-toolbar">
+          <input id="archiveSearch" type="search" placeholder="Archiv durchsuchen …" autocomplete="off">
+          <button type="button" class="dash-btn-sm" id="archiveReloadBtn">Neu laden</button>
+        </div>
+        <p class="doc-meta">Wiederherstellen entfernt nur den Archivstatus. Verknüpfte Daten bleiben unverändert.</p>
+        <p class="form-status" id="archiveStatus"></p>
+      </div>
+
+      <div class="archive-grid" id="archiveGrid"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-brand">Vera Home Immobilien</p>
+        <p>Hauptstrasse 39, 5070 Frick</p>
+        <p><a href="tel:+41763368438">+41 76 336 84 38</a></p>
+        <p><a href="mailto:welcome@verahome.ch">welcome@verahome.ch</a></p>
+      </div>
+      <p class="footer-quote">"Zuhause beginnt hier." – Vera Home Immobilien</p>
+      <div class="footer-right">
+        <p><a href="/index.html#ueber-mich">Über uns</a><a href="/index.html#leistungen">Leistungen</a><a href="/index.html#kontakt">Kontakt</a></p>
+        <p><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vera Home Immobilien · Julia Allen · Frick AG · www.verahome.ch</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/public/js/supabase-config.js"></script>
+<script src="/public/js/portal-auth.js"></script>
+<script src="/public/js/portal-dashboard.js"></script>
+<script src="/public/js/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+  var client, profile, archiveSections = [];
+
+  var SECTION_CONFIG = [
+    {
+      key: "profiles",
+      table: "profiles",
+      title: "Kontakte",
+      select: "id, first_name, last_name, email, category, archived_at, archived_reason",
+      order: "last_name",
+      label: function(r){ return [r.last_name, r.first_name].filter(Boolean).join(" ") || r.email || "Kontakt"; },
+      meta: function(r){ return [VeraDashboard.categoryLabel(r.category), r.email].filter(Boolean).join(" · "); },
+      restorePayload: function(){ return { archived_at:null, archived_by:null, archived_reason:null, status:"active" }; }
+    },
+    {
+      key: "properties",
+      table: "properties",
+      title: "Objekte / Liegenschaften",
+      select: "id, label, street, zip, city, archived_at, archived_reason",
+      order: "label",
+      label: function(r){ return r.label || "Objekt"; },
+      meta: function(r){ return [r.street, r.zip, r.city].filter(Boolean).join(", "); }
+    },
+    {
+      key: "units",
+      table: "units",
+      title: "Einheiten",
+      select: "id, label, unit_type, property_id, archived_at, archived_reason",
+      order: "label",
+      label: function(r){ return r.label || "Einheit"; },
+      meta: function(r){ return VeraDashboard.categoryLabel(r.unit_type) || r.unit_type || "Einheit"; }
+    },
+    {
+      key: "tenancies",
+      table: "tenancies",
+      title: "Mietverhältnisse",
+      select: "id, status, start_date, end_date, tenant:profiles!tenant_profile_id(first_name,last_name), archived_at, archived_reason",
+      order: "start_date",
+      label: function(r){ return r.tenant ? [r.tenant.last_name, r.tenant.first_name].filter(Boolean).join(" ") : "Mietverhältnis"; },
+      meta: function(r){ return [r.status, r.start_date, r.end_date].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "ownerships",
+      table: "ownerships",
+      title: "Eigentümerschaften",
+      select: "id, share_percent, start_date, end_date, owner:profiles!owner_profile_id(first_name,last_name), archived_at, archived_reason",
+      order: "start_date",
+      label: function(r){ return r.owner ? [r.owner.last_name, r.owner.first_name].filter(Boolean).join(" ") : "Eigentümerschaft"; },
+      meta: function(r){ return [r.share_percent ? r.share_percent + "%" : "", r.start_date, r.end_date].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "job_assignments",
+      table: "job_assignments",
+      title: "Aufträge",
+      select: "id, title, status, archived_at, archived_reason",
+      order: "title",
+      label: function(r){ return r.title || "Auftrag"; },
+      meta: function(r){ return r.status || ""; }
+    },
+    {
+      key: "document_folders",
+      table: "document_folders",
+      title: "Dokumentordner",
+      select: "id, name, archive_category, archived_at, archived_reason",
+      order: "name",
+      label: function(r){ return r.name || "Ordner"; },
+      meta: function(r){ return r.archive_category || ""; }
+    },
+    {
+      key: "document_files",
+      table: "document_files",
+      title: "Dokumente",
+      select: "id, title, mime_type, archive_category, archived_at, archived_reason",
+      order: "title",
+      label: function(r){ return r.title || "Dokument"; },
+      meta: function(r){ return [r.archive_category, r.mime_type].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "invoices",
+      table: "invoices",
+      title: "Rechnungen",
+      select: "id, invoice_number, status, total, archived_at, archived_reason",
+      order: "invoice_number",
+      label: function(r){ return r.invoice_number ? "Rechnung " + r.invoice_number : "Rechnung"; },
+      meta: function(r){ return [r.status, r.total != null ? "CHF " + Number(r.total).toFixed(2) : ""].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "property_appliances",
+      table: "property_appliances",
+      title: "Geräte",
+      select: "id, label, category, manufacturer, model, archived_at, archived_reason",
+      order: "label",
+      label: function(r){ return r.label || r.category || "Gerät"; },
+      meta: function(r){ return [r.manufacturer, r.model, r.category].filter(Boolean).join(" · "); }
+    }
+  ];
+
+  VeraPortal.requireAdmin().then(function(ctx){
+    if(!ctx) return;
+    profile = ctx.profile;
+    client = VeraPortal.getClient();
+    VeraDashboard.renderSidebar("admin-archive", ctx.profile);
+    document.getElementById("archiveReloadBtn").addEventListener("click", loadArchive);
+    document.getElementById("archiveSearch").addEventListener("input", renderArchive);
+    loadArchive();
+  });
+
+  function setStatus(message, isError){
+    var el = document.getElementById("archiveStatus");
+    el.textContent = message || "";
+    el.classList.toggle("show", !!message);
+    el.classList.toggle("error", !!isError);
+  }
+
+  async function loadArchive(){
+    setStatus("Archiv wird geladen …");
+    var sections = [];
+    for(var i = 0; i < SECTION_CONFIG.length; i++){
+      var cfg = SECTION_CONFIG[i];
+      var query = client.from(cfg.table).select(cfg.select).not("archived_at", "is", null);
+      if(cfg.order) query = query.order(cfg.order, { ascending:false });
+      var res = await query.limit(100);
+      sections.push({ config: cfg, rows: res.data || [], error: res.error });
+    }
+    archiveSections = sections;
+    renderArchive();
+    var errors = sections.filter(function(section){ return section.error; });
+    setStatus(errors.length ? "Einige Archivbereiche konnten nicht geladen werden. SQL-Migration prüfen." : "");
+  }
+
+  function matchesSearch(row, cfg, query){
+    if(!query) return true;
+    var haystack = [
+      cfg.title,
+      cfg.label(row),
+      cfg.meta(row),
+      row.archived_reason,
+      row.archived_at
+    ].join(" ").toLowerCase();
+    return haystack.indexOf(query.toLowerCase()) > -1;
+  }
+
+  function renderArchive(){
+    var query = document.getElementById("archiveSearch").value.trim();
+    var grid = document.getElementById("archiveGrid");
+    var html = "";
+    var total = 0;
+
+    archiveSections.forEach(function(section){
+      var cfg = section.config;
+      var rows = section.rows.filter(function(row){ return matchesSearch(row, cfg, query); });
+      total += rows.length;
+      html += '<section class="dash-card archive-section">' +
+        '<div class="archive-section-head"><h2>'+VeraDashboard.escapeHtml(cfg.title)+'</h2><span class="status-badge info">'+rows.length+'</span></div>';
+      if(section.error){
+        html += '<p class="dash-empty">Fehler: '+VeraDashboard.escapeHtml(section.error.message)+'</p>';
+      } else if(!rows.length){
+        html += '<p class="dash-empty">Keine archivierten Einträge.</p>';
+      } else {
+        html += '<div class="dash-table-wrap"><table class="dash-table archive-table">' +
+          '<tr><th>Name</th><th>Info</th><th>Archiviert</th><th>Grund</th><th></th></tr>' +
+          rows.map(function(row){
+            return '<tr>' +
+              '<td data-label="Name"><strong>'+VeraDashboard.escapeHtml(cfg.label(row))+'</strong></td>' +
+              '<td data-label="Info">'+VeraDashboard.escapeHtml(cfg.meta(row) || "–")+'</td>' +
+              '<td data-label="Archiviert">'+VeraDashboard.escapeHtml(VeraDashboard.formatDateTime(row.archived_at))+'</td>' +
+              '<td data-label="Grund">'+VeraDashboard.escapeHtml(row.archived_reason || "–")+'</td>' +
+              '<td data-label="Aktion"><button type="button" class="dash-btn-sm archive-restore-btn" data-table="'+cfg.table+'" data-key="'+cfg.key+'" data-id="'+row.id+'">Wiederherstellen</button></td>' +
+            '</tr>';
+          }).join("") +
+        '</table></div>';
+      }
+      html += '</section>';
+    });
+
+    grid.innerHTML = total || archiveSections.length ? html : '<div class="dash-card"><p class="dash-empty">Archiv wird geladen …</p></div>';
+    grid.querySelectorAll(".archive-restore-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        restoreRecord(btn.getAttribute("data-key"), btn.getAttribute("data-table"), btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  async function restoreRecord(key, table, id){
+    var cfg = SECTION_CONFIG.filter(function(item){ return item.key === key; })[0];
+    if(!cfg || !id) return;
+    if(!window.confirm("Eintrag wirklich wiederherstellen?")) return;
+    setStatus("Eintrag wird wiederhergestellt …");
+    var payload = cfg.restorePayload ? cfg.restorePayload() : { archived_at:null, archived_by:null, archived_reason:null };
+    var res = await client.from(table).update(payload).eq("id", id);
+    if(res.error){
+      setStatus("Fehler beim Wiederherstellen: " + res.error.message, true);
+      return;
+    }
+    setStatus("Eintrag wiederhergestellt.");
+    await loadArchive();
+  }
+})();
+</script>
+</body>
+</html>

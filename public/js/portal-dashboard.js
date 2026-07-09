@@ -28,6 +28,7 @@ window.VeraDashboard = (function () {
       { key: "messages", href: "/portal/messages.html", label: "Nachrichten" },
       { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
       { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen" },
+      { key: "admin-archive", href: "/portal/admin/archive.html", label: "Archiv", roles: ["admin"] },
       { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Admin", roles: ["admin"], portalOwnerOnly: true }
     ]}
   ];
@@ -366,6 +367,7 @@ window.VeraDashboard = (function () {
     var usersRes = await client.from("profiles")
       .select("id, first_name, last_name, email, category")
       .neq("category", "admin")
+      .is("archived_at", null)
       .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern + ",email.ilike." + pattern)
       .limit(5);
     results.users = (usersRes.data || []).map(function (p) {
@@ -375,6 +377,7 @@ window.VeraDashboard = (function () {
 
     var propsRes = await client.from("properties")
       .select("id, label, street, city")
+      .is("archived_at", null)
       .or("label.ilike." + pattern + ",street.ilike." + pattern + ",city.ilike." + pattern)
       .limit(5);
     results.properties = (propsRes.data || []).map(function (p) {
@@ -383,6 +386,7 @@ window.VeraDashboard = (function () {
 
     var tenanciesRes = await client.from("tenancies")
       .select("id, status, tenant:profiles!tenant_profile_id!inner(first_name, last_name)")
+      .is("archived_at", null)
       .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern, { foreignTable: "tenant" })
       .limit(5);
     results.tenancies = (tenanciesRes.data || []).map(function (t) {

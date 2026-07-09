@@ -819,6 +819,36 @@
 /* Für Sie freigegebene Dokumente (Nutzer) */
 .doc-confirmed-badge{color:#1F6A55;font-size:.78rem;font-weight:600;}
 
+.archive-control-card{display:flex;flex-direction:column;gap:10px;}
+.archive-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.archive-toolbar input{flex:1;min-width:240px;}
+.archive-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+.archive-section{margin:0;}
+.archive-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.archive-section-head h2{margin:0;}
+.archive-table td strong{color:var(--color-navy);}
+.archive-restore-btn{white-space:nowrap;}
+
+@media (max-width:640px){
+  .archive-toolbar{flex-direction:column;align-items:stretch;}
+  .archive-toolbar input,.archive-toolbar button{width:100%;min-width:0;}
+  .archive-section-head{align-items:flex-start;}
+  .archive-section .dash-table-wrap{overflow:visible;}
+  .archive-table{min-width:0!important;}
+  .archive-table tbody,.archive-table tr,.archive-table td{display:block;width:100%;}
+  .archive-table tr:first-child{display:none;}
+  .archive-table tr{
+    border:1px solid var(--color-blue-light);border-radius:16px;margin:0 0 12px;padding:12px;
+    background:#fff;
+  }
+  .archive-table td{border:0!important;padding:7px 0!important;white-space:normal!important;}
+  .archive-table td[data-label]::before{
+    content:attr(data-label);display:block;font-size:.72rem;font-weight:700;
+    color:var(--color-gray-text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;
+  }
+  .archive-restore-btn{width:100%;justify-content:center;margin-top:4px;}
+}
+
 /* Termine — Wochenübersicht (Admin) */
 .cal-week-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
 .cal-week-label{font-weight:600;color:var(--color-navy);flex-grow:1;text-align:center;font-size:.95rem;}
