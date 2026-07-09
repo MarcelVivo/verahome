@@ -1020,6 +1020,11 @@
         result.errors.push(updateRes.error.message);
         continue;
       }
+      var shareResetRes = await replaceDocumentShares(existingIds[j], []);
+      if(shareResetRes.error){
+        result.errors.push(shareResetRes.error.message);
+        continue;
+      }
       result.linked++;
     }
 
@@ -1037,21 +1042,12 @@
   }
 
   async function replaceDocumentShares(fileId, profileIds){
-    await client.from('document_shares').delete().eq('file_id', fileId);
+    var deleteRes = await client.from('document_shares').delete().eq('file_id', fileId);
+    if(deleteRes.error) return deleteRes;
     if(!profileIds.length) return { error: null };
     return client.from('document_shares').insert(profileIds.map(function(profileId){
       return { file_id: fileId, profile_id: profileId, needs_confirmation: false, created_by: profile.id };
     }));
-  }
-
-  async function addDocumentShare(fileId, profileId){
-    if(!profileId) return { error: null };
-    return client.from('document_shares').upsert({
-      file_id: fileId,
-      profile_id: profileId,
-      needs_confirmation: false,
-      created_by: profile.id
-    }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
   }
 
   var allProperties = [];
@@ -2597,7 +2593,7 @@
       if(supportsArchiveCategory) updatePayload.archive_category = 'unit_mieter';
       var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
       if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
-      var shareRes = await addDocumentShare(fileId, recipientId);
+      var shareRes = await replaceDocumentShares(fileId, [recipientId]);
       if(shareRes.error){
         showFormStatus(statusEl, 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
         return;
@@ -2731,12 +2727,12 @@
       if(supportsArchiveCategory) updatePayload.archive_category = node.key;
       var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
       if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
+      var shareRes = await replaceDocumentShares(fileId, recipientId ? [recipientId] : []);
+      if(shareRes.error){
+        showFormStatus(statusEl, 'Dokument verknüpft, aber Freigabe konnte nicht aktualisiert werden: ' + shareRes.error.message);
+        return;
+      }
       if(recipientId){
-        var shareRes = await addDocumentShare(fileId, recipientId);
-        if(shareRes.error){
-          showFormStatus(statusEl, 'Dokument verknüpft, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
-          return;
-        }
         try {
           await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
         } catch(err) {}
