@@ -170,6 +170,8 @@
 
     document.getElementById('newReportForm').addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.submitter || document.querySelector('#newReportForm button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
       var statusEl = document.getElementById('newReportStatus');
       var title = document.getElementById('r_title').value.trim();
       var description = document.getElementById('r_description').value.trim();
@@ -185,6 +187,10 @@
 
       statusEl.textContent = 'Wird gesendet …';
       statusEl.classList.add('show');
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird gesendet …';
+      }
 
       var insRes = await client.from('issue_reports').insert({
         report_type: document.getElementById('r_type').value,
@@ -197,6 +203,10 @@
 
       if(insRes.error){
         statusEl.textContent = 'Fehler: ' + insRes.error.message;
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Meldung absenden';
+        }
         return;
       }
 
@@ -215,6 +225,10 @@
 
       statusEl.textContent = 'Meldung wurde übermittelt.';
       document.getElementById('newReportForm').reset();
+      if(submitBtn){
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Meldung absenden';
+      }
       loadMyReports();
     });
 
@@ -322,23 +336,41 @@
 
     list.querySelectorAll('.save-status-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
+        if(btn.disabled) return;
         var id = btn.getAttribute('data-id');
         var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
         var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
-        await client.from('issue_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        btn.disabled = true;
+        btn.textContent = 'Wird gespeichert …';
+        var res = await client.from('issue_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        if(res.error){
+          window.alert('Status konnte nicht gespeichert werden: ' + res.error.message);
+          btn.disabled = false;
+          btn.textContent = 'Speichern';
+          return;
+        }
         loadAdminReports();
       });
     });
     list.querySelectorAll('.convert-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
+        if(btn.disabled) return;
         var id = btn.getAttribute('data-id');
         var assigneeId = list.querySelector('.assignee-select[data-id="'+id+'"]').value;
         if(!assigneeId){ window.alert('Bitte einen Handwerker auswählen.'); return; }
+        if(!window.confirm('Diese Meldung in einen Auftrag umwandeln?')) return;
+        btn.disabled = true;
+        btn.textContent = 'Wird umgewandelt …';
         var res = await client.rpc('convert_issue_report_to_job', {
           p_issue_report_id: id, p_assignee_profile_id: assigneeId,
           p_title: btn.getAttribute('data-title'), p_description: null
         });
-        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+        if(res.error){
+          window.alert('Fehler: ' + res.error.message);
+          btn.disabled = false;
+          btn.textContent = 'In Auftrag umwandeln';
+          return;
+        }
         window.alert('Auftrag erstellt. Sichtbar unter Mietverhältnisse → Auftragszuweisungen.');
         loadAdminReports();
       });
