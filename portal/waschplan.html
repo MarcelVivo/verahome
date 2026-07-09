@@ -344,7 +344,12 @@
   async function wireAddForm(p){
     var form = document.getElementById('addSlotForm-'+p.id);
     var unitSel = form.querySelector('.slot-unit');
+    var statusEl = form.querySelector('.form-status');
     var unitsRes = await client.from('units').select('id,label').eq('property_id', p.id).order('label');
+    if(unitsRes.error){
+      statusEl.textContent = 'Einheiten konnten nicht geladen werden: ' + unitsRes.error.message;
+      statusEl.classList.add('show');
+    }
     (unitsRes.data || []).forEach(function(u){
       var opt = document.createElement('option');
       opt.value = u.id; opt.textContent = u.label;
@@ -353,7 +358,9 @@
 
     form.addEventListener('submit', async function(e){
       e.preventDefault();
-      var statusEl = form.querySelector('.form-status');
+      var submitBtn = e.submitter || form.querySelector('button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
+      if(submitBtn) submitBtn.disabled = true;
       var times = PERIOD_TIMES[form.querySelector('.slot-period').value];
       var res = await client.from('laundry_schedule_slots').insert({
         property_id: p.id,
@@ -367,6 +374,7 @@
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Slot hinzugefügt.';
       statusEl.classList.add('show');
       if(!res.error){ form.reset(); loadWeek(p); }
+      if(submitBtn) submitBtn.disabled = false;
     });
   }
 })();
