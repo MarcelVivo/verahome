@@ -189,6 +189,7 @@ window.VeraDashboard = (function () {
     await logDocumentAccess(bucket, path, "open");
     var res = await VeraPortal.getClient().storage.from(bucket).createSignedUrl(path, expiresIn || 60);
     if (!res.error && res.data) window.open(res.data.signedUrl, "_blank");
+    else window.alert("Dokument konnte nicht geöffnet werden: " + (res.error ? res.error.message : "Keine signierte URL erhalten."));
     return res;
   }
 
