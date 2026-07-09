@@ -559,12 +559,22 @@
     }).filter(function(li){ return li.description; });
   }
 
+  function setInvoiceSaving(isSaving, label){
+    var saveBtn = document.getElementById('saveInvoiceBtn');
+    if(!saveBtn) return;
+    if(!saveBtn.dataset.defaultLabel) saveBtn.dataset.defaultLabel = saveBtn.textContent;
+    saveBtn.disabled = !!isSaving;
+    saveBtn.textContent = isSaving ? (label || 'Wird gespeichert …') : saveBtn.dataset.defaultLabel;
+  }
+
   /* New invoices always start as 'entwurf' (draft) — they are never sent
      immediately. Sending happens as its own explicit step afterwards on
      invoice-detail.html, so an issuer always gets a chance to review
      (or come back and "Korrigieren") before the recipient ever sees it. */
   async function submitInvoice(){
     var statusEl = document.getElementById('newInvoiceStatus');
+    var saveBtn = document.getElementById('saveInvoiceBtn');
+    if(saveBtn && saveBtn.disabled) return;
     var recipientId = document.getElementById('inv_recipient').value;
     var lineItems = collectLineItems();
 
@@ -576,6 +586,7 @@
 
     statusEl.textContent = 'Wird gespeichert …';
     statusEl.classList.add('show');
+    setInvoiceSaving(true);
 
     var sourceJobId = document.getElementById('inv_source_job').value;
     var sourceLink = sourceJobId ? await client.from('job_assignments').select('property_id, unit_id, source_issue_report_id').eq('id', sourceJobId).single() : null;
@@ -596,6 +607,7 @@
 
     if(insRes.error){
       statusEl.textContent = 'Fehler: ' + insRes.error.message;
+      setInvoiceSaving(false);
       return;
     }
 
@@ -606,6 +618,7 @@
 
     if(itemsRes.error){
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      setInvoiceSaving(false);
       return;
     }
 
@@ -659,6 +672,8 @@
      invoice_line_items changes only while the invoice is an active draft. */
   async function updateInvoice(invoiceId){
     var statusEl = document.getElementById('newInvoiceStatus');
+    var saveBtn = document.getElementById('saveInvoiceBtn');
+    if(saveBtn && saveBtn.disabled) return;
     var recipientId = document.getElementById('inv_recipient').value;
     var lineItems = collectLineItems();
 
@@ -670,6 +685,7 @@
 
     statusEl.textContent = 'Wird gespeichert …';
     statusEl.classList.add('show');
+    setInvoiceSaving(true, 'Änderungen werden gespeichert …');
 
     var sourceJobId = document.getElementById('inv_source_job').value;
     var sourceLink = sourceJobId ? await client.from('job_assignments').select('property_id, unit_id, source_issue_report_id').eq('id', sourceJobId).single() : null;
@@ -687,12 +703,14 @@
 
     if(updRes.error){
       statusEl.textContent = 'Fehler: ' + updRes.error.message;
+      setInvoiceSaving(false);
       return;
     }
 
     var delRes = await client.from('invoice_line_items').delete().eq('invoice_id', invoiceId);
     if(delRes.error){
       statusEl.textContent = 'Fehler beim Aktualisieren der Positionen: ' + delRes.error.message;
+      setInvoiceSaving(false);
       return;
     }
 
@@ -701,6 +719,7 @@
     );
     if(itemsRes.error){
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      setInvoiceSaving(false);
       return;
     }
 
