@@ -93,6 +93,10 @@
     <h3>Neues Gebäude / Liegenschaft</h3>
     <form class="auth-form modal-scroll-body" id="newPropertyForm">
       <input id="p_label" placeholder="Bezeichnung (z.B. Hauptstrasse 39, Frick) *" required>
+      <select id="p_type">
+        <option value="mietobjekt" selected>Mietobjekt</option>
+        <option value="stweg">STWEG</option>
+      </select>
       <div class="auth-form-row">
         <div><input id="p_street" placeholder="Strasse, Nr."></div>
         <div><input id="p_zip" placeholder="PLZ"></div>
@@ -206,7 +210,18 @@
   "use strict";
   var client, profile;
 
-  var DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
+  var DOC_CATEGORY_TEXT = {
+    plaene: 'Pläne / Baueingaben',
+    grundbucheintrag: 'Grundbuchauszug',
+    sina: 'SiNa',
+    reglemente: 'Reglemente',
+    versicherungen: 'Versicherungen',
+    hauswartung: 'Hauswartung',
+    verwaltung: 'Verwaltung',
+    korrespondenz: 'Korrespondenz',
+    sonstiges: 'Sonstiges'
+  };
+  var PROPERTY_TYPE_LABELS = { mietobjekt: 'Mietobjekt', stweg: 'STWEG' };
   var UNIT_TYPE_LABELS = {
     wohnung: 'Wohnungen / Studios',
     zimmer: 'Zimmer',
@@ -258,6 +273,35 @@
     return UNIT_TYPE_LABELS[type] ? type : (LEGACY_UNIT_TYPE_MAP[type] || 'sonstiges');
   }
 
+  var ARCHIVE_PLANS = {
+    stweg: [
+      { key:'stweg_verwaltung', code:'01', label:'Verwaltung', hint:'Eigentümerverzeichnis, Versammlungen, Beschlüsse, Hauswartung, Versicherungen, Korrespondenz.', children:['Eigentümerverzeichnis','Versammlungen & Protokolle','Beschlüsse & Verträge','Hauswartung','Versicherungen','Korrespondenz'] },
+      { key:'stweg_buchhaltung', code:'02', label:'Buchhaltung', hint:'Jahresordner, Abrechnungen, Rechnungen und Zahlungsunterlagen.', children:['2025','2026','Rechnungen','Jahresrechnung','Budget'] },
+      { key:'stweg_projekte_sanierungen', code:'03', label:'Projekte & Sanierungen', hint:'Offerten, Aufträge, Bauleitung, Abnahmen, Sanierungen.', children:['Offerten','Aufträge','Ausführung','Abnahmen','Garantien'] },
+      { key:'stweg_dauerunterlagen', code:'04', label:'Dauerunterlagen', hint:'Pläne, Baueingaben, Reglemente, Behörden, Verträge, Schliessplan.', children:['Pläne & Baueingaben','Reglemente & Begründungen','Behörden & Verträge','Schliessplan','Grundbuchauszug','SiNa'] },
+      { key:'stweg_allgemein', code:'05', label:'Allgemein', hint:'Notfallnummern, Adressen, QR-Rechnungen und allgemeine Vorlagen.', children:['Notfallnummern & Adressen','QR Rechnungen','Merkblätter'] },
+      { key:'stweg_fixe_unterlagen', code:'06', label:'Fixe Unterlagen', hint:'Dauerhaft gültige Basisdokumente der STWEG.', children:['Grundbuchauszug','Reglemente','Pläne','SiNa','Versicherungen'] }
+    ],
+    mietobjekt: [
+      { key:'miet_verwaltung', code:'01', label:'Verwaltung', hint:'Verträge, Rechnungen, Verwaltungsunterlagen und Eigentümer-/Objektinfos.', children:['Verträge','Rechnungen','Eigentümer','Objektinfos','Freigaben'] },
+      { key:'miet_mieter', code:'02', label:'Mieter', hint:'Mieterübersicht und mieterseitige Objektunterlagen.', children:['Mieter','Anmeldeformulare','Verträge','Nebenkosten','Korrespondenz'] },
+      { key:'miet_technische_anlagen', code:'03', label:'Technische Anlagen', hint:'Waschmaschine, Wäschetrockner, Heizung, Lift und andere feste Anlagen.', children:['Waschmaschine','Wäschetrockner','Heizung','Lift','Technische Wartung'] },
+      { key:'miet_unterhalt', code:'04', label:'Unterhalt / Hauswart', hint:'Hauswart, Verträge, Pflichtenheft, Zeiterfassung und Unterhalt.', children:['Hauswart','Verträge','Pflichtenheft','Zeiterfassung','Unterhalt'] },
+      { key:'miet_renovationen', code:'05', label:'Renovationen', hint:'Offerten, Aufträge, Sanierungen, Abnahmen und Garantien.', children:['Offerten','Aufträge','Ausführung','Abnahmen','Garantien'] },
+      { key:'miet_versicherungen', code:'06', label:'Versicherungen', hint:'Policen, Schadenmeldungen, Deckungen und Korrespondenz.', children:['Policen','Schadenfälle','Deckungen','Korrespondenz'] },
+      { key:'miet_korrespondenz', code:'07', label:'Korrespondenz', hint:'E-Mails, Briefe und allgemeine Kommunikation zur Liegenschaft.', children:['E-Mail','Briefe','Notizen'] },
+      { key:'miet_fixe_unterlagen', code:'08', label:'Fixe Unterlagen', hint:'Grundbuchauszug, SiNa, Reglemente, Pläne und dauerhafte Unterlagen.', children:['Grundbuchauszug','SiNa','Reglemente','Pläne','Schliessplan'] },
+      { key:'miet_freigaben', code:'09', label:'Freigaben', hint:'Dokumente und Zugriffe, die gezielt freigegeben werden.', children:['Portal-Freigaben','Dokument-Freigaben','Zugriffsnotizen'] }
+    ],
+    unit: [
+      { key:'unit_mieter', code:'01', label:'Mieterakte', hint:'Alles, was direkt den Mieter dieser Einheit betrifft.', children:['Anmeldeformular','Verträge','Kautionen / Bürgschaften','Haustiere','Mutationen','Nebenkosten','Korrespondenz','Einzahlungsschein','Merkblätter'], tenant:true },
+      { key:'unit_geraete', code:'02', label:'Geräte', hint:'Waschmaschine, Wäschetrockner, Kochfeld, Einbaubackofen, Geschirrspüler.', children:['Waschmaschine','Wäschetrockner','Kochfeld','Einbaubackofen','Geschirrspüler','Kühlschrank'] },
+      { key:'unit_unterhalt', code:'03', label:'Unterhalt', hint:'Unterhalt, Service, Reparaturen und laufende Arbeiten.', children:['Service','Reparaturen','Kontrollen','Wartung'] },
+      { key:'unit_renovationen', code:'04', label:'Renovationen', hint:'Renovationen, Offerten, Aufträge und Abnahmen dieser Einheit.', children:['Offerten','Aufträge','Ausführung','Abnahmen','Garantien'] },
+      { key:'unit_freigaben', code:'05', label:'Freigaben', hint:'Dokumente und Portalzugriffe für diese Einheit.', children:['Dokument-Freigaben','Portal-Freigaben','Zugriffsnotizen'] }
+    ]
+  };
+
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
@@ -267,6 +311,26 @@
   });
 
   var columnSearchState = {};
+  var optionalColumnsChecked = false;
+  var supportsPropertyType = false;
+  var supportsArchiveCategory = false;
+
+  async function detectOptionalColumns(){
+    if(optionalColumnsChecked) return;
+    optionalColumnsChecked = true;
+    try {
+      var propertyTypeRes = await client.from('properties').select('property_type').limit(1);
+      supportsPropertyType = !propertyTypeRes.error;
+    } catch(err) {
+      supportsPropertyType = false;
+    }
+    try {
+      var archiveRes = await client.from('document_files').select('archive_category').limit(1);
+      supportsArchiveCategory = !archiveRes.error;
+    } catch(err2) {
+      supportsArchiveCategory = false;
+    }
+  }
 
   /* Live-Checkliste "Inserat-Qualität" -- zeigt auf einen Blick, was
      für ein gutes Inserat noch fehlt (Titelbild, Preis, Zimmer/Fläche,
@@ -385,12 +449,14 @@
         statusEl.classList.add('show');
         return;
       }
-      var res = await client.from('properties').insert({
+      var propertyPayload = {
         label: label,
         street: document.getElementById('p_street').value.trim() || null,
         zip: document.getElementById('p_zip').value.trim() || null,
         city: document.getElementById('p_city').value.trim() || null
-      }).select().single();
+      };
+      if(supportsPropertyType) propertyPayload.property_type = document.getElementById('p_type').value;
+      var res = await client.from('properties').insert(propertyPayload).select().single();
       if(res.error){
         statusEl.textContent = 'Fehler: ' + res.error.message;
         statusEl.classList.add('show');
@@ -518,6 +584,7 @@
     });
     document.getElementById('objColumns').addEventListener('submit', function(e){
       if(e.target && e.target.id === 'applianceForm') saveApplianceRecord(e);
+      if(e.target && e.target.id === 'archiveUploadForm') saveArchiveDocument(e);
     });
 
     document.getElementById('propertyModalClose').addEventListener('click', closePropertyModal);
@@ -637,6 +704,44 @@
     }).join('') + '</div>';
   }
 
+  function getPropertyType(property){
+    return property && property.property_type === 'stweg' ? 'stweg' : 'mietobjekt';
+  }
+
+  function archivePlanForScope(property, unit){
+    return unit ? ARCHIVE_PLANS.unit : ARCHIVE_PLANS[getPropertyType(property)];
+  }
+
+  function archiveNodeByKey(property, unit, key){
+    var plan = archivePlanForScope(property, unit);
+    return plan.filter(function(node){ return node.key === key; })[0] || null;
+  }
+
+  function archiveDocsForNode(property, unit, node){
+    if(!property || !node) return [];
+    return allDocumentFiles.filter(function(doc){
+      if(unit){
+        if(doc.unit_id !== unit.id) return false;
+      } else {
+        if(doc.property_id !== property.id || doc.unit_id) return false;
+      }
+      if(doc.archive_category) return doc.archive_category === node.key;
+      var title = String(doc.title || '').toLowerCase();
+      return title.indexOf(node.label.toLowerCase()) > -1 || title.indexOf(node.code + '_') === 0;
+    });
+  }
+
+  function archivePathLabel(property, unit, node){
+    var scope = unit ? unit.label : (PROPERTY_TYPE_LABELS[getPropertyType(property)] + ' · ' + property.label);
+    return scope + ' / ' + node.code + '_' + node.label;
+  }
+
+  function profileContactMetaById(profileId){
+    var p = allProfilesForPicker.filter(function(row){ return row.id === profileId; })[0];
+    if(!p) return '';
+    return [p.email, p.phone, [p.address_street, [p.address_zip, p.address_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  }
+
   var allProperties = [];
   var allUnits = [];
   var allProfilesForPicker = [];
@@ -651,6 +756,7 @@
   var selectedDetailId = null;
 
   async function loadAll(){
+    await detectOptionalColumns();
     var propRes = await client.from('properties').select('*').order('label');
     allProperties = propRes.data || [];
 
@@ -663,7 +769,7 @@
     var unitsRes = await client.from('units').select('*').order('label');
     allUnits = unitsRes.data || [];
 
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').neq('category', 'admin').order('last_name');
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category, email, phone, address_street, address_zip, address_city').neq('category', 'admin').order('last_name');
     allProfilesForPicker = profilesRes.data || [];
 
     var tenanciesRes = await client.from('tenancies').select('*').order('start_date', { ascending:false });
@@ -710,7 +816,7 @@
         '<div class="obj-pane-list">'+propertyRowsHtml()+'</div>' +
       '</section>' +
       '<section class="obj-pane obj-pane-units">' +
-        '<div class="obj-pane-head"><div><strong>2. Einheiten darunter</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
+        '<div class="obj-pane-head"><div><strong>2. Objekte / Einheiten</strong><span>'+(selectedProperty ? VeraDashboard.escapeHtml(selectedProperty.label) : 'Kein Gebäude gewählt')+'</span></div><button type="button" class="obj-add-btn" data-add-unit-to-property="'+(selectedPropertyId||'')+'" title="Einheit hinzufügen"'+(!selectedPropertyId?' disabled':'')+'>+</button></div>' +
         '<input type="text" class="dash-search-input obj-hierarchy-search" data-search-key="units" placeholder="Wohnung, Garage, Parkplatz suchen …" value="'+VeraDashboard.escapeHtml(columnSearchState.units||'')+'"'+(!selectedPropertyId?' disabled':'')+'>' +
         '<div class="obj-pane-list">'+unitRowsHtml(selectedPropertyId)+'</div>' +
       '</section>' +
@@ -750,8 +856,9 @@
       if(!byType[type]) byType[type] = [];
       byType[type].push(u);
     });
+    var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
     var propertyScopeHtml = '<button type="button" class="obj-row obj-hierarchy-row'+(!selectedUnitId?' active':'')+'" data-select-property-scope="'+propertyId+'">' +
-      '<strong>Liegenschaft / Objekt</strong><span class="obj-row-meta">Eigentümer, Hauswart, Hausordnung, Geräte im Gebäude</span></button>';
+      '<strong>Liegenschaft / '+VeraDashboard.escapeHtml(PROPERTY_TYPE_LABELS[getPropertyType(property)])+'</strong><span class="obj-row-meta">Adresse, Typ, Hauswart, Verwaltung, fixe Unterlagen, Freigaben</span></button>';
     var unitHtml = UNIT_TYPE_ORDER.filter(function(type){ return byType[type] && byType[type].length; }).map(function(type){
       return '<div class="obj-unit-group"><h3>'+UNIT_TYPE_LABELS[type]+'</h3>' +
         byType[type].map(function(u){
@@ -767,7 +874,7 @@
         }).join('') +
       '</div>';
     }).join('');
-    if(!unitHtml) unitHtml = '<div class="obj-guided-empty"><strong>Noch keine Einheit erfasst</strong><span>Wählen Sie direkt, was unter dieser Liegenschaft existiert. Keine Haus-Auswahl: Häuser/Gebäude sind Stufe 1.</span>'+quickUnitTypeButtonsHtml(propertyId)+'</div>';
+    if(!unitHtml) unitHtml = '<div class="obj-guided-empty"><strong>Noch kein Objekt / keine Einheit erfasst</strong><span>Wählen Sie direkt, was unter dieser Liegenschaft existiert. Keine Haus-Auswahl: Häuser/Gebäude sind Stufe 1.</span>'+quickUnitTypeButtonsHtml(propertyId)+'</div>';
     return propertyScopeHtml + unitHtml;
   }
 
@@ -787,10 +894,12 @@
   function relationRowsHtml(property, unit){
     if(!property) return '<p class="dash-empty">Bitte zuerst ein Gebäude wählen.</p>';
     var scope = unit ? 'unit' : 'property';
+    var archive = archivePlanRowsHtml(property, unit);
     var people = relationPeopleRows(property, unit);
     var docs = relationDocRows(property, unit);
     var appliances = relationApplianceRows(property, unit);
-    return '<div class="obj-unit-group"><h3>Personen</h3>' + people +
+    return archive +
+      '<div class="obj-unit-group"><h3>Personen</h3>' + people +
         '<button type="button" class="obj-row obj-hierarchy-row obj-action-row" data-next-action="'+(unit ? 'unit-people' : 'property-people')+'">' +
           '<strong>+ Person / Rolle zuweisen</strong><span class="obj-row-meta">'+(unit ? 'Mieter oder Eigentümer dieser Einheit' : 'Eigentümer oder Hauswart dieser Liegenschaft')+'</span>' +
         '</button>' +
@@ -802,27 +911,42 @@
       '</div>' +
       '<div class="obj-unit-group"><h3>Fix eingebaute Geräte</h3>' + appliances +
         '<button type="button" class="obj-row obj-hierarchy-row obj-action-row" data-detail-type="add-appliance" data-detail-id="'+scope+'">' +
-          '<strong>+ Gerät erfassen</strong><span class="obj-row-meta">'+(unit ? 'z.B. Kochherd, Kühlschrank, Backofen' : 'z.B. Waschmaschine, Tumbler, Lift')+'</span>' +
+          '<strong>+ Gerät erfassen</strong><span class="obj-row-meta">'+(unit ? 'z.B. Kochfeld, Einbaubackofen, Geschirrspüler' : 'z.B. Waschmaschine, Wäschetrockner, Lift')+'</span>' +
         '</button>' +
       '</div>';
+  }
+
+  function archivePlanRowsHtml(property, unit){
+    var plan = archivePlanForScope(property, unit);
+    var title = unit ? 'Aktenplan Objekt / Mieter' : 'Aktenplan Liegenschaft';
+    return '<div class="obj-unit-group obj-archive-group"><h3>'+title+'</h3>' +
+      plan.map(function(node){
+        var count = archiveDocsForNode(property, unit, node).length;
+        return '<button type="button" class="obj-row obj-hierarchy-row obj-archive-row" data-detail-type="archive" data-detail-id="'+node.key+'">' +
+          '<strong>'+VeraDashboard.escapeHtml(node.code + '_' + node.label)+'</strong>' +
+          '<span class="obj-row-meta">'+VeraDashboard.escapeHtml(node.hint)+'</span>' +
+          '<span class="obj-row-pill">'+count+' Dokumente</span>' +
+        '</button>';
+      }).join('') +
+    '</div>';
   }
 
   function relationPeopleRows(property, unit){
     var rows = [];
     if(unit){
       allTenancies.filter(function(t){ return t.unit_id === unit.id; }).forEach(function(t){
-        rows.push({ role:'Mieter', id:t.id, profile_id:t.tenant_profile_id, meta:t.status + ' · ab ' + (t.start_date || '–') });
+        rows.push({ role:'Mieter', id:t.id, profile_id:t.tenant_profile_id, meta:[t.status + ' · ab ' + (t.start_date || '–'), profileContactMetaById(t.tenant_profile_id)].filter(Boolean).join(' · ') });
       });
       allOwnerships.filter(function(o){ return o.unit_id === unit.id; }).forEach(function(o){
-        rows.push({ role:'Eigentümer', id:o.id, profile_id:o.owner_profile_id, meta:(o.share_percent || '–') + '% Anteil' });
+        rows.push({ role:'Eigentümer', id:o.id, profile_id:o.owner_profile_id, meta:[(o.share_percent || '–') + '% Anteil', profileContactMetaById(o.owner_profile_id)].filter(Boolean).join(' · ') });
       });
     } else {
       allOwnerships.filter(function(o){ return o.property_id === property.id && !o.unit_id; }).forEach(function(o){
-        rows.push({ role:'Eigentümer Objekt', id:o.id, profile_id:o.owner_profile_id, meta:(o.share_percent || '–') + '% Anteil' });
+        rows.push({ role:'Eigentümer Objekt', id:o.id, profile_id:o.owner_profile_id, meta:[(o.share_percent || '–') + '% Anteil', profileContactMetaById(o.owner_profile_id)].filter(Boolean).join(' · ') });
       });
     }
     allPropertyPermissions.filter(function(p){ return p.property_id === property.id && p.permission === 'hauswart'; }).forEach(function(p){
-      rows.push({ role:'Hauswart', id:p.id, profile_id:p.profile_id, meta:'für Liegenschaft' });
+      rows.push({ role:'Hauswart', id:p.id, profile_id:p.profile_id, meta:['für Liegenschaft', profileContactMetaById(p.profile_id)].filter(Boolean).join(' · ') });
     });
     if(!rows.length) return '<p class="dash-empty">Noch keine Personen zugewiesen.</p>';
     return rows.map(function(row){
@@ -863,7 +987,9 @@
       var type = normalizeUnitType(u.unit_type);
       byType[type] = (byType[type] || 0) + 1;
     });
-    var stats = Object.keys(byType).map(function(type){ return '<span>'+VeraDashboard.escapeHtml(UNIT_TYPE_LABELS[type] || type)+': '+byType[type]+'</span>'; }).join('');
+    var propertyType = getPropertyType(property);
+    var stats = '<span>'+VeraDashboard.escapeHtml(PROPERTY_TYPE_LABELS[propertyType])+'</span>' +
+      Object.keys(byType).map(function(type){ return '<span>'+VeraDashboard.escapeHtml(UNIT_TYPE_LABELS[type] || type)+': '+byType[type]+'</span>'; }).join('');
     return '<div class="obj-detail-card">' +
       '<span class="obj-step-label">Gebäude / Liegenschaft</span>' +
       '<h2>'+VeraDashboard.escapeHtml(property.label)+'</h2>' +
@@ -871,8 +997,8 @@
       '<div class="obj-detail-stats">'+(stats || '<span>Noch keine Einheiten</span>')+'</div>' +
       nextStepsHtml(property, null) +
       '<div class="obj-context-action">' +
-        '<strong>Was gehört zu diesem Gebäude?</strong>' +
-        '<span>Direkt die passende Untereinheit erfassen.</span>' +
+        '<strong>Was gehört zu dieser Liegenschaft?</strong>' +
+        '<span>Direkt die passende Einheit erfassen oder links im Aktenplan Verwaltung, Buchhaltung, Unterhalt, Dauerunterlagen und Freigaben ablegen.</span>' +
         quickUnitTypeButtonsHtml(property.id) +
       '</div>' +
       '<div class="dash-btn-row">' +
@@ -886,7 +1012,7 @@
     var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0];
     var type = normalizeUnitType(unit.unit_type);
     return '<div class="obj-detail-card">' +
-      '<span class="obj-step-label">Einheit / Nutzung</span>' +
+      '<span class="obj-step-label">Objekt / Einheit</span>' +
       '<h2>'+VeraDashboard.escapeHtml(unit.label)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml((property ? property.label + ' · ' : '') + (UNIT_TYPE_SINGULAR[type] || 'Einheit'))+'</p>' +
       '<div class="obj-detail-stats">' +
@@ -895,7 +1021,7 @@
         (unit.floor ? '<span>'+VeraDashboard.escapeHtml(unit.floor)+'</span>' : '') +
         (unit.visibility === 'public' ? '<span>Inserat online</span>' : '<span>privat</span>') +
       '</div>' +
-      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Dokumente werden nur angezeigt, wenn die Person explizit als Mieter/Eigentümer oder per Dokument-Freigabe berechtigt ist.</div>' +
+      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Mieterakte, Verträge, Kautionen, Nebenkosten und Korrespondenz werden nur für explizit berechtigte Personen freigegeben.</div>' +
       nextStepsHtml(property, unit) +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-unit="'+unit.id+'">Einheit bearbeiten & zuweisen</button>' +
@@ -914,17 +1040,17 @@
       var hasDocs = allDocumentFiles.some(function(d){ return d.property_id === property.id && !d.unit_id; });
       var hasAppliance = allAppliances.some(function(a){ return a.property_id === property.id && !a.unit_id; });
       steps.push({ ok: units.length > 0, label: 'Einheiten erfassen', hint: 'Wohnung, Garage, Parkplatz, Gewerbe usw.', action: 'add-unit' });
-      steps.push({ ok: hasOwner, label: 'Eigentümer/Hauswart zuweisen', hint: 'Gebäude-Zuständigkeiten setzen', action: 'property-people' });
-      steps.push({ ok: hasDocs, label: 'Liegenschaftsdokumente zuweisen', hint: 'Hausordnung, Pläne, Reglemente', action: 'property-docs' });
-      steps.push({ ok: hasAppliance, label: 'Gebäudegeräte erfassen', hint: 'Lift, Waschmaschine, Tumbler, Heizung', action: 'property-appliance' });
+      steps.push({ ok: hasOwner, label: 'Eigentümer/Hauswart zuweisen', hint: 'Name, Adresse, E-Mail, Telefon sichtbar machen', action: 'property-people' });
+      steps.push({ ok: hasDocs, label: 'Fixe Unterlagen ablegen', hint: 'Grundbuchauszug, SiNa, Reglemente, Pläne', action: 'property-docs' });
+      steps.push({ ok: hasAppliance, label: 'Technische Anlagen erfassen', hint: 'Lift, Heizung, Waschmaschine, Wäschetrockner', action: 'property-appliance' });
     } else {
       var hasTenant = allTenancies.some(function(t){ return t.unit_id === unit.id && t.status === 'active'; });
       var hasOwnerUnit = allOwnerships.some(function(o){ return o.unit_id === unit.id; });
       var hasUnitDoc = allDocumentFiles.some(function(d){ return d.unit_id === unit.id; });
       var hasUnitAppliance = allAppliances.some(function(a){ return a.unit_id === unit.id; });
-      steps.push({ ok: hasTenant || hasOwnerUnit, label: 'Person zuweisen', hint: 'Mieter und/oder Eigentümer', action: 'unit-people' });
-      steps.push({ ok: hasUnitDoc, label: 'Private Dokumente zuweisen', hint: 'Mietvertrag, Nebenkosten, Rechnungen', action: 'unit-docs' });
-      steps.push({ ok: hasUnitAppliance, label: 'Einheitsgeräte erfassen', hint: 'Kochherd, Kühlschrank, Backofen', action: 'unit-appliance' });
+      steps.push({ ok: hasTenant || hasOwnerUnit, label: 'Mieter/Eigentümer zuweisen', hint: 'Rollen und Berechtigungen setzen', action: 'unit-people' });
+      steps.push({ ok: hasUnitDoc, label: 'Mieterakte ablegen', hint: 'Verträge, Kautionen, Nebenkosten, Korrespondenz', action: 'unit-docs' });
+      steps.push({ ok: hasUnitAppliance, label: 'Geräte erfassen', hint: 'Kochfeld, Backofen, Geschirrspüler, Kühlschrank', action: 'unit-appliance' });
     }
     return '<div class="obj-next-steps"><strong>Nächste sinnvolle Schritte</strong>' +
       steps.map(function(step){
@@ -984,11 +1110,73 @@
   }
 
   function selectedDetailHtml(property, unit){
+    if(selectedDetailType === 'archive') return archiveCategoryDetailHtml(property, unit);
     if(selectedDetailType === 'document') return documentDetailHtml();
     if(selectedDetailType === 'appliance') return applianceDetailHtml();
     if(selectedDetailType === 'add-appliance') return applianceFormHtml(property, unit);
     if(selectedDetailType === 'person') return personDetailHtml(property, unit);
     return unit ? unitQuickDetailHtml(unit) : propertyQuickDetailHtml(property);
+  }
+
+  function archiveCategoryDetailHtml(property, unit){
+    var node = archiveNodeByKey(property, unit, selectedDetailId);
+    if(!property || !node) return '<div class="obj-empty-state"><strong>Akte nicht gefunden</strong></div>';
+    var docs = archiveDocsForNode(property, unit, node);
+    var recipientOptions = archiveRecipientOptionsHtml(property, unit, node);
+    return '<div class="obj-detail-card obj-archive-detail">' +
+      '<span class="obj-step-label">Aktenplan</span>' +
+      '<h2>'+VeraDashboard.escapeHtml(node.code + '_' + node.label)+'</h2>' +
+      '<p class="doc-meta">'+VeraDashboard.escapeHtml(archivePathLabel(property, unit, node))+'</p>' +
+      '<p class="obj-archive-hint">'+VeraDashboard.escapeHtml(node.hint)+'</p>' +
+      '<div class="obj-subfolder-tags">' + node.children.map(function(child){ return '<span>'+VeraDashboard.escapeHtml(child)+'</span>'; }).join('') + '</div>' +
+      '<div class="obj-privacy-note"><strong>Regel:</strong> Dokumente werden hier fachlich abgelegt. Sichtbar für Nutzer werden sie erst durch eine konkrete Freigabe oder bestehende Objekt-/Mieter-Berechtigung.</div>' +
+      '<div class="obj-archive-docs">' +
+        '<strong>Abgelegt</strong>' +
+        (docs.length ? docs.map(function(doc){
+          return '<button type="button" class="obj-row obj-hierarchy-row" data-open-tree-doc="'+doc.file_path+'">' +
+            '<strong>'+VeraDashboard.escapeHtml(doc.title)+'</strong><span class="obj-row-meta">'+VeraDashboard.formatDate(doc.created_at)+'</span></button>';
+        }).join('') : '<p class="dash-empty">Noch keine Dokumente in dieser Akte.</p>') +
+      '</div>' +
+      '<form class="auth-form obj-archive-upload-form" id="archiveUploadForm">' +
+        '<span class="obj-modal-section-label">Schnell ablegen</span>' +
+        '<input id="archiveDocTitle" placeholder="Dokumenttitel *" required value="'+VeraDashboard.escapeHtml(node.label)+'">' +
+        '<input type="file" id="archiveDocFile" required>' +
+        '<select id="archiveDocRecipient">'+recipientOptions+'</select>' +
+        '<button type="submit" class="btn btn-primary">Dokument ablegen</button>' +
+        '<p class="form-status" id="archiveDocStatus"></p>' +
+      '</form>' +
+    '</div>';
+  }
+
+  function archiveRecipientOptionsHtml(property, unit, node){
+    var rows = [];
+    if(unit){
+      allTenancies.filter(function(t){ return t.unit_id === unit.id && t.status === 'active'; }).forEach(function(t){
+        rows.push({ id:t.tenant_profile_id, label:'Mieter · ' + profileLabelById(t.tenant_profile_id), preferred: !!node.tenant });
+      });
+      allOwnerships.filter(function(o){ return o.unit_id === unit.id; }).forEach(function(o){
+        rows.push({ id:o.owner_profile_id, label:'Eigentümer · ' + profileLabelById(o.owner_profile_id), preferred:false });
+      });
+    } else {
+      allOwnerships.filter(function(o){ return o.property_id === property.id && !o.unit_id; }).forEach(function(o){
+        rows.push({ id:o.owner_profile_id, label:'Eigentümer · ' + profileLabelById(o.owner_profile_id), preferred:false });
+      });
+      allPropertyPermissions.filter(function(p){ return p.property_id === property.id && p.permission === 'hauswart'; }).forEach(function(p){
+        rows.push({ id:p.profile_id, label:'Hauswart · ' + profileLabelById(p.profile_id), preferred:false });
+      });
+    }
+    var seen = {};
+    rows = rows.filter(function(row){
+      if(!row.id || seen[row.id]) return false;
+      seen[row.id] = true;
+      return true;
+    }).sort(function(a, b){
+      if(a.preferred !== b.preferred) return a.preferred ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
+    return '<option value="">Keine direkte Personen-Freigabe</option>' + rows.map(function(row){
+      return '<option value="'+row.id+'"'+(row.preferred && rows.length === 1 ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(row.label)+'</option>';
+    }).join('');
   }
 
   function documentDetailHtml(){
@@ -1028,8 +1216,8 @@
   function applianceFormHtml(property, unit){
     var scopeText = unit ? unit.label : (property ? property.label : 'Auswahl');
     var types = unit
-      ? ['Kochherd','Kühlschrank','Backofen','Mikrowelle','Geschirrspüler','Dampfabzug','Waschmaschine','Tumbler','Boiler','Sonstiges']
-      : ['Waschmaschine','Tumbler','Lift','Heizung','Boiler','Lüftung','Solaranlage','Gegensprechanlage','Sonstiges'];
+      ? ['Waschmaschine','Wäschetrockner','Kochfeld','Einbaubackofen','Geschirrspüler','Kühlschrank','Mikrowelle','Dampfabzug','Boiler','Sonstiges']
+      : ['Waschmaschine','Wäschetrockner','Lift','Heizung','Boiler','Lüftung','Solaranlage','Gegensprechanlage','Sonstiges'];
     return '<form class="auth-form obj-appliance-form" id="applianceForm">' +
       '<span class="obj-step-label">Gerät erfassen</span>' +
       '<h2>'+VeraDashboard.escapeHtml(scopeText)+'</h2>' +
@@ -1247,6 +1435,10 @@
     return '<h3>'+VeraDashboard.escapeHtml(p.label)+'</h3>' +
       '<form class="auth-form" id="propertyEditForm-'+id+'">' +
         '<input id="propLabel-'+id+'" placeholder="Bezeichnung *" required value="'+VeraDashboard.escapeHtml(p.label)+'">' +
+        '<select id="propType-'+id+'">' +
+          '<option value="mietobjekt"'+(getPropertyType(p)==='mietobjekt'?' selected':'')+'>Mietobjekt</option>' +
+          '<option value="stweg"'+(getPropertyType(p)==='stweg'?' selected':'')+'>STWEG</option>' +
+        '</select>' +
         '<div class="auth-form-row">' +
           '<div><input id="propStreet-'+id+'" placeholder="Strasse, Nr." value="'+VeraDashboard.escapeHtml(p.street||'')+'"></div>' +
           '<div><input id="propZip-'+id+'" placeholder="PLZ" value="'+VeraDashboard.escapeHtml(p.zip||'')+'"></div>' +
@@ -1270,8 +1462,14 @@
       '<form class="auth-form" id="docForm-'+id+'">' +
         '<input id="docTitle-'+id+'" placeholder="Titel *" required>' +
         '<select id="docCategory-'+id+'">' +
-          '<option value="plaene">Pläne</option>' +
-          '<option value="grundbucheintrag">Grundbucheintrag</option>' +
+          '<option value="plaene">Pläne / Baueingaben</option>' +
+          '<option value="grundbucheintrag">Grundbuchauszug</option>' +
+          '<option value="sina">SiNa</option>' +
+          '<option value="reglemente">Reglemente</option>' +
+          '<option value="versicherungen">Versicherungen</option>' +
+          '<option value="hauswartung">Hauswartung</option>' +
+          '<option value="verwaltung">Verwaltung</option>' +
+          '<option value="korrespondenz">Korrespondenz</option>' +
           '<option value="sonstiges" selected>Sonstiges</option>' +
         '</select>' +
         '<select id="docVisibility-'+id+'">' +
@@ -1356,12 +1554,14 @@
     document.getElementById('propertyEditForm-'+propertyId).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('propertyEditStatus-'+propertyId);
-      var res = await client.from('properties').update({
+      var updatePayload = {
         label: document.getElementById('propLabel-'+propertyId).value.trim(),
         street: document.getElementById('propStreet-'+propertyId).value.trim() || null,
         zip: document.getElementById('propZip-'+propertyId).value.trim() || null,
         city: document.getElementById('propCity-'+propertyId).value.trim() || null
-      }).eq('id', propertyId);
+      };
+      if(supportsPropertyType) updatePayload.property_type = document.getElementById('propType-'+propertyId).value;
+      var res = await client.from('properties').update(updatePayload).eq('id', propertyId);
       statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Objekt gespeichert.';
       statusEl.classList.add('show');
       if(!res.error){
@@ -1818,6 +2018,86 @@
   async function openDocumentVaultFile(path){
     var res = await client.storage.from('document-vault').createSignedUrl(path, 60);
     if(!res.error && res.data) window.open(res.data.signedUrl, '_blank');
+  }
+
+  async function saveArchiveDocument(e){
+    e.preventDefault();
+    var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
+    var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
+    var node = archiveNodeByKey(property, unit, selectedDetailId);
+    var statusEl = document.getElementById('archiveDocStatus');
+    var titleInput = document.getElementById('archiveDocTitle');
+    var fileInput = document.getElementById('archiveDocFile');
+    var recipientSelect = document.getElementById('archiveDocRecipient');
+    var title = titleInput.value.trim();
+    var file = fileInput.files[0];
+    var recipientId = recipientSelect.value;
+    if(!property || !node || !title || !file){
+      statusEl.textContent = 'Bitte Titel und Datei wählen.';
+      statusEl.classList.add('show');
+      return;
+    }
+    if(node.tenant && !recipientId){
+      statusEl.textContent = 'Mieterakten bitte direkt einem Mieter freigeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+
+    statusEl.textContent = 'Dokument wird abgelegt …';
+    statusEl.classList.add('show');
+
+    var fileId = crypto.randomUUID();
+    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    var pathParts = ['archive', property.id];
+    if(unit) pathParts.push(unit.id);
+    var path = pathParts.join('/') + '/' + fileId + '-' + safeName;
+    var upRes = await client.storage.from('document-vault').upload(path, file);
+    if(upRes.error){
+      statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
+      return;
+    }
+
+    var insertPayload = {
+      id: fileId,
+      folder_id: null,
+      property_id: property.id,
+      unit_id: unit ? unit.id : null,
+      title: title,
+      file_path: path,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      created_by: profile.id
+    };
+    if(supportsArchiveCategory) insertPayload.archive_category = node.key;
+
+    var insRes = await client.from('document_files').insert(insertPayload);
+    if(insRes.error){
+      await client.storage.from('document-vault').remove([path]);
+      statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
+      return;
+    }
+
+    if(recipientId){
+      var shareRes = await client.from('document_shares').upsert({
+        file_id: fileId,
+        profile_id: recipientId,
+        needs_confirmation: false,
+        created_by: profile.id
+      }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      if(shareRes.error){
+        statusEl.textContent = 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+        return;
+      }
+      try {
+        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+      } catch(err) {}
+    }
+
+    titleInput.value = node.label;
+    fileInput.value = '';
+    statusEl.textContent = recipientId ? 'Dokument abgelegt und freigegeben.' : 'Dokument abgelegt.';
+    await loadAll();
+    renderAllColumns();
   }
 
   async function saveApplianceRecord(e){

@@ -711,6 +711,23 @@
   border-style:dashed;background:rgba(201,168,76,.08);
 }
 .obj-action-row strong{color:var(--color-gold);}
+.obj-archive-group{padding-bottom:8px;border-bottom:1px solid var(--color-blue-light);margin-bottom:4px;}
+.obj-archive-row{background:linear-gradient(135deg,rgba(222,235,247,.72),rgba(255,255,255,.92));}
+.obj-archive-row strong{font-size:.82rem;}
+.obj-archive-hint{margin:0;color:var(--color-gray-text);font-size:.84rem;line-height:1.45;}
+.obj-subfolder-tags{display:flex;flex-wrap:wrap;gap:7px;}
+.obj-subfolder-tags span{
+  display:inline-flex;padding:6px 9px;border-radius:999px;background:var(--color-blue-light);
+  color:var(--color-navy);font-size:.74rem;font-weight:700;
+}
+.obj-archive-docs{
+  display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid var(--color-blue-light);
+  border-radius:12px;background:var(--color-bg);
+}
+.obj-archive-docs > strong{font-size:.85rem;color:var(--color-navy);}
+.obj-archive-upload-form{
+  padding:12px;border:1px dashed var(--color-blue-light);border-radius:12px;background:rgba(255,255,255,.72);
+}
 
 .obj-listing-checklist{
   display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 12px;
