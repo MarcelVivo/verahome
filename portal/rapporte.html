@@ -193,18 +193,27 @@
 
       var reportId = insRes.data.id;
       var files = Array.prototype.slice.call(document.getElementById('rp_photos').files);
+      var photoErrors = [];
       for(var i = 0; i < files.length; i++){
         var file = files[i];
         var photoId = crypto.randomUUID();
         var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         var path = reportId + '/' + photoId + '-' + safeName;
         var upRes = await client.storage.from('hauswart-report-photos').upload(path, file);
-        if(!upRes.error){
-          await client.from('hauswart_report_photos').insert({ id: photoId, hauswart_report_id: reportId, file_path: path, sort_order: i });
+        if(upRes.error){
+          photoErrors.push(file.name);
+          continue;
+        }
+        var photoRes = await client.from('hauswart_report_photos').insert({ id: photoId, hauswart_report_id: reportId, file_path: path, sort_order: i });
+        if(photoRes.error){
+          await client.storage.from('hauswart-report-photos').remove([path]);
+          photoErrors.push(file.name);
         }
       }
 
-      statusEl.textContent = 'Rapport wurde übermittelt.';
+      statusEl.textContent = photoErrors.length
+        ? 'Rapport wurde übermittelt. Einige Fotos konnten nicht gespeichert werden: ' + photoErrors.join(', ')
+        : 'Rapport wurde übermittelt.';
       document.getElementById('newRapportForm').reset();
       loadMyRapports();
     });
@@ -271,7 +280,8 @@
         var id = btn.getAttribute('data-id');
         var status = list.querySelector('.status-select[data-id="'+id+'"]').value;
         var note = list.querySelector('.note-input[data-id="'+id+'"]').value.trim();
-        await client.from('hauswart_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        var res = await client.from('hauswart_reports').update({ status: status, admin_note: note || null }).eq('id', id);
+        if(res.error){ window.alert('Status konnte nicht gespeichert werden: ' + res.error.message); return; }
         loadAdminRapports();
       });
     });

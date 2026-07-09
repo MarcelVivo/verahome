@@ -212,18 +212,27 @@
 
       var reportId = insRes.data.id;
       var files = Array.prototype.slice.call(document.getElementById('r_photos').files);
+      var photoErrors = [];
       for(var i = 0; i < files.length; i++){
         var file = files[i];
         var photoId = crypto.randomUUID();
         var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         var path = reportId + '/' + photoId + '-' + safeName;
         var upRes = await client.storage.from('issue-report-photos').upload(path, file);
-        if(!upRes.error){
-          await client.from('issue_report_photos').insert({ id: photoId, issue_report_id: reportId, file_path: path, sort_order: i });
+        if(upRes.error){
+          photoErrors.push(file.name);
+          continue;
+        }
+        var photoRes = await client.from('issue_report_photos').insert({ id: photoId, issue_report_id: reportId, file_path: path, sort_order: i });
+        if(photoRes.error){
+          await client.storage.from('issue-report-photos').remove([path]);
+          photoErrors.push(file.name);
         }
       }
 
-      statusEl.textContent = 'Meldung wurde übermittelt.';
+      statusEl.textContent = photoErrors.length
+        ? 'Meldung wurde übermittelt. Einige Fotos konnten nicht gespeichert werden: ' + photoErrors.join(', ')
+        : 'Meldung wurde übermittelt.';
       document.getElementById('newReportForm').reset();
       if(submitBtn){
         submitBtn.disabled = false;
