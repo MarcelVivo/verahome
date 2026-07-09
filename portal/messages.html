@@ -264,11 +264,16 @@
       var path = profile.id + '/' + attachId + '-' + safeName;
       var upRes = await client.storage.from('message-attachments').upload(path, file);
       if(upRes.error){ window.alert('Fehler beim Hochladen: ' + upRes.error.message); return; }
-      await client.from('messages').insert({
+      var msgRes = await client.from('messages').insert({
         sender_profile_id: profile.id, recipient_profile_id: recipientId,
         body: caption || null, attachment_type: 'file', attachment_path: path,
         attachment_label: file.name, attachment_mime_type: file.type || null, attachment_size_bytes: file.size
       });
+      if(msgRes.error){
+        await client.storage.from('message-attachments').remove([path]);
+        window.alert('Nachricht konnte nicht gespeichert werden: ' + msgRes.error.message);
+        return;
+      }
       textarea.value = '';
       cfg.reload();
     }
@@ -328,11 +333,16 @@
       var path = profile.id + '/' + attachId + '-voice.' + ext;
       var upRes = await client.storage.from('message-attachments').upload(path, blob, { contentType: blob.type });
       if(upRes.error){ window.alert('Fehler beim Hochladen: ' + upRes.error.message); return; }
-      await client.from('messages').insert({
+      var msgRes = await client.from('messages').insert({
         sender_profile_id: profile.id, recipient_profile_id: recipientId,
         attachment_type: 'voice', attachment_path: path, attachment_label: 'Sprachnachricht',
         attachment_mime_type: blob.type, attachment_size_bytes: blob.size, attachment_duration_seconds: durationSec
       });
+      if(msgRes.error){
+        await client.storage.from('message-attachments').remove([path]);
+        window.alert('Sprachnachricht konnte nicht gespeichert werden: ' + msgRes.error.message);
+        return;
+      }
       previewEl.innerHTML = '';
       cfg.reload();
     }
@@ -374,10 +384,14 @@
     async function sendLocationAttachment(type, lat, lng, label){
       var recipientId = cfg.getRecipientId();
       if(!recipientId) return;
-      await client.from('messages').insert({
+      var msgRes = await client.from('messages').insert({
         sender_profile_id: profile.id, recipient_profile_id: recipientId,
         attachment_type: type, attachment_lat: lat, attachment_lng: lng, attachment_label: label
       });
+      if(msgRes.error){
+        window.alert('Standort konnte nicht gesendet werden: ' + msgRes.error.message);
+        return;
+      }
       previewEl.innerHTML = '';
       cfg.reload();
     }
@@ -513,7 +527,11 @@
       var bodyEl = document.getElementById('msgBody');
       var body = bodyEl.value.trim();
       if(!body) return;
-      await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: adminId, body: body });
+      var msgRes = await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: adminId, body: body });
+      if(msgRes.error){
+        window.alert('Nachricht konnte nicht gesendet werden: ' + msgRes.error.message);
+        return;
+      }
       bodyEl.value = '';
       loadThread();
     });
@@ -625,7 +643,11 @@
       var bodyEl = document.getElementById('msgBodyAdmin');
       var body = bodyEl.value.trim();
       if(!body || !currentPartnerId) return;
-      await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: currentPartnerId, body: body });
+      var msgRes = await client.from('messages').insert({ sender_profile_id: profile.id, recipient_profile_id: currentPartnerId, body: body });
+      if(msgRes.error){
+        window.alert('Nachricht konnte nicht gesendet werden: ' + msgRes.error.message);
+        return;
+      }
       bodyEl.value = '';
       loadAdminThread();
     });
