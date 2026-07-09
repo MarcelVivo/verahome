@@ -3,7 +3,7 @@
 --
 -- Ergänzt Dokumente/Ordner um:
 -- - Kontakt-Zuordnung
--- - "Nur Ich / Admin"-private Ablage
+-- - "Admin"-private Ablage
 -- - stabile Suchindizes für Objekt-/Wohnungs-/Kontaktakten
 
 alter table public.document_folders

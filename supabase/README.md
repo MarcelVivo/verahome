@@ -113,7 +113,7 @@ ob ein eingeladener Kontakt sein Passwort bereits gesetzt hat
 Zusätzlich [`document-scope-enforcement.sql`](./document-scope-enforcement.sql)
 im Supabase SQL Editor ausführen. Dadurch können Dokumente im Dokumentenregister
 und in der Objekt-/Wohnungs-Erfassung immer eindeutig einer Liegenschaft,
-Einheit, Kontaktakte oder der privaten Admin-Ablage (`Nur Ich / Admin`)
+Einheit, Kontaktakte oder der privaten Admin-Ablage (`Admin`)
 zugeordnet werden.
 
 ## Testen

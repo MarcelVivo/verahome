@@ -120,7 +120,7 @@
               <option value="property">Liegenschaft / Objekt</option>
               <option value="unit">Wohnung / Einheit</option>
               <option value="contact">Kontakt / Rolle</option>
-              <option value="private">Nur Ich / Admin</option>
+              <option value="private">Admin</option>
             </select>
             <select id="uploadScopeProperty"></select>
             <select id="uploadScopeUnit"></select>
@@ -150,7 +150,7 @@
               <option value="property">Liegenschaft / Objekt</option>
               <option value="unit">Wohnung / Einheit</option>
               <option value="contact">Kontakt / Rolle</option>
-              <option value="private">Nur Ich / Admin</option>
+              <option value="private">Admin</option>
             </select>
             <select id="folderScopeProperty"></select>
             <select id="folderScopeUnit"></select>
@@ -196,7 +196,7 @@
               <option value="property">Liegenschaft / Objekt</option>
               <option value="unit">Wohnung / Einheit</option>
               <option value="contact">Kontakt / Rolle</option>
-              <option value="private">Nur Ich / Admin</option>
+              <option value="private">Admin</option>
             </select>
           </label>
           <label class="auth-form-label" id="assignPropertyWrap">Objekt
@@ -437,7 +437,7 @@
       { key:'contact_merkblaetter', code:'09', label:'Merkblätter' }
     ],
     private: [
-      { key:'private_admin', code:'01', label:'Nur Ich / Admin' }
+      { key:'private_admin', code:'01', label:'Admin' }
     ]
   };
 
@@ -559,7 +559,7 @@
 
   function fmScopedPathPreview(scope){
     if(!scope) return '';
-    if(scope.type === 'private') return 'Nur Ich / Admin / ' + fmArchiveLabel(scope.archive_category);
+    if(scope.type === 'private') return 'Admin / ' + fmArchiveLabel(scope.archive_category);
     if(scope.type === 'contact'){
       var contact = fmAllProfiles.filter(function(p){ return p.id === scope.contact_profile_id; })[0];
       return 'Kontakte / ' + fmProfileDisplay(contact) + ' / ' + fmArchiveLabel(scope.archive_category);
@@ -836,7 +836,7 @@
   async function fmEnsureScopedFolder(scope){
     var root, property, unit, contact, archive;
     if(scope.type === 'private'){
-      root = await fmFindOrCreateFolder('Nur Ich / Admin', null, { is_private_admin: true });
+      root = await fmFindOrCreateFolder('Admin', null, { is_private_admin: true });
       archive = await fmFindOrCreateFolder(fmArchiveLabel(scope.archive_category), root.id, {
         is_private_admin: true,
         archive_category: scope.archive_category
@@ -1164,7 +1164,7 @@
   }
 
   function fmPropertyLabel(file){
-    if(file && file.is_private_admin) return 'Nur Ich / Admin';
+    if(file && file.is_private_admin) return 'Admin';
     if(file && file.contact_profile_id){
       var contact = fmAllProfiles.filter(function(p){ return p.id === file.contact_profile_id; })[0];
       return 'Kontakt · ' + fmProfileDisplay(contact);

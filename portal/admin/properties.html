@@ -827,7 +827,7 @@
   }
 
   function documentAssignmentLabel(file){
-    if(file && file.is_private_admin) return 'Nur Ich / Admin';
+    if(file && file.is_private_admin) return 'Admin';
     if(file && file.contact_profile_id) return 'Kontakt · ' + profileLabelById(file.contact_profile_id);
     var property = file.property_id ? allProperties.filter(function(p){ return p.id === file.property_id; })[0] : null;
     var unit = file.unit_id ? allUnits.filter(function(u){ return u.id === file.unit_id; })[0] : null;
