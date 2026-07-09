@@ -362,9 +362,10 @@
 
     var unreadIds = rows.map(function(a){ return a.id; }).filter(function(id){ return !readIds.has(id); });
     if(unreadIds.length){
-      await client.from('property_announcement_reads').insert(
+      var markReadRes = await client.from('property_announcement_reads').insert(
         unreadIds.map(function(id){ return { announcement_id: id, profile_id: profile.id }; })
       );
+      if(markReadRes.error) console.warn('Rundschreiben konnten nicht als gelesen markiert werden:', markReadRes.error.message);
     }
   }
 
@@ -436,8 +437,21 @@
       btn.addEventListener('click', async function(){
         btn.disabled = true;
         btn.textContent = 'Wird bestätigt …';
-        try{ await client.rpc('confirm_document_share', { p_share_id: btn.getAttribute('data-share-id') }); }
-        finally{ loadSharedDocs(); }
+        try{
+          var res = await client.rpc('confirm_document_share', { p_share_id: btn.getAttribute('data-share-id') });
+          if(res.error){
+            window.alert('Dokumentbestätigung konnte nicht gespeichert werden: ' + res.error.message);
+            btn.disabled = false;
+            btn.textContent = 'Bestätigen';
+            return;
+          }
+        } catch(err) {
+          window.alert('Dokumentbestätigung konnte nicht gespeichert werden: ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = 'Bestätigen';
+          return;
+        }
+        loadSharedDocs();
       });
     });
   }
