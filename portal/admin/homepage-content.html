@@ -166,22 +166,18 @@
     document.getElementById('serviceBadgeInput').value = service.badge || '';
   }
   async function saveContent(){
-    var res = await client.from('portal_settings').upsert({
-      key:'homepage_content',
-      value:contentValue,
-      updated_by:profile.id,
-      updated_at:new Date().toISOString()
-    }, { onConflict:'key' });
+    var res = await client.rpc('set_portal_setting', {
+      p_key:'homepage_content',
+      p_value:contentValue
+    });
     setStatus(res.error ? 'Fehler: ' + res.error.message : 'Text gespeichert.');
     if(!res.error) reloadPreview();
   }
   async function saveServices(){
-    var res = await client.from('portal_settings').upsert({
-      key:'homepage_services',
-      value:servicesValue,
-      updated_by:profile.id,
-      updated_at:new Date().toISOString()
-    }, { onConflict:'key' });
+    var res = await client.rpc('set_portal_setting', {
+      p_key:'homepage_services',
+      p_value:servicesValue
+    });
     setStatus(res.error ? 'Fehler: ' + res.error.message : 'Kachel gespeichert.');
     if(!res.error) reloadPreview();
   }

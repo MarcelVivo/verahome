@@ -667,12 +667,10 @@ window.VeraDashboard = (function () {
       var mode = toggle.checked ? "live" : "test";
       toggle.disabled = true;
       info.textContent = mode === "live" ? "Live-Versand wird aktiviert …" : "Testmodus wird aktiviert …";
-      var res = await client.from("portal_settings").upsert({
-        key: "outbound_email_mode",
-        value: { mode: mode },
-        updated_by: profile.id,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "key" });
+      var res = await client.rpc("set_portal_setting", {
+        p_key: "outbound_email_mode",
+        p_value: { mode: mode }
+      });
       toggle.disabled = false;
       if (res.error) {
         toggle.checked = !toggle.checked;

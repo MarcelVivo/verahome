@@ -216,23 +216,19 @@
   }
   async function saveNav(){
     setStatus('Navigation wird gespeichert …');
-    var res = await client.from('portal_settings').upsert({
-      key:'portal_ui_settings',
-      value:{ navItems: deletedNavPayload() },
-      updated_by:profile.id,
-      updated_at:new Date().toISOString()
-    }, { onConflict:'key' });
+    var res = await client.rpc('set_portal_setting', {
+      p_key:'portal_ui_settings',
+      p_value:{ navItems: deletedNavPayload() }
+    });
     setStatus(res.error ? 'Fehler: ' + res.error.message : 'Navigation gespeichert.');
     if(!res.error) reloadPreview();
   }
   async function saveModules(){
     setStatus('Module werden gespeichert …');
-    var res = await client.from('portal_settings').upsert({
-      key:'portal_dashboard_modules',
-      value:{ modules: deletedModulePayload() },
-      updated_by:profile.id,
-      updated_at:new Date().toISOString()
-    }, { onConflict:'key' });
+    var res = await client.rpc('set_portal_setting', {
+      p_key:'portal_dashboard_modules',
+      p_value:{ modules: deletedModulePayload() }
+    });
     setStatus(res.error ? 'Fehler: ' + res.error.message : 'Module gespeichert.');
     if(!res.error) reloadPreview();
   }
