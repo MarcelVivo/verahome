@@ -133,10 +133,15 @@
       var profSel = document.getElementById('ev_profile');
       profSel.style.display = 'block';
       var res = await client.from('profiles').select('id, first_name, last_name').order('last_name');
-      profSel.innerHTML = (res.data || []).map(function(p){
-        return '<option value="'+p.id+'"'+(p.id===profile.id?' selected':'')+'>'+
-          VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+(p.id===profile.id?' (ich)':'')+'</option>';
-      }).join('');
+      if(res.error){
+        profSel.innerHTML = '<option value="'+profile.id+'">Ich</option>';
+        console.error('Profile konnten nicht geladen werden:', res.error);
+      } else {
+        profSel.innerHTML = (res.data || []).map(function(p){
+          return '<option value="'+p.id+'"'+(p.id===profile.id?' selected':'')+'>'+
+            VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+(p.id===profile.id?' (ich)':'')+'</option>';
+        }).join('');
+      }
     } else {
       document.getElementById('calLead').textContent = 'Ihre anstehenden Termine.';
       document.getElementById('apptCard').hidden = false;
@@ -261,10 +266,16 @@
     var aid = btn.getAttribute('data-confirm-appt-id');
     btn.disabled = true;
     btn.textContent = 'Wird bestätigt …';
-    await client.from('appointment_participants')
+    var confirmRes = await client.from('appointment_participants')
       .update({ status: 'bestaetigt' })
       .eq('appointment_id', aid)
       .eq('profile_id', profile.id);
+    if(confirmRes.error){
+      window.alert('Termin konnte nicht bestätigt werden: ' + confirmRes.error.message);
+      btn.disabled = false;
+      btn.textContent = 'Teilnahme bestätigen';
+      return;
+    }
     loadAppointmentInvites();
   });
 })();

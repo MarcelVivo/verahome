@@ -314,10 +314,16 @@
       var aid = confirmBtn.getAttribute('data-confirm-appt-id');
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Wird bestätigt …';
-      await client.from('appointment_participants')
+      var confirmRes = await client.from('appointment_participants')
         .update({ status: 'bestaetigt' })
         .eq('appointment_id', aid)
         .eq('profile_id', profile.id);
+      if(confirmRes.error){
+        window.alert('Termin konnte nicht bestätigt werden: ' + confirmRes.error.message);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Teilnahme bestätigen';
+        return;
+      }
       calHidePopover();
       loadCalWeek();
     }
