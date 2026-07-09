@@ -158,12 +158,12 @@
   var editingJobId = null;
 
   async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').order('last_name');
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').is('archived_at', null).order('last_name');
     var jobProfiles = (profilesRes.data || []).filter(function(p){ return p.category === 'partner' || p.category === 'handwerker' || p.category === 'hauswart'; });
 
-    var propertiesRes = await client.from('properties').select('*').order('label');
+    var propertiesRes = await client.from('properties').select('*').is('archived_at', null).order('label');
     var properties = propertiesRes.data || [];
-    var unitsRes = await client.from('units').select('*, properties(label)').order('label');
+    var unitsRes = await client.from('units').select('*, properties(label)').is('archived_at', null).order('label');
     var units = unitsRes.data || [];
 
     document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker/Hauswart wählen *</option>' +
@@ -281,10 +281,13 @@
 
   async function deleteJob(){
     if(!editingJobId) return;
-    if(!window.confirm('Diesen Auftrag wirklich löschen?')) return;
-    if(!window.confirm('Letzte Bestätigung: jetzt endgültig löschen?')) return;
-    var res = await client.from('job_assignments').delete().eq('id', editingJobId);
-    if(res.error){ window.alert('Fehler beim Löschen: ' + res.error.message); return; }
+    if(!window.confirm('Diesen Auftrag archivieren? Er bleibt im Verlauf erhalten.')) return;
+    var res = await client.from('job_assignments').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Auftrag archiviert'
+    }).eq('id', editingJobId);
+    if(res.error){ window.alert('Fehler beim Archivieren: ' + res.error.message); return; }
     closeJobModal();
     loadJobs();
   }

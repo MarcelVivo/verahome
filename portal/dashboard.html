@@ -194,10 +194,10 @@
       var stats = [];
       if(profile.category === 'admin'){
         var todayStr = new Date().toISOString().slice(0,10);
-        var activeUsers = await client.from('profiles').select('*', { count:'exact', head:true }).eq('status','active');
+        var activeUsers = await client.from('profiles').select('*', { count:'exact', head:true }).eq('status','active').is('archived_at', null);
         var pendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
-        var openJobs = await client.from('job_assignments').select('*', { count:'exact', head:true }).eq('status','open');
-        var openInvoices = await client.from('invoices').select('*', { count:'exact', head:true }).eq('status','offen');
+        var openJobs = await client.from('job_assignments').select('*', { count:'exact', head:true }).eq('status','open').is('archived_at', null);
+        var openInvoices = await client.from('invoices').select('*', { count:'exact', head:true }).eq('status','offen').is('archived_at', null);
         var overdueInvoicesRes = await client.from('invoices')
           .select('id, invoice_number, total, due_date, recipient:profiles!recipient_profile_id(first_name,last_name)')
           .eq('status','offen').lt('due_date', todayStr).order('due_date');
@@ -206,8 +206,8 @@
         var openTickets = await client.from('admin_tickets').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
         var openRapporte = await client.from('hauswart_reports').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
 
-        var unitsRes = await client.from('units').select('id, label, properties(label)');
-        var activeTenanciesRes = await client.from('tenancies').select('unit_id').eq('status','active');
+        var unitsRes = await client.from('units').select('id, label, properties(label)').is('archived_at', null);
+        var activeTenanciesRes = await client.from('tenancies').select('unit_id').eq('status','active').is('archived_at', null);
         var occupiedUnitIds = new Set((activeTenanciesRes.data||[]).map(function(t){ return t.unit_id; }));
         var vacantUnits = (unitsRes.data||[]).filter(function(u){ return !occupiedUnitIds.has(u.id); });
 

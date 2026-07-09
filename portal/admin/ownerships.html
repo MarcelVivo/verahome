@@ -140,12 +140,12 @@
   var editingOwnershipId = null;
 
   async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').eq('category', 'eigentuemer').order('last_name');
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').eq('category', 'eigentuemer').is('archived_at', null).order('last_name');
     var owners = profilesRes.data || [];
 
-    var propertiesRes = await client.from('properties').select('*').order('label');
+    var propertiesRes = await client.from('properties').select('*').is('archived_at', null).order('label');
     var properties = propertiesRes.data || [];
-    var unitsRes = await client.from('units').select('*, properties(label)').order('label');
+    var unitsRes = await client.from('units').select('*, properties(label)').is('archived_at', null).order('label');
     var units = unitsRes.data || [];
 
     document.getElementById('o_owner').innerHTML = '<option value="" disabled selected>Eigentümer wählen *</option>' +
@@ -233,10 +233,13 @@
 
   async function deleteOwnership(){
     if(!editingOwnershipId) return;
-    if(!window.confirm('Diese Eigentümerschaft wirklich löschen?')) return;
-    if(!window.confirm('Letzte Bestätigung: jetzt endgültig löschen?')) return;
-    var res = await client.from('ownerships').delete().eq('id', editingOwnershipId);
-    if(res.error){ window.alert('Fehler beim Löschen: ' + res.error.message); return; }
+    if(!window.confirm('Diese Eigentümerschaft archivieren? Sie bleibt im Verlauf erhalten.')) return;
+    var res = await client.from('ownerships').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Eigentümerschaft archiviert'
+    }).eq('id', editingOwnershipId);
+    if(res.error){ window.alert('Fehler beim Archivieren: ' + res.error.message); return; }
     closeOwnershipModal();
     loadOwnerships();
   }

@@ -393,10 +393,12 @@ window.VeraDashboard = (function () {
     var invByNumberRes = await client.from("invoices")
       .select("id, invoice_number, status")
       .ilike("invoice_number", pattern)
+      .is("archived_at", null)
       .limit(5);
     var invByRecipientRes = await client.from("invoices")
       .select("id, invoice_number, status, recipient:profiles!recipient_profile_id!inner(first_name, last_name)")
       .or("first_name.ilike." + pattern + ",last_name.ilike." + pattern, { foreignTable: "recipient" })
+      .is("archived_at", null)
       .limit(5);
     var seenInvIds = {};
     (invByNumberRes.data || []).forEach(function (inv) {

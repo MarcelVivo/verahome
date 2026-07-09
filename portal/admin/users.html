@@ -416,7 +416,7 @@
   }
 
   async function loadAll(){
-    var res = await client.from('profiles').select('*').neq('category', 'admin').order('last_name');
+    var res = await client.from('profiles').select('*').neq('category', 'admin').is('archived_at', null).order('last_name');
     allContacts = res.data || [];
 
     var rolesRes = await client.from('profile_role_assignments').select('profile_id, category');
@@ -786,21 +786,25 @@
 
   async function deleteContact(contactId, name){
     if(!window.confirm(
-      'Kontakt "' + name + '" wirklich unwiderruflich löschen?\n\n' +
-      'Der Login-Zugang UND alle zugehörigen Daten (Mietverhältnisse, Eigentümerschaften, Dokumente, Nachrichten, Rechnungen usw.) werden dabei gelöscht. Dies kann nicht rückgängig gemacht werden.'
+      'Kontakt "' + name + '" archivieren?\n\n' +
+      'Der Kontakt verschwindet aus der aktiven Ansicht, bleibt aber für Verlauf, Dokumente und Audit nachvollziehbar erhalten.'
     )) return;
-    if(!window.confirm('Letzte Bestätigung: "' + name + '" jetzt endgültig löschen?')) return;
     try {
-      var res = await client.functions.invoke('admin-delete-user', { body: { profileId: contactId } });
-      if(res.error || (res.data && res.data.error)){
-        window.alert('Fehler beim Löschen: ' + (await edgeFunctionErrorMessage(res)));
+      var res = await client.from('profiles').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Kontakt archiviert',
+        status: 'suspended'
+      }).eq('id', contactId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
         return;
       }
       closeContactModal();
       await loadAll();
       renderAllColumns();
     } catch(err) {
-      window.alert('Fehler beim Löschen: ' + err.message);
+      window.alert('Fehler beim Archivieren: ' + err.message);
     }
   }
 })();

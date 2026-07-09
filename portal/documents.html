@@ -523,11 +523,11 @@
     document.getElementById('assignContactSelect').addEventListener('change', fmRenderAssignArchive);
 
     client.from('profiles').select('id, first_name, last_name, company_name, category, email')
-      .neq('category', 'admin').order('category').order('last_name')
+      .neq('category', 'admin').is('archived_at', null).order('category').order('last_name')
       .then(function(res){ fmAllProfiles = res.data || []; });
-    client.from('properties').select('id, label, street, city, property_type').order('label')
+    client.from('properties').select('id, label, street, city, property_type').is('archived_at', null).order('label')
       .then(function(res){ fmProperties = res.data || []; });
-    client.from('units').select('id, label, property_id, unit_type').order('label')
+    client.from('units').select('id, label, property_id, unit_type').is('archived_at', null).order('label')
       .then(function(res){ fmUnits = res.data || []; });
 
     fmLoadCurrentFolder();
@@ -990,12 +990,12 @@
 
   async function fmLoadCurrentFolder(){
     var folderId = fmCurrentFolderId();
-    var foldersQuery = client.from('document_folders').select('*').order('name');
+    var foldersQuery = client.from('document_folders').select('*').is('archived_at', null).order('name');
     foldersQuery = folderId === null ? foldersQuery.is('parent_id', null) : foldersQuery.eq('parent_id', folderId);
     var foldersRes = await foldersQuery;
     fmFolders = foldersRes.data || [];
 
-    var filesQuery = client.from('document_files').select('*').order('title');
+    var filesQuery = client.from('document_files').select('*').is('archived_at', null).order('title');
     filesQuery = folderId === null ? filesQuery.is('folder_id', null) : filesQuery.eq('folder_id', folderId);
     var filesRes = await filesQuery;
     fmFiles = filesRes.data || [];
@@ -1294,9 +1294,9 @@
   }
 
   async function fmCollectFilesRecursive(folderId){
-    var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId);
+    var filesRes = await client.from('document_files').select('*').eq('folder_id', folderId).is('archived_at', null);
     var files = filesRes.data || [];
-    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId).is('archived_at', null);
     var subFolders = subRes.data || [];
     for(var i = 0; i < subFolders.length; i++) files = files.concat(await fmCollectFilesRecursive(subFolders[i].id));
     return files;
@@ -1304,27 +1304,29 @@
 
   async function fmCollectFolderIdsRecursive(folderId){
     var ids = [folderId];
-    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId);
+    var subRes = await client.from('document_folders').select('id').eq('parent_id', folderId).is('archived_at', null);
     var subFolders = subRes.data || [];
     for(var i = 0; i < subFolders.length; i++) ids = ids.concat(await fmCollectFolderIdsRecursive(subFolders[i].id));
     return ids;
   }
 
   async function fmDeleteFolder(id, name){
-    if(!window.confirm('Ordner "'+name+'" wirklich löschen? Alle Unterordner und Dateien darin werden unwiderruflich gelöscht.')) return;
-    if(!window.confirm('Letzte Bestätigung: "'+name+'" jetzt endgültig löschen?')) return;
-    var files = await fmCollectFilesRecursive(id);
-    if(files.length) await client.storage.from('document-vault').remove(files.map(function(f){ return f.file_path; }));
-    await client.from('document_folders').delete().eq('id', id);
+    if(!window.confirm('Ordner "'+name+'" archivieren? Alle Unterordner und Dateien bleiben im geschützten Archiv erhalten.')) return;
+    await client.rpc('archive_document_folder', {
+      p_folder_id: id,
+      p_reason: 'Ordner archiviert'
+    });
     fmSelected = null;
     fmLoadCurrentFolder();
   }
 
   async function fmDeleteFile(id, path, name){
-    if(!window.confirm('Datei "'+name+'" wirklich löschen?')) return;
-    if(!window.confirm('Letzte Bestätigung: "'+name+'" endgültig löschen?')) return;
-    await client.storage.from('document-vault').remove([path]);
-    await client.from('document_files').delete().eq('id', id);
+    if(!window.confirm('Datei "'+name+'" archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
+    await client.from('document_files').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Datei archiviert'
+    }).eq('id', id);
     fmSelected = null;
     fmLoadCurrentFolder();
   }
@@ -1522,21 +1524,21 @@
   async function fmResidentProfileIds(propertyId, unitId){
     var ids = new Set();
     if(unitId){
-      var tenancies = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unitId).eq('status', 'active');
+      var tenancies = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unitId).eq('status', 'active').is('archived_at', null);
       (tenancies.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
-      var ownerships = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unitId).or('end_date.is.null,end_date.gte.' + new Date().toISOString().slice(0,10));
+      var ownerships = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unitId).is('archived_at', null).or('end_date.is.null,end_date.gte.' + new Date().toISOString().slice(0,10));
       (ownerships.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
       return Array.from(ids);
     }
     if(propertyId){
-      var units = await client.from('units').select('id').eq('property_id', propertyId);
+      var units = await client.from('units').select('id').eq('property_id', propertyId).is('archived_at', null);
       var unitIds = (units.data || []).map(function(u){ return u.id; });
       if(unitIds.length){
-        var tRes = await client.from('tenancies').select('tenant_profile_id').in('unit_id', unitIds).eq('status', 'active');
+        var tRes = await client.from('tenancies').select('tenant_profile_id').in('unit_id', unitIds).eq('status', 'active').is('archived_at', null);
         (tRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
-        var oPropRes = await client.from('ownerships').select('owner_profile_id').eq('property_id', propertyId);
+        var oPropRes = await client.from('ownerships').select('owner_profile_id').eq('property_id', propertyId).is('archived_at', null);
         (oPropRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-        var oUnitRes = await client.from('ownerships').select('owner_profile_id').in('unit_id', unitIds);
+        var oUnitRes = await client.from('ownerships').select('owner_profile_id').in('unit_id', unitIds).is('archived_at', null);
         (oUnitRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
       }
     }

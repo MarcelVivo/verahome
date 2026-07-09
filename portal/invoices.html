@@ -273,6 +273,7 @@
     var res = await client.from('invoices')
       .select('*, issuer:profiles!issuer_profile_id(first_name,last_name,category)')
       .eq('recipient_profile_id', profile.id)
+      .is('archived_at', null)
       .order('created_at', { ascending:false });
     allReceived = res.data || [];
     renderReceivedTable(allReceived);
@@ -292,6 +293,7 @@
     var res = await client.from('invoices')
       .select('*, recipient:profiles!recipient_profile_id(first_name,last_name)')
       .eq('issuer_profile_id', profile.id)
+      .is('archived_at', null)
       .order('created_at', { ascending:false });
     allIssued = res.data || [];
     renderIssuedTable(allIssued);
@@ -310,6 +312,7 @@
   async function loadAllInvoices(){
     var res = await client.from('invoices')
       .select('*, issuer:profiles!issuer_profile_id(first_name,last_name), recipient:profiles!recipient_profile_id(first_name,last_name)')
+      .is('archived_at', null)
       .order('created_at', { ascending:false });
     allInvoicesData = res.data || [];
     renderAllInvoicesTable(allInvoicesData);

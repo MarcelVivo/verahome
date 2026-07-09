@@ -1012,7 +1012,7 @@
 
   async function loadAll(){
     await detectOptionalColumns();
-    var propRes = await client.from('properties').select('*').order('label');
+    var propRes = await client.from('properties').select('*').is('archived_at', null).order('label');
     allProperties = propRes.data || [];
 
     var propSel = document.getElementById('u_property');
@@ -1021,23 +1021,23 @@
     document.getElementById('u_type').innerHTML = unitTypeOptionsHtml('wohnung');
     document.getElementById('u_type_cards').innerHTML = unitTypeCardsHtml('wohnung', 'u_type');
 
-    var unitsRes = await client.from('units').select('*').order('label');
+    var unitsRes = await client.from('units').select('*').is('archived_at', null).order('label');
     allUnits = unitsRes.data || [];
 
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category, email, phone, address_street, address_zip, address_city').neq('category', 'admin').order('last_name');
+    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category, email, phone, address_street, address_zip, address_city').neq('category', 'admin').is('archived_at', null).order('last_name');
     allProfilesForPicker = profilesRes.data || [];
 
-    var tenanciesRes = await client.from('tenancies').select('*').order('start_date', { ascending:false });
+    var tenanciesRes = await client.from('tenancies').select('*').is('archived_at', null).order('start_date', { ascending:false });
     allTenancies = tenanciesRes.data || [];
-    var ownershipsRes = await client.from('ownerships').select('*').order('start_date', { ascending:false });
+    var ownershipsRes = await client.from('ownerships').select('*').is('archived_at', null).order('start_date', { ascending:false });
     allOwnerships = ownershipsRes.data || [];
     var permissionsRes = await client.from('property_permissions').select('*');
     allPropertyPermissions = permissionsRes.data || [];
-    var docsRes = await client.from('document_files').select('*').order('created_at', { ascending:false });
+    var docsRes = await client.from('document_files').select('*').is('archived_at', null).order('created_at', { ascending:false });
     allDocumentFiles = docsRes.data || [];
     refreshNewDocumentSelectors();
     try {
-      var appliancesRes = await client.from('property_appliances').select('*').order('label');
+      var appliancesRes = await client.from('property_appliances').select('*').is('archived_at', null).order('label');
       allAppliances = appliancesRes.data || [];
     } catch(err) {
       allAppliances = [];
@@ -1912,11 +1912,14 @@
   }
 
   async function deleteProperty(propertyId, label){
-    if(!window.confirm('Objekt "' + label + '" wirklich löschen? Einheiten, Mietverhältnisse, Eigentümerschaften, Bilder und Objekt-Dokumente werden mitgelöscht.')) return;
-    if(!window.confirm('Letzte Bestätigung: "' + label + '" jetzt endgültig löschen?')) return;
-    var res = await client.from('properties').delete().eq('id', propertyId);
+    if(!window.confirm('Objekt "' + label + '" archivieren? Einheiten und verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
+    var res = await client.from('properties').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Objekt archiviert'
+    }).eq('id', propertyId);
     if(res.error){
-      window.alert('Fehler beim Löschen: ' + res.error.message + '\n\nMöglicher Grund: Es gibt noch Auftragszuweisungen oder persönliche Dokumente, die direkt auf dieses Objekt verweisen — diese zuerst in "Mietverhältnisse" bzw. "Dokumente" entfernen oder umhängen.');
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
       return;
     }
     closePropertyModal();
@@ -2119,8 +2122,8 @@
   }
 
   async function refreshUnitPrivateDocRecipients(unit){
-    var tenantRes = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unit.id).eq('status', 'active');
-    var ownerRes = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unit.id);
+    var tenantRes = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unit.id).eq('status', 'active').is('archived_at', null);
+    var ownerRes = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unit.id).is('archived_at', null);
     var ids = new Set();
     (tenantRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
     (ownerRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
@@ -2138,7 +2141,7 @@
   }
 
   async function loadUnitTenants(unit){
-    var res = await client.from('tenancies').select('id, tenant_profile_id, start_date, end_date, status').eq('unit_id', unit.id).order('start_date', { ascending:false });
+    var res = await client.from('tenancies').select('id, tenant_profile_id, start_date, end_date, status').eq('unit_id', unit.id).is('archived_at', null).order('start_date', { ascending:false });
     var rows = res.data || [];
     var el = document.getElementById('unitTenants-'+unit.id);
     el.innerHTML = rows.length ? rows.map(function(t){
@@ -2149,8 +2152,12 @@
     }).join('') : '<p class="dash-empty">Noch kein Mieter zugewiesen.</p>';
     el.querySelectorAll('[data-remove-tenancy]').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        if(!window.confirm('Mietverhältnis wirklich entfernen?')) return;
-        await client.from('tenancies').delete().eq('id', btn.getAttribute('data-remove-tenancy'));
+        if(!window.confirm('Mietverhältnis archivieren?')) return;
+        await client.from('tenancies').update({
+          archived_at: new Date().toISOString(),
+          archived_by: profile.id,
+          archived_reason: 'Mietverhältnis bei Einheit archiviert'
+        }).eq('id', btn.getAttribute('data-remove-tenancy'));
         loadUnitTenants(unit);
       });
     });
@@ -2168,7 +2175,7 @@
   }
 
   async function loadUnitOwners(unit){
-    var res = await client.from('ownerships').select('id, owner_profile_id, share_percent, start_date, end_date').eq('unit_id', unit.id).order('start_date', { ascending:false });
+    var res = await client.from('ownerships').select('id, owner_profile_id, share_percent, start_date, end_date').eq('unit_id', unit.id).is('archived_at', null).order('start_date', { ascending:false });
     var rows = res.data || [];
     var el = document.getElementById('unitOwners-'+unit.id);
     el.innerHTML = rows.length ? rows.map(function(o){
@@ -2179,8 +2186,12 @@
     }).join('') : '<p class="dash-empty">Noch kein Eigentümer zugewiesen.</p>';
     el.querySelectorAll('[data-remove-ownership]').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        if(!window.confirm('Eigentümerschaft wirklich entfernen?')) return;
-        await client.from('ownerships').delete().eq('id', btn.getAttribute('data-remove-ownership'));
+        if(!window.confirm('Eigentümerschaft archivieren?')) return;
+        await client.from('ownerships').update({
+          archived_at: new Date().toISOString(),
+          archived_by: profile.id,
+          archived_reason: 'Eigentümerschaft bei Einheit archiviert'
+        }).eq('id', btn.getAttribute('data-remove-ownership'));
         loadUnitOwners(unit);
       });
     });
@@ -2229,8 +2240,8 @@
   }
 
   async function loadUnitLinkedDocs(unit){
-    var unitDocs = await client.from('document_files').select('id, title, file_path, created_at').eq('unit_id', unit.id).order('created_at', { ascending:false });
-    var propertyDocs = await client.from('document_files').select('id, title, file_path, created_at').eq('property_id', unit.property_id).is('unit_id', null).order('created_at', { ascending:false });
+    var unitDocs = await client.from('document_files').select('id, title, file_path, created_at').eq('unit_id', unit.id).is('archived_at', null).order('created_at', { ascending:false });
+    var propertyDocs = await client.from('document_files').select('id, title, file_path, created_at').eq('property_id', unit.property_id).is('unit_id', null).is('archived_at', null).order('created_at', { ascending:false });
     var rows = (unitDocs.data || []).concat(propertyDocs.data || []);
     var el = document.getElementById('unitLinkedDocs-'+unit.id);
     el.innerHTML = rows.length ? rows.map(function(d){
@@ -2526,11 +2537,14 @@
   }
 
   async function deleteApplianceRecord(id){
-    if(!window.confirm('Gerät wirklich löschen?')) return;
-    if(!window.confirm('Letzte Bestätigung: Gerät endgültig löschen?')) return;
-    var res = await client.from('property_appliances').delete().eq('id', id);
+    if(!window.confirm('Gerät archivieren? Es bleibt im Verlauf erhalten.')) return;
+    var res = await client.from('property_appliances').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Gerät archiviert'
+    }).eq('id', id);
     if(res.error){
-      window.alert('Fehler beim Löschen: ' + res.error.message);
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
       return;
     }
     selectedDetailType = null;
@@ -2566,11 +2580,14 @@
   }
 
   async function deleteUnit(unitId, label){
-    if(!window.confirm('Einheit "' + label + '" wirklich löschen? Bilder, Mietverhältnisse/Eigentümerschaften und Auftragszuweisungen dazu werden mitgelöscht.')) return;
-    if(!window.confirm('Letzte Bestätigung: "' + label + '" jetzt endgültig löschen?')) return;
-    var res = await client.from('units').delete().eq('id', unitId);
+    if(!window.confirm('Einheit "' + label + '" archivieren? Verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
+    var res = await client.from('units').update({
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id,
+      archived_reason: 'Einheit archiviert'
+    }).eq('id', unitId);
     if(res.error){
-      window.alert('Fehler beim Löschen: ' + res.error.message);
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
       return;
     }
     closeUnitModal();
@@ -2579,7 +2596,7 @@
   }
 
   async function loadHauswartAssignments(propertyId){
-    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').eq('category', 'hauswart').order('last_name');
+    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').eq('category', 'hauswart').is('archived_at', null).order('last_name');
     var users = usersRes.data || [];
     var permsRes = await client.from('property_permissions').select('profile_id').eq('property_id', propertyId).eq('permission', 'hauswart');
     var grantedIds = (permsRes.data || []).map(function(p){ return p.profile_id; });
@@ -2701,7 +2718,7 @@
   }
 
   async function loadLaundryUnits(propertyId){
-    var res = await client.from('units').select('id,label').eq('property_id', propertyId).order('label');
+    var res = await client.from('units').select('id,label').eq('property_id', propertyId).is('archived_at', null).order('label');
     var sel = document.getElementById('laundryUnit-'+propertyId);
     (res.data || []).forEach(function(u){
       var opt = document.createElement('option');
@@ -2761,7 +2778,7 @@
   }
 
   async function loadLaundryPermissions(propertyId){
-    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').order('last_name');
+    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').is('archived_at', null).order('last_name');
     var users = usersRes.data || [];
     var permsRes = await client.from('property_permissions').select('profile_id').eq('property_id', propertyId).eq('permission', 'waschplan');
     var grantedIds = (permsRes.data || []).map(function(p){ return p.profile_id; });
@@ -2973,7 +2990,7 @@
   }
 
   async function loadUserPicker(propertyId){
-    var res = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').order('last_name');
+    var res = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').is('archived_at', null).order('last_name');
     var users = res.data || [];
     var el = document.getElementById('docUsers-'+propertyId);
     el.style.display = 'none';
@@ -3053,7 +3070,7 @@
   }
 
   async function loadPropertyDocs(propertyId){
-    var res = await client.from('document_files').select('*').eq('property_id', propertyId).is('unit_id', null).order('created_at', { ascending:false });
+    var res = await client.from('document_files').select('*').eq('property_id', propertyId).is('unit_id', null).is('archived_at', null).order('created_at', { ascending:false });
     var docs = res.data || [];
     var table = document.getElementById('docsTable-'+propertyId);
     if(!docs.length){ table.innerHTML = '<tr><td class="dash-empty">Noch keine Dokumente.</td></tr>'; return; }
@@ -3090,10 +3107,12 @@
     });
     table.querySelectorAll('.del-doc-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        if(!window.confirm('Dokument wirklich löschen?')) return;
-        if(!window.confirm('Letzte Bestätigung: Dokument endgültig löschen?')) return;
-        await client.storage.from('document-vault').remove([btn.getAttribute('data-path')]);
-        await client.from('document_files').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Dokument archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
+        await client.from('document_files').update({
+          archived_at: new Date().toISOString(),
+          archived_by: profile.id,
+          archived_reason: 'Dokument archiviert'
+        }).eq('id', btn.getAttribute('data-id'));
         await loadAll();
         loadPropertyDocs(propertyId);
         renderAllColumns();
@@ -3107,7 +3126,7 @@
   }
 
   async function editDocumentAccess(propertyId, docId, currentIds){
-    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').order('last_name');
+    var usersRes = await client.from('profiles').select('id, first_name, last_name, member_number').neq('category', 'admin').is('archived_at', null).order('last_name');
     var users = usersRes.data || [];
     var picker = document.getElementById('docUsers-'+propertyId);
     picker.style.display = 'flex';
