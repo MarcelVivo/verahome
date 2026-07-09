@@ -1536,3 +1536,59 @@
   .msg-bubble{max-width:92%;}
   .msg-compose{bottom:calc(var(--portal-bottom-nav-height) + env(safe-area-inset-bottom));}
 }
+
+@media (max-width:560px){
+  .share-modal-backdrop:has(.filemgr-upload-modal){
+    align-items:stretch;background:var(--color-white);overflow:hidden;
+  }
+  .filemgr-upload-modal{
+    height:100dvh;max-height:100dvh;border-radius:0;box-shadow:none;
+    padding:calc(14px + env(safe-area-inset-top)) 14px calc(10px + env(safe-area-inset-bottom));
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+  }
+  .filemgr-upload-modal .obj-modal-close{
+    position:sticky;top:0;margin-left:auto;margin-bottom:4px;width:42px;height:42px;
+    display:flex;align-items:center;justify-content:center;background:var(--color-white);z-index:4;
+  }
+  .filemgr-upload-modal h3{
+    font-size:1.45rem;line-height:1.15;margin:-34px 48px 8px 0;
+  }
+  .filemgr-upload-modal > .doc-meta{
+    font-size:.9rem;line-height:1.45;margin-bottom:10px;
+  }
+  .filemgr-upload-modal .auth-form{
+    display:flex;flex-direction:column;gap:9px;min-height:0;
+  }
+  .filemgr-upload-modal input[type="file"]{
+    max-width:100%;min-height:48px;padding:8px;border-radius:12px;
+    border:1px solid var(--color-blue-light);background:var(--color-bg);
+    font-size:.9rem;overflow:hidden;
+  }
+  .filemgr-choice{
+    min-height:58px;padding:10px 12px;font-size:.94rem;border-radius:14px;
+  }
+  .filemgr-choice input{
+    width:26px;height:26px;min-width:26px;min-height:26px;
+  }
+  .filemgr-upload-modal select,
+  .filemgr-upload-modal input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){
+    min-height:52px;padding:10px 12px;border-radius:12px;font-size:16px;
+  }
+  .filemgr-upload-modal .auth-form-label{
+    margin:2px 0 0;font-size:.86rem;gap:6px;
+  }
+  .filemgr-path-preview{
+    font-size:.84rem;line-height:1.35;padding:10px 12px;border-radius:12px;
+  }
+  .filemgr-upload-modal .form-status{
+    margin:0;font-size:.84rem;
+  }
+  .filemgr-upload-modal .share-modal-actions{
+    position:sticky;bottom:0;z-index:5;margin:4px -14px 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:grid;grid-template-columns:1fr 1.2fr;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,0),var(--color-white) 18%);
+  }
+  .filemgr-upload-modal .share-modal-actions .dash-btn-sm,
+  .filemgr-upload-modal .share-modal-actions .btn{
+    width:100%;min-height:48px;justify-content:center;border-radius:999px;font-size:.9rem;
+  }
+}

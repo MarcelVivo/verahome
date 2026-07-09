@@ -112,6 +112,7 @@
       <!-- Pflicht-Ablage-Modal (admin) -->
       <div class="share-modal-backdrop" id="uploadScopeModalBackdrop" hidden>
         <div class="share-modal obj-modal filemgr-upload-modal">
+          <button type="button" class="obj-modal-close" id="uploadScopeClose" aria-label="Schliessen">×</button>
           <h3>Dokument ablegen</h3>
           <p class="doc-meta">Jedes Dokument wird direkt einer Liegenschaft, Wohnung, einem Kontakt oder der privaten Admin-Ablage zugeordnet. Der passende Ordnerpfad wird automatisch angelegt.</p>
           <form class="auth-form" id="uploadScopeForm">
@@ -156,6 +157,7 @@
       <!-- Pflicht-Zuordnung für neue Ordner (admin) -->
       <div class="share-modal-backdrop" id="folderScopeModalBackdrop" hidden>
         <div class="share-modal obj-modal filemgr-upload-modal">
+          <button type="button" class="obj-modal-close" id="folderScopeClose" aria-label="Schliessen">×</button>
           <h3>Ordner erstellen</h3>
           <p class="doc-meta">Jeder neue Ordner wird direkt einer Liegenschaft, Wohnung, einem Kontakt oder der privaten Admin-Ablage zugeordnet. Dokumente darin übernehmen diese Zuordnung.</p>
           <form class="auth-form" id="folderScopeForm">
@@ -474,6 +476,7 @@
     });
     document.getElementById('fm_upload_btn').addEventListener('click', function(){ fmOpenUploadScopeModal([]); });
     document.getElementById('fm_upload_input').addEventListener('change', fmUploadFiles);
+    document.getElementById('uploadScopeClose').addEventListener('click', fmCloseUploadScopeModal);
     document.getElementById('uploadScopeCancel').addEventListener('click', fmCloseUploadScopeModal);
     document.getElementById('uploadScopeForm').addEventListener('submit', fmSubmitScopedUpload);
     ['uploadScopeType','uploadScopeProperty','uploadScopeUnit','uploadScopeContact','uploadScopeArchive'].forEach(function(id){
@@ -483,6 +486,7 @@
       input.addEventListener('change', fmUpdateUploadScopeForm);
     });
     document.getElementById('uploadScopeNewFolderName').addEventListener('input', fmUpdateUploadScopeForm);
+    document.getElementById('folderScopeClose').addEventListener('click', fmCloseFolderCreateModal);
     document.getElementById('folderScopeCancel').addEventListener('click', fmCloseFolderCreateModal);
     document.getElementById('folderScopeForm').addEventListener('submit', fmSubmitCreateFolder);
     document.getElementById('folderScopeName').addEventListener('input', fmUpdateFolderScopeForm);
