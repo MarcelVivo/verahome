@@ -517,6 +517,15 @@
     el.classList.toggle('show', !!msg);
   }
 
+  function fmApplyDocumentScopePayload(payload, scope){
+    if(scope.property_id) payload.property_id = scope.property_id;
+    if(scope.unit_id) payload.unit_id = scope.unit_id;
+    if(scope.contact_profile_id) payload.contact_profile_id = scope.contact_profile_id;
+    if(scope.is_private_admin) payload.is_private_admin = true;
+    if(scope.archive_category) payload.archive_category = scope.archive_category;
+    return payload;
+  }
+
   function fmPropertyType(property){
     return property && property.property_type === 'stweg' ? 'stweg' : 'mietobjekt';
   }
@@ -772,16 +781,11 @@
     statusEl.classList.add('show');
     try {
       var parentFolder = await fmEnsureScopedFolder(scope);
-      var payload = {
+      var payload = fmApplyDocumentScopePayload({
         name: name,
         parent_id: parentFolder.id,
-        property_id: scope.property_id || null,
-        unit_id: scope.unit_id || null,
-        contact_profile_id: scope.contact_profile_id || null,
-        is_private_admin: !!scope.is_private_admin,
-        archive_category: scope.archive_category || null,
         created_by: profile.id
-      };
+      }, scope);
       var res = await client.from('document_folders').insert(payload).select('*').single();
       if(res.error) throw res.error;
       statusEl.textContent = 'Ordner erstellt.';
@@ -819,16 +823,11 @@
     query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
     var existing = await query.limit(1).maybeSingle();
     if(existing.data) return existing.data;
-    var payload = {
+    var payload = fmApplyDocumentScopePayload({
       name: name,
       parent_id: parentId || null,
-      property_id: meta.property_id || null,
-      unit_id: meta.unit_id || null,
-      contact_profile_id: meta.contact_profile_id || null,
-      is_private_admin: !!meta.is_private_admin,
-      archive_category: meta.archive_category || null,
       created_by: profile.id
-    };
+    }, meta);
     var inserted = await client.from('document_folders').insert(payload).select('*').single();
     if(inserted.error) throw inserted.error;
     return inserted.data;
@@ -1297,15 +1296,11 @@
       var filePath = 'documents/' + folderId + '/' + fileId + '-' + safeName;
       var upRes = await client.storage.from('document-vault').upload(filePath, file);
       if(upRes.error){ fmSetStatus('Fehler beim Hochladen von "'+file.name+'": ' + upRes.error.message); continue; }
-      var insertRes = await client.from('document_files').insert({
+      var insertPayload = fmApplyDocumentScopePayload({
         id: fileId, folder_id: folderId, title: file.name, file_path: filePath,
-        property_id: scope.property_id || null,
-        unit_id: scope.unit_id || null,
-        contact_profile_id: scope.contact_profile_id || null,
-        is_private_admin: !!scope.is_private_admin,
-        archive_category: scope.archive_category || null,
         mime_type: file.type || null, size_bytes: file.size, created_by: profile.id
-      });
+      }, scope);
+      var insertRes = await client.from('document_files').insert(insertPayload);
       if(insertRes.error){
         await client.storage.from('document-vault').remove([filePath]);
         fmSetStatus('Fehler beim Speichern von "'+file.name+'": ' + insertRes.error.message);

@@ -3684,6 +3684,8 @@ alter table public.document_folders add column if not exists unit_id uuid refere
 alter table public.document_folders add column if not exists contact_profile_id uuid references public.profiles(id) on delete set null;
 alter table public.document_folders add column if not exists is_private_admin boolean not null default false;
 alter table public.document_folders add column if not exists archive_category text;
+create index if not exists document_folders_property_idx on public.document_folders(property_id);
+create index if not exists document_folders_unit_idx on public.document_folders(unit_id);
 create index if not exists document_folders_contact_idx on public.document_folders(contact_profile_id);
 create index if not exists document_folders_archive_category_idx on public.document_folders(archive_category);
 alter table public.document_folders enable row level security;
@@ -3712,6 +3714,8 @@ alter table public.document_files add column if not exists unit_id uuid referenc
 alter table public.document_files add column if not exists contact_profile_id uuid references public.profiles(id) on delete set null;
 alter table public.document_files add column if not exists is_private_admin boolean not null default false;
 alter table public.document_files add column if not exists archive_category text;
+create index if not exists document_files_property_idx on public.document_files(property_id);
+create index if not exists document_files_unit_idx on public.document_files(unit_id);
 create index if not exists document_files_contact_idx on public.document_files(contact_profile_id);
 create index if not exists document_files_private_admin_idx on public.document_files(is_private_admin) where is_private_admin = true;
 create index if not exists document_files_archive_category_idx on public.document_files(archive_category);
