@@ -105,6 +105,7 @@
 (function(){
   "use strict";
   var client, profile, selected = null;
+  var isSaving = false;
   var currentItems = [], currentModules = [];
 
   VeraPortal.requireAdmin().then(function(ctx){
@@ -123,6 +124,10 @@
     var el = document.getElementById('portalEditorStatus');
     el.textContent = message || '';
     el.classList.toggle('show', !!message);
+  }
+  function setEditorSaving(saving){
+    isSaving = !!saving;
+    document.querySelectorAll('.homepage-edit-panel button, .portal-module-palette button').forEach(function(btn){ btn.disabled = isSaving; });
   }
   function confirmDelete(label){
     return window.confirm(label + ' wirklich löschen?') && window.confirm('Letzte Bestätigung: ' + label + ' endgültig löschen?');
@@ -215,22 +220,38 @@
     return currentModules.concat(hidden);
   }
   async function saveNav(){
+    if(isSaving) return;
     setStatus('Navigation wird gespeichert …');
-    var res = await client.rpc('set_portal_setting', {
-      p_key:'portal_ui_settings',
-      p_value:{ navItems: deletedNavPayload() }
-    });
-    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Navigation gespeichert.');
-    if(!res.error) reloadPreview();
+    setEditorSaving(true);
+    try {
+      var res = await client.rpc('set_portal_setting', {
+        p_key:'portal_ui_settings',
+        p_value:{ navItems: deletedNavPayload() }
+      });
+      setStatus(res.error ? 'Fehler: ' + res.error.message : 'Navigation gespeichert.');
+      if(!res.error) reloadPreview();
+    } catch(err) {
+      setStatus('Fehler: ' + (err.message || err));
+    } finally {
+      setEditorSaving(false);
+    }
   }
   async function saveModules(){
+    if(isSaving) return;
     setStatus('Module werden gespeichert …');
-    var res = await client.rpc('set_portal_setting', {
-      p_key:'portal_dashboard_modules',
-      p_value:{ modules: deletedModulePayload() }
-    });
-    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Module gespeichert.');
-    if(!res.error) reloadPreview();
+    setEditorSaving(true);
+    try {
+      var res = await client.rpc('set_portal_setting', {
+        p_key:'portal_dashboard_modules',
+        p_value:{ modules: deletedModulePayload() }
+      });
+      setStatus(res.error ? 'Fehler: ' + res.error.message : 'Module gespeichert.');
+      if(!res.error) reloadPreview();
+    } catch(err) {
+      setStatus('Fehler: ' + (err.message || err));
+    } finally {
+      setEditorSaving(false);
+    }
   }
 
   window.addEventListener('message', function(event){

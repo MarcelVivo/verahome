@@ -93,6 +93,7 @@
 (function(){
   "use strict";
   var client, profile, selected = null;
+  var isSaving = false;
   var servicesValue = { items: [] };
   var contentValue = { de: {} };
   var DEFAULT_SERVICES = [
@@ -116,6 +117,10 @@
     var el = document.getElementById('editorStatus');
     el.textContent = message || '';
     el.classList.toggle('show', !!message);
+  }
+  function setEditorSaving(saving){
+    isSaving = !!saving;
+    document.querySelectorAll('.homepage-edit-panel button').forEach(function(btn){ btn.disabled = isSaving; });
   }
   function confirmDelete(label){
     return window.confirm(label + ' wirklich löschen?') && window.confirm('Letzte Bestätigung: ' + label + ' endgültig löschen?');
@@ -166,20 +171,38 @@
     document.getElementById('serviceBadgeInput').value = service.badge || '';
   }
   async function saveContent(){
-    var res = await client.rpc('set_portal_setting', {
-      p_key:'homepage_content',
-      p_value:contentValue
-    });
-    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Text gespeichert.');
-    if(!res.error) reloadPreview();
+    if(isSaving) return;
+    setStatus('Text wird gespeichert …');
+    setEditorSaving(true);
+    try {
+      var res = await client.rpc('set_portal_setting', {
+        p_key:'homepage_content',
+        p_value:contentValue
+      });
+      setStatus(res.error ? 'Fehler: ' + res.error.message : 'Text gespeichert.');
+      if(!res.error) reloadPreview();
+    } catch(err) {
+      setStatus('Fehler: ' + (err.message || err));
+    } finally {
+      setEditorSaving(false);
+    }
   }
   async function saveServices(){
-    var res = await client.rpc('set_portal_setting', {
-      p_key:'homepage_services',
-      p_value:servicesValue
-    });
-    setStatus(res.error ? 'Fehler: ' + res.error.message : 'Kachel gespeichert.');
-    if(!res.error) reloadPreview();
+    if(isSaving) return;
+    setStatus('Kachel wird gespeichert …');
+    setEditorSaving(true);
+    try {
+      var res = await client.rpc('set_portal_setting', {
+        p_key:'homepage_services',
+        p_value:servicesValue
+      });
+      setStatus(res.error ? 'Fehler: ' + res.error.message : 'Kachel gespeichert.');
+      if(!res.error) reloadPreview();
+    } catch(err) {
+      setStatus('Fehler: ' + (err.message || err));
+    } finally {
+      setEditorSaving(false);
+    }
   }
 
   window.addEventListener('message', function(event){
