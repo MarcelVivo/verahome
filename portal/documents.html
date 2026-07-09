@@ -280,7 +280,7 @@
     client = VeraPortal.getClient();
     document.getElementById('docsLead').textContent = profile.category === 'admin'
       ? 'Ordner anlegen, Dokumente hochladen und mit Nutzern teilen.'
-      : 'Ihre freigegebenen Dokumente.';
+      : 'Ihre freigegebenen und objektbezogen berechtigten Dokumente.';
 
     if(profile.category === 'admin'){
       document.getElementById('docsAdminView').style.display = 'block';
@@ -293,10 +293,56 @@
     }
   });
 
+  var userScopeCache = null;
+
+  async function loadUserAuthorizedScopes(){
+    if(userScopeCache) return userScopeCache;
+    var propertyIds = new Set();
+    var unitIds = new Set();
+    var today = new Date().toISOString().slice(0,10);
+
+    var tenancyRes = await client.from('tenancies')
+      .select('unit_id, units(property_id)')
+      .eq('tenant_profile_id', profile.id)
+      .eq('status', 'active')
+      .is('archived_at', null);
+    (tenancyRes.data || []).forEach(function(row){
+      if(row.unit_id) unitIds.add(row.unit_id);
+      if(row.units && row.units.property_id) propertyIds.add(row.units.property_id);
+    });
+
+    var ownershipRes = await client.from('ownerships')
+      .select('property_id, unit_id, units(property_id)')
+      .eq('owner_profile_id', profile.id)
+      .is('archived_at', null)
+      .or('end_date.is.null,end_date.gte.' + today);
+    (ownershipRes.data || []).forEach(function(row){
+      if(row.property_id) propertyIds.add(row.property_id);
+      if(row.unit_id) unitIds.add(row.unit_id);
+      if(row.units && row.units.property_id) propertyIds.add(row.units.property_id);
+    });
+
+    var permissionRes = await client.from('property_permissions')
+      .select('property_id')
+      .eq('profile_id', profile.id);
+    (permissionRes.data || []).forEach(function(row){
+      if(row.property_id) propertyIds.add(row.property_id);
+    });
+
+    userScopeCache = { propertyIds: propertyIds, unitIds: unitIds };
+    return userScopeCache;
+  }
+
+  function userCanSeePropertyScopedRow(row, scopes){
+    if(!row.property_id) return true;
+    return scopes.propertyIds.has(row.property_id);
+  }
+
   async function loadAnnouncements(){
+    var scopes = await loadUserAuthorizedScopes();
     var res = await client.from('property_announcements').select('*, properties(label)').order('created_at', { ascending:false });
     var list = document.getElementById('announcementsUserList');
-    var rows = res.data || [];
+    var rows = (res.data || []).filter(function(row){ return userCanSeePropertyScopedRow(row, scopes); });
     if(!rows.length){
       list.innerHTML = '<p class="dash-empty">Keine Rundschreiben vorhanden.</p>';
       return;
@@ -325,9 +371,10 @@
   var PROPERTY_DOC_CATEGORY_TEXT = { plaene: 'Pläne', grundbucheintrag: 'Grundbucheintrag', sonstiges: 'Sonstiges' };
 
   async function loadPropertyDocuments(){
+    var scopes = await loadUserAuthorizedScopes();
     var res = await client.from('property_documents').select('*, properties(label)').order('created_at', { ascending:false });
     var list = document.getElementById('propertyDocsUserList');
-    var rows = res.data || [];
+    var rows = (res.data || []).filter(function(row){ return userCanSeePropertyScopedRow(row, scopes); });
     if(!rows.length){
       list.innerHTML = '<p class="dash-empty">Keine Objekt-Dokumente vorhanden.</p>';
       return;
