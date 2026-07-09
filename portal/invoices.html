@@ -635,7 +635,8 @@
       bank_name: document.getElementById('bank_name').value.trim() || null,
       bank_account_holder: document.getElementById('bank_holder').value.trim() || null
     }).eq('id', profile.id);
-    if(bankRes.error) console.warn('Zahlungsinformationen konnten nicht gespeichert werden:', bankRes.error.message);
+    var createWarnings = [];
+    if(bankRes.error) createWarnings.push('Zahlungsinformationen konnten nicht gespeichert werden: ' + bankRes.error.message);
 
     // Dauerauftrag: this invoice IS the current month's occurrence, so
     // last_generated_period is stamped immediately — otherwise the new
@@ -645,7 +646,7 @@
       var rule = document.getElementById('inv_recurring_rule').value;
       var day = rule === 'tag_des_monats' ? parseInt(document.getElementById('inv_recurring_day').value, 10) : null;
       if(rule === 'tag_des_monats' && (!day || day < 1 || day > 28)){
-        console.warn('Ungültiger Tag — Dauerauftrag wurde nicht angelegt.');
+        createWarnings.push('Dauerauftrag wurde nicht angelegt: Bitte einen Tag zwischen 1 und 28 wählen.');
       } else {
         var now = new Date();
         var currentPeriod = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -669,13 +670,13 @@
             recurringWarning = 'Rechnung wurde erstellt, aber Dauerauftrag-Positionen konnten nicht gespeichert werden: ' + recItemsRes.error.message;
           }
         } else {
-          console.warn('Dauerauftrag konnte nicht angelegt werden:', recRes.error.message);
           recurringWarning = 'Rechnung wurde erstellt, aber der Dauerauftrag konnte nicht angelegt werden: ' + recRes.error.message;
         }
       }
     }
 
-    if(recurringWarning) window.alert(recurringWarning);
+    if(recurringWarning) createWarnings.push(recurringWarning);
+    if(createWarnings.length) window.alert('Rechnung wurde erstellt. Hinweise:\n\n' + createWarnings.join('\n'));
     window.location.href = '/portal/invoice-detail.html?id=' + invoiceId;
   }
 
