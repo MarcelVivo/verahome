@@ -1207,6 +1207,11 @@
     return (params.get('q') || '').trim();
   }
 
+  function fmContextFileId(){
+    var params = new URLSearchParams(window.location.search);
+    return (params.get('file') || '').trim();
+  }
+
   function fmMatchesContext(row, query){
     if(!query) return false;
     var property = row.property_id ? fmProperties.filter(function(p){ return p.id === row.property_id; })[0] : null;
@@ -1241,18 +1246,21 @@
 
   async function fmApplyQueryContext(){
     var query = fmContextQuery();
-    if(!query) return;
+    var fileId = fmContextFileId();
+    if(!query && !fileId) return;
     var foldersRes = await client.from('document_folders').select('*').is('archived_at', null).order('name');
     var filesRes = await client.from('document_files').select('*').is('archived_at', null).order('title');
     var folders = foldersRes.data || [];
     var files = filesRes.data || [];
-    var file = files.filter(function(row){ return fmMatchesContext(row, query); })[0] || null;
-    var folder = folders.filter(function(row){ return fmMatchesContext(row, query); })[0] || null;
+    var file = fileId
+      ? (files.filter(function(row){ return row.id === fileId; })[0] || null)
+      : (files.filter(function(row){ return fmMatchesContext(row, query); })[0] || null);
+    var folder = query ? (folders.filter(function(row){ return fmMatchesContext(row, query); })[0] || null) : null;
     if(file){
       fmPath = fmPathForFolder(folders, file.folder_id);
       fmSelected = { type:'file', item:file };
       await fmLoadCurrentFolder();
-      fmSetStatus('Kontext geöffnet: ' + query);
+      fmSetStatus('Dokument geöffnet: ' + (file.title || query || fileId));
       return;
     }
     if(folder){

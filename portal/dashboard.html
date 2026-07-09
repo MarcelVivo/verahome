@@ -225,7 +225,7 @@
         var propertiesRes = await client.from('properties').select('id, label').is('archived_at', null).order('label');
         var ownershipsRes = await client.from('ownerships').select('id, property_id, unit_id').is('archived_at', null);
         var permissionsRes = await client.from('property_permissions').select('id, property_id, permission');
-        var documentFilesRes = await client.from('document_files').select('id, property_id, unit_id, archive_category').is('archived_at', null);
+        var documentFilesRes = await client.from('document_files').select('id, title, property_id, unit_id, contact_profile_id, is_private_admin, archive_category').is('archived_at', null);
         var documentSharesRes = await client.from('document_shares').select('file_id');
         var contactsRes = { data: [] };
         try {
@@ -477,6 +477,12 @@
   function buildDataQualityIssues(data){
     var issues = [];
     var sharedFileIds = new Set((data.documentShares || []).map(function(row){ return row.file_id; }));
+    function documentHref(doc){
+      return '/portal/documents.html?file=' + encodeURIComponent(doc.id);
+    }
+    function documentScope(doc){
+      return doc.title || doc.archive_category || ('Dokument ' + String(doc.id || '').slice(0, 8));
+    }
     var unitsByProperty = {};
     data.units.forEach(function(unit){
       if(!unitsByProperty[unit.property_id]) unitsByProperty[unit.property_id] = [];
@@ -516,22 +522,22 @@
       }
     });
     (data.documents || []).forEach(function(doc){
-      if(!doc.property_id && !doc.unit_id && doc.archive_category !== 'admin'){
+      if(!doc.property_id && !doc.unit_id && !doc.contact_profile_id && !doc.is_private_admin && doc.archive_category !== 'admin'){
         issues.push({
           level:'medium',
           title:'Dokument nicht zugeordnet',
-          scope:doc.archive_category || 'Ohne Objekt/Einheit',
+          scope:documentScope(doc),
           hint:'Dokument einer Liegenschaft, Einheit, Kontakt oder Admin-Ablage zuordnen.',
-          href:'/portal/documents.html'
+          href:documentHref(doc)
         });
       }
       if(doc.archive_category === 'unit_mieter' && !sharedFileIds.has(doc.id)){
         issues.push({
           level:'high',
           title:'Mieterakte ohne Freigabe',
-          scope:'Dokument ' + doc.id.slice(0, 8),
+          scope:documentScope(doc),
           hint:'Mieterdokument direkt dem berechtigten Kontakt freigeben.',
-          href:'/portal/documents.html'
+          href:documentHref(doc)
         });
       }
     });
