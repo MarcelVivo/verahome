@@ -141,7 +141,7 @@
       </div>
 
       <div id="dashError" style="display:none;">
-        <p class="dash-empty">Wir konnten Ihr Profil nicht laden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns.</p>
+        <p class="dash-empty" id="dashErrorMessage">Wir konnten Ihr Profil nicht laden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns.</p>
         <a href="/portal/login.html" class="btn btn-primary">Zurück zum Login</a>
       </div>
     </section>
@@ -305,6 +305,7 @@
       applyDashboardModules();
     } catch(err){
       document.getElementById('dashLoading').style.display = 'none';
+      document.getElementById('dashErrorMessage').textContent = 'Dashboard konnte nicht geladen werden: ' + (err.message || err);
       document.getElementById('dashError').style.display = 'block';
     }
   });
