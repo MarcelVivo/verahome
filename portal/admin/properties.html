@@ -1568,7 +1568,7 @@
         '<div><strong>Wartung</strong><span>'+VeraDashboard.escapeHtml(appliance.maintenance_at || '–')+'</span></div>' +
       '</div>' +
       (appliance.notes ? '<p class="doc-meta">'+VeraDashboard.escapeHtml(appliance.notes)+'</p>' : '') +
-      '<button type="button" class="dash-btn-sm danger" data-delete-appliance="'+appliance.id+'">Gerät löschen</button>' +
+      '<button type="button" class="dash-btn-sm danger" data-delete-appliance="'+appliance.id+'">Gerät archivieren</button>' +
     '</div>';
   }
 
@@ -1807,7 +1807,7 @@
         '<input id="propCity-'+id+'" placeholder="Ort" value="'+VeraDashboard.escapeHtml(p.city||'')+'">' +
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Objekt speichern</button>' +
-          '<button type="button" class="dash-btn-sm danger delete-property-btn" data-id="'+id+'" data-label="'+VeraDashboard.escapeHtml(p.label)+'">Objekt löschen</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-property-btn" data-id="'+id+'" data-label="'+VeraDashboard.escapeHtml(p.label)+'">Objekt archivieren</button>' +
         '</div>' +
         '<p class="form-status" id="propertyEditStatus-'+id+'"></p>' +
       '</form>' +
@@ -2009,6 +2009,7 @@
 
   async function deleteProperty(propertyId, label){
     if(!window.confirm('Objekt "' + label + '" archivieren? Einheiten und verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
+    if(!window.confirm('Zweite Bestätigung: Objekt "' + label + '" jetzt wirklich archivieren?')) return;
     var res = await client.from('properties').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
@@ -2090,7 +2091,7 @@
 
         '<div class="dash-btn-row">' +
           '<button type="submit" class="dash-btn-sm">Einheit speichern</button>' +
-          '<button type="button" class="dash-btn-sm danger delete-unit-btn" data-id="'+unitId+'" data-label="'+VeraDashboard.escapeHtml(unit.label)+'">Einheit löschen</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-unit-btn" data-id="'+unitId+'" data-label="'+VeraDashboard.escapeHtml(unit.label)+'">Einheit archivieren</button>' +
         '</div>' +
         '<p class="form-status" id="unitListingStatus-'+unitId+'"></p>' +
       '</form>' +
@@ -2633,6 +2634,7 @@
 
   async function deleteApplianceRecord(id){
     if(!window.confirm('Gerät archivieren? Es bleibt im Verlauf erhalten.')) return;
+    if(!window.confirm('Zweite Bestätigung: Gerät jetzt wirklich archivieren?')) return;
     var res = await client.from('property_appliances').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
@@ -2676,6 +2678,7 @@
 
   async function deleteUnit(unitId, label){
     if(!window.confirm('Einheit "' + label + '" archivieren? Verknüpfte Daten bleiben nachvollziehbar erhalten.')) return;
+    if(!window.confirm('Zweite Bestätigung: Einheit "' + label + '" jetzt wirklich archivieren?')) return;
     var res = await client.from('units').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
