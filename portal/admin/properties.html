@@ -2497,6 +2497,7 @@
 
   async function uploadUnitPrivateDocument(unit){
     var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
+    var button = document.getElementById('unitPrivateDocUpload-'+unit.id);
     var titleInput = document.getElementById('unitPrivateDocTitle-'+unit.id);
     var recipientSelect = document.getElementById('unitPrivateDocRecipient-'+unit.id);
     var fileInput = document.getElementById('unitPrivateDocFile-'+unit.id);
@@ -2504,113 +2505,117 @@
     var recipientId = recipientSelect.value;
     var file = fileInput.files[0];
     if(!title || !recipientId || !file){
-      statusEl.textContent = 'Bitte Titel, Empfänger und Datei wählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte Titel, Empfänger und Datei wählen.');
       return;
     }
 
-    statusEl.textContent = 'Dokument wird hochgeladen und privat freigegeben …';
-    statusEl.classList.add('show');
-
-    var fileId = crypto.randomUUID();
-    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' };
-    var folder = await ensureObjectDocumentFolder(property, unit, 'unit_mieter');
-    var path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
-    var upRes = await client.storage.from('document-vault').upload(path, file);
-    if(upRes.error){
-      statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
-      return;
-    }
-
-    var insertPayload = {
-      id: fileId,
-      folder_id: folder.id,
-      property_id: unit.property_id,
-      unit_id: unit.id,
-      title: title,
-      file_path: path,
-      mime_type: file.type || null,
-      size_bytes: file.size,
-      created_by: profile.id
-    };
-    if(supportsArchiveCategory) insertPayload.archive_category = 'unit_mieter';
-    var insRes = await client.from('document_files').insert(insertPayload);
-    if(insRes.error){
-      await client.storage.from('document-vault').remove([path]);
-      statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
-      return;
-    }
-
-    var shareRes = await client.from('document_shares').upsert({
-      file_id: fileId,
-      profile_id: recipientId,
-      needs_confirmation: false,
-      created_by: profile.id
-    }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
-    if(shareRes.error){
-      statusEl.textContent = 'Dokument gespeichert, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
-      return;
-    }
-
+    showFormStatus(statusEl, 'Dokument wird hochgeladen und privat freigegeben …');
+    setActionButtonLoading(button, true, 'Lädt hoch …');
+    var path = null;
     try {
-      await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-    } catch(err) {}
+      var fileId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' };
+      var folder = await ensureObjectDocumentFolder(property, unit, 'unit_mieter');
+      path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
+      var upRes = await client.storage.from('document-vault').upload(path, file);
+      if(upRes.error){ showFormStatus(statusEl, 'Fehler beim Hochladen: ' + upRes.error.message); return; }
 
-    titleInput.value = '';
-    recipientSelect.value = '';
-    fileInput.value = '';
-    statusEl.textContent = 'Dokument wurde nur für die ausgewählte Person freigegeben.';
-    await loadAll();
-    loadUnitLinkedDocs(unit);
-    renderAllColumns();
+      var insertPayload = {
+        id: fileId,
+        folder_id: folder.id,
+        property_id: unit.property_id,
+        unit_id: unit.id,
+        title: title,
+        file_path: path,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+        created_by: profile.id
+      };
+      if(supportsArchiveCategory) insertPayload.archive_category = 'unit_mieter';
+      var insRes = await client.from('document_files').insert(insertPayload);
+      if(insRes.error){
+        await client.storage.from('document-vault').remove([path]);
+        showFormStatus(statusEl, 'Fehler beim Speichern: ' + insRes.error.message);
+        return;
+      }
+
+      var shareRes = await client.from('document_shares').upsert({
+        file_id: fileId,
+        profile_id: recipientId,
+        needs_confirmation: false,
+        created_by: profile.id
+      }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+      if(shareRes.error){
+        showFormStatus(statusEl, 'Dokument gespeichert, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
+        return;
+      }
+
+      try {
+        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+      } catch(err) {}
+
+      titleInput.value = '';
+      recipientSelect.value = '';
+      fileInput.value = '';
+      showFormStatus(statusEl, 'Dokument wurde nur für die ausgewählte Person freigegeben.');
+      await loadAll();
+      loadUnitLinkedDocs(unit);
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
+    }
   }
 
   async function linkExistingUnitDocument(unit){
     var statusEl = document.getElementById('unitAssignmentStatus-'+unit.id);
+    var button = document.getElementById('unitExistingDocLink-'+unit.id);
     var fileId = document.getElementById('unitExistingDocSelect-'+unit.id).value;
     var recipientId = document.getElementById('unitExistingDocRecipient-'+unit.id).value;
     if(!fileId){
-      statusEl.textContent = 'Bitte ein bestehendes Dokument auswählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte ein bestehendes Dokument auswählen.');
       return;
     }
     if(!recipientId){
-      statusEl.textContent = 'Bitte Empfänger wählen, damit die Mieterakte datenschutzkonform freigegeben wird.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte Empfänger wählen, damit die Mieterakte datenschutzkonform freigegeben wird.');
       return;
     }
-    statusEl.textContent = 'Bestehendes Dokument wird zugewiesen …';
-    statusEl.classList.add('show');
-    var updatePayload = {
-      folder_id: (await ensureObjectDocumentFolder(
-        allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' },
-        unit,
-        'unit_mieter'
-      )).id,
-      property_id: unit.property_id,
-      unit_id: unit.id
-    };
-    if(supportsArchiveCategory) updatePayload.archive_category = 'unit_mieter';
-    var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
-    if(updateRes.error){
-      statusEl.textContent = 'Fehler: ' + updateRes.error.message;
-      return;
-    }
-    var shareRes = await addDocumentShare(fileId, recipientId);
-    if(shareRes.error){
-      statusEl.textContent = 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
-      return;
-    }
+    showFormStatus(statusEl, 'Bestehendes Dokument wird zugewiesen …');
+    setActionButtonLoading(button, true, 'Weist zu …');
     try {
-      await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-    } catch(err) {}
-    statusEl.textContent = 'Bestehendes Dokument wurde zugewiesen und freigegeben.';
-    document.getElementById('unitExistingDocSelect-'+unit.id).value = '';
-    document.getElementById('unitExistingDocRecipient-'+unit.id).value = '';
-    await loadAll();
-    loadUnitLinkedDocs(unit);
-    renderAllColumns();
+      var updatePayload = {
+        folder_id: (await ensureObjectDocumentFolder(
+          allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' },
+          unit,
+          'unit_mieter'
+        )).id,
+        property_id: unit.property_id,
+        unit_id: unit.id
+      };
+      if(supportsArchiveCategory) updatePayload.archive_category = 'unit_mieter';
+      var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
+      if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
+      var shareRes = await addDocumentShare(fileId, recipientId);
+      if(shareRes.error){
+        showFormStatus(statusEl, 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
+        return;
+      }
+      try {
+        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+      } catch(err) {}
+      showFormStatus(statusEl, 'Bestehendes Dokument wurde zugewiesen und freigegeben.');
+      document.getElementById('unitExistingDocSelect-'+unit.id).value = '';
+      document.getElementById('unitExistingDocRecipient-'+unit.id).value = '';
+      await loadAll();
+      loadUnitLinkedDocs(unit);
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
+    }
   }
 
   async function openDocumentVaultFile(path){
@@ -3144,8 +3149,19 @@
 
     el.querySelectorAll('.cover-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.rpc('set_cover_image', { p_property_id: propertyId, p_image_id: btn.getAttribute('data-id') });
-        loadThumbs(propertyId);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var res = await client.rpc('set_cover_image', { p_property_id: propertyId, p_image_id: btn.getAttribute('data-id') });
+          if(res.error){
+            window.alert('Titelbild konnte nicht gesetzt werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadThumbs(propertyId);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
     el.querySelectorAll('.up-btn, .down-btn').forEach(function(btn){
@@ -3154,31 +3170,41 @@
         var swapIdx = btn.classList.contains('up-btn') ? idx - 1 : idx + 1;
         var a = images[idx], b = images[swapIdx];
         if(!a || !b) return;
-        await client.from('property_images').update({ sort_order: b.sort_order }).eq('id', a.id);
-        await client.from('property_images').update({ sort_order: a.sort_order }).eq('id', b.id);
-        loadThumbs(propertyId);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var firstRes = await client.from('property_images').update({ sort_order: b.sort_order }).eq('id', a.id);
+          if(firstRes.error) throw firstRes.error;
+          var secondRes = await client.from('property_images').update({ sort_order: a.sort_order }).eq('id', b.id);
+          if(secondRes.error) throw secondRes.error;
+          loadThumbs(propertyId);
+        } catch(err) {
+          window.alert('Bildreihenfolge konnte nicht gespeichert werden: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
     el.querySelectorAll('.del-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Bild wirklich aus dieser Liegenschaft entfernen?')) return;
-        btn.disabled = true;
-        btn.textContent = '…';
-        var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
-        if(storageRes.error){
-          window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
-          btn.disabled = false;
-          btn.textContent = '✕';
-          return;
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
+          if(storageRes.error){
+            window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          var deleteRes = await client.from('property_images').delete().eq('id', btn.getAttribute('data-id'));
+          if(deleteRes.error){
+            window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadThumbs(propertyId);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
         }
-        var deleteRes = await client.from('property_images').delete().eq('id', btn.getAttribute('data-id'));
-        if(deleteRes.error){
-          window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
-          btn.disabled = false;
-          btn.textContent = '✕';
-          return;
-        }
-        loadThumbs(propertyId);
       });
     });
   }
@@ -3211,34 +3237,42 @@
     var input = document.getElementById('imgInput-'+propertyId);
     var files = Array.prototype.slice.call(input.files);
     var statusEl = document.getElementById('imgStatus-'+propertyId);
-    if(!files.length){ statusEl.textContent = 'Bitte mindestens ein Bild wählen.'; statusEl.classList.add('show'); return; }
+    var button = document.getElementById('imgUploadBtn-'+propertyId);
+    if(!files.length){ showFormStatus(statusEl, 'Bitte mindestens ein Bild wählen.'); return; }
 
-    statusEl.textContent = 'Wird hochgeladen …';
-    statusEl.classList.add('show');
+    showFormStatus(statusEl, 'Wird hochgeladen …');
+    setActionButtonLoading(button, true, 'Lädt hoch …');
+    try {
+      var existingRes = await client.from('property_images').select('id, sort_order').eq('property_id', propertyId);
+      if(existingRes.error) throw existingRes.error;
+      var existing = existingRes.data || [];
+      var nextOrder = existing.length ? Math.max.apply(null, existing.map(function(i){ return i.sort_order; })) + 1 : 0;
+      var hasCover = existing.length > 0;
 
-    var existingRes = await client.from('property_images').select('id, sort_order').eq('property_id', propertyId);
-    var existing = existingRes.data || [];
-    var nextOrder = existing.length ? Math.max.apply(null, existing.map(function(i){ return i.sort_order; })) + 1 : 0;
-    var hasCover = existing.length > 0;
+      for(var i = 0; i < files.length; i++){
+        var file = files[i];
+        var imageId = crypto.randomUUID();
+        var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = propertyId + '/' + imageId + '-' + safeName;
+        var upRes = await client.storage.from('property-images').upload(path, file);
+        if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
+        var insertRes = await client.from('property_images').insert({
+          id: imageId, property_id: propertyId, file_path: path,
+          is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
+        });
+        if(insertRes.error){ showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message); continue; }
+        hasCover = true;
+        nextOrder++;
+      }
 
-    for(var i = 0; i < files.length; i++){
-      var file = files[i];
-      var imageId = crypto.randomUUID();
-      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      var path = propertyId + '/' + imageId + '-' + safeName;
-      var upRes = await client.storage.from('property-images').upload(path, file);
-      if(upRes.error){ statusEl.textContent = 'Fehler: ' + upRes.error.message; continue; }
-      await client.from('property_images').insert({
-        id: imageId, property_id: propertyId, file_path: path,
-        is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
-      });
-      hasCover = true;
-      nextOrder++;
+      showFormStatus(statusEl, 'Bilder hochgeladen.');
+      input.value = '';
+      loadThumbs(propertyId);
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
     }
-
-    statusEl.textContent = 'Bilder hochgeladen.';
-    input.value = '';
-    loadThumbs(propertyId);
   }
 
   async function loadUnitThumbs(unitId){
@@ -3262,8 +3296,19 @@
 
     el.querySelectorAll('.unit-cover-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.rpc('set_unit_cover_image', { p_unit_id: unitId, p_image_id: btn.getAttribute('data-id') });
-        loadUnitThumbs(unitId);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var res = await client.rpc('set_unit_cover_image', { p_unit_id: unitId, p_image_id: btn.getAttribute('data-id') });
+          if(res.error){
+            window.alert('Titelbild konnte nicht gesetzt werden: ' + res.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadUnitThumbs(unitId);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
     el.querySelectorAll('.unit-up-btn, .unit-down-btn').forEach(function(btn){
@@ -3272,31 +3317,41 @@
         var swapIdx = btn.classList.contains('unit-up-btn') ? idx - 1 : idx + 1;
         var a = images[idx], b = images[swapIdx];
         if(!a || !b) return;
-        await client.from('unit_images').update({ sort_order: b.sort_order }).eq('id', a.id);
-        await client.from('unit_images').update({ sort_order: a.sort_order }).eq('id', b.id);
-        loadUnitThumbs(unitId);
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var firstRes = await client.from('unit_images').update({ sort_order: b.sort_order }).eq('id', a.id);
+          if(firstRes.error) throw firstRes.error;
+          var secondRes = await client.from('unit_images').update({ sort_order: a.sort_order }).eq('id', b.id);
+          if(secondRes.error) throw secondRes.error;
+          loadUnitThumbs(unitId);
+        } catch(err) {
+          window.alert('Bildreihenfolge konnte nicht gespeichert werden: ' + err.message);
+          setActionButtonLoading(btn, false);
+        }
       });
     });
     el.querySelectorAll('.unit-del-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Bild wirklich aus dieser Einheit entfernen?')) return;
-        btn.disabled = true;
-        btn.textContent = '…';
-        var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
-        if(storageRes.error){
-          window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
-          btn.disabled = false;
-          btn.textContent = '✕';
-          return;
+        setActionButtonLoading(btn, true, '…');
+        try {
+          var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
+          if(storageRes.error){
+            window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          var deleteRes = await client.from('unit_images').delete().eq('id', btn.getAttribute('data-id'));
+          if(deleteRes.error){
+            window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadUnitThumbs(unitId);
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
         }
-        var deleteRes = await client.from('unit_images').delete().eq('id', btn.getAttribute('data-id'));
-        if(deleteRes.error){
-          window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
-          btn.disabled = false;
-          btn.textContent = '✕';
-          return;
-        }
-        loadUnitThumbs(unitId);
       });
     });
     updateUnitChecklist(unitId);
@@ -3306,34 +3361,42 @@
     var input = document.getElementById('unitImgInput-'+unitId);
     var files = Array.prototype.slice.call(input.files);
     var statusEl = document.getElementById('unitImgStatus-'+unitId);
-    if(!files.length){ statusEl.textContent = 'Bitte mindestens ein Bild wählen.'; statusEl.classList.add('show'); return; }
+    var button = document.querySelector('.unit-img-upload-btn[data-id="'+unitId+'"]');
+    if(!files.length){ showFormStatus(statusEl, 'Bitte mindestens ein Bild wählen.'); return; }
 
-    statusEl.textContent = 'Wird hochgeladen …';
-    statusEl.classList.add('show');
+    showFormStatus(statusEl, 'Wird hochgeladen …');
+    setActionButtonLoading(button, true, 'Lädt hoch …');
+    try {
+      var existingRes = await client.from('unit_images').select('id, sort_order').eq('unit_id', unitId);
+      if(existingRes.error) throw existingRes.error;
+      var existing = existingRes.data || [];
+      var nextOrder = existing.length ? Math.max.apply(null, existing.map(function(i){ return i.sort_order; })) + 1 : 0;
+      var hasCover = existing.length > 0;
 
-    var existingRes = await client.from('unit_images').select('id, sort_order').eq('unit_id', unitId);
-    var existing = existingRes.data || [];
-    var nextOrder = existing.length ? Math.max.apply(null, existing.map(function(i){ return i.sort_order; })) + 1 : 0;
-    var hasCover = existing.length > 0;
+      for(var i = 0; i < files.length; i++){
+        var file = files[i];
+        var imageId = crypto.randomUUID();
+        var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = 'units/' + unitId + '/' + imageId + '-' + safeName;
+        var upRes = await client.storage.from('property-images').upload(path, file);
+        if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
+        var insertRes = await client.from('unit_images').insert({
+          id: imageId, unit_id: unitId, file_path: path,
+          is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
+        });
+        if(insertRes.error){ showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message); continue; }
+        hasCover = true;
+        nextOrder++;
+      }
 
-    for(var i = 0; i < files.length; i++){
-      var file = files[i];
-      var imageId = crypto.randomUUID();
-      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      var path = 'units/' + unitId + '/' + imageId + '-' + safeName;
-      var upRes = await client.storage.from('property-images').upload(path, file);
-      if(upRes.error){ statusEl.textContent = 'Fehler: ' + upRes.error.message; continue; }
-      await client.from('unit_images').insert({
-        id: imageId, unit_id: unitId, file_path: path,
-        is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
-      });
-      hasCover = true;
-      nextOrder++;
+      showFormStatus(statusEl, 'Einheitsbilder hochgeladen.');
+      input.value = '';
+      loadUnitThumbs(unitId);
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(button, false);
     }
-
-    statusEl.textContent = 'Einheitsbilder hochgeladen.';
-    input.value = '';
-    loadUnitThumbs(unitId);
   }
 
   async function loadUserPicker(propertyId){
@@ -3348,6 +3411,7 @@
 
   async function uploadPropertyDocument(e, propertyId){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
     var statusEl = document.getElementById('docStatus-'+propertyId);
     var title = document.getElementById('docTitle-'+propertyId).value.trim();
@@ -3355,65 +3419,70 @@
     var visibility = document.getElementById('docVisibility-'+propertyId).value;
     var fileInput = document.getElementById('docFile-'+propertyId);
     var file = fileInput.files[0];
-    if(!title || !file){ statusEl.textContent = 'Bitte Titel und Datei angeben.'; statusEl.classList.add('show'); return; }
+    if(!title || !file){ showFormStatus(statusEl, 'Bitte Titel und Datei angeben.'); return; }
 
     var checkedIds = Array.prototype.slice.call(document.querySelectorAll('#docUsers-'+propertyId+' input:checked')).map(function(c){ return c.value; });
     if(visibility === 'restricted' && !checkedIds.length){
-      statusEl.textContent = 'Bitte mindestens einen Nutzer auswählen, oder eine andere Freigabe wählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte mindestens einen Nutzer auswählen, oder eine andere Freigabe wählen.');
       return;
     }
     var shareIds = visibility === 'restricted' ? checkedIds : [];
     if(visibility === 'residents') shareIds = await propertyResidentProfileIds(propertyId);
 
-    statusEl.textContent = 'Wird hochgeladen und unter Dokumente abgelegt …';
-    statusEl.classList.add('show');
+    showFormStatus(statusEl, 'Wird hochgeladen und unter Dokumente abgelegt …');
+    setActionButtonLoading(submitBtn, true, 'Lädt hoch …');
+    var path = null;
+    try {
+      var docId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
+      var folder = await ensureObjectDocumentFolder(property, null, archiveKey);
+      path = 'documents/' + folder.id + '/' + docId + '-' + safeName;
 
-    var docId = crypto.randomUUID();
-    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
-    var folder = await ensureObjectDocumentFolder(property, null, archiveKey);
-    var path = 'documents/' + folder.id + '/' + docId + '-' + safeName;
+      var upRes = await client.storage.from('document-vault').upload(path, file);
+      if(upRes.error){ showFormStatus(statusEl, 'Fehler beim Hochladen: ' + upRes.error.message); return; }
 
-    var upRes = await client.storage.from('document-vault').upload(path, file);
-    if(upRes.error){ statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message; return; }
-
-    var insertPayload = {
-      id: docId,
-      folder_id: folder.id,
-      property_id: propertyId,
-      unit_id: null,
-      title: title,
-      file_path: path,
-      mime_type: file.type || null,
-      size_bytes: file.size,
-      created_by: profile.id
-    };
-    if(supportsArchiveCategory) insertPayload.archive_category = archiveKey;
-    var insRes = await client.from('document_files').insert(insertPayload);
-    if(insRes.error){
-      await client.storage.from('document-vault').remove([path]);
-      statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
-      return;
-    }
-
-    if(shareIds.length){
-      var shareRes = await replaceDocumentShares(docId, shareIds);
-      if(shareRes.error){
-        statusEl.textContent = 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+      var insertPayload = {
+        id: docId,
+        folder_id: folder.id,
+        property_id: propertyId,
+        unit_id: null,
+        title: title,
+        file_path: path,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+        created_by: profile.id
+      };
+      if(supportsArchiveCategory) insertPayload.archive_category = archiveKey;
+      var insRes = await client.from('document_files').insert(insertPayload);
+      if(insRes.error){
+        await client.storage.from('document-vault').remove([path]);
+        showFormStatus(statusEl, 'Fehler beim Speichern: ' + insRes.error.message);
         return;
       }
-      try {
-        await client.functions.invoke('send-document-share', { body: { fileIds: [docId], profileIds: shareIds } });
-      } catch(err) {}
-    }
 
-    statusEl.textContent = 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft.';
-    document.getElementById('docForm-'+propertyId).reset();
-    document.getElementById('docUsers-'+propertyId).style.display = 'none';
-    await loadAll();
-    loadPropertyDocs(propertyId);
-    renderAllColumns();
+      if(shareIds.length){
+        var shareRes = await replaceDocumentShares(docId, shareIds);
+        if(shareRes.error){
+          showFormStatus(statusEl, 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
+          return;
+        }
+        try {
+          await client.functions.invoke('send-document-share', { body: { fileIds: [docId], profileIds: shareIds } });
+        } catch(err) {}
+      }
+
+      showFormStatus(statusEl, 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft.');
+      document.getElementById('docForm-'+propertyId).reset();
+      document.getElementById('docUsers-'+propertyId).style.display = 'none';
+      await loadAll();
+      loadPropertyDocs(propertyId);
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
+    }
   }
 
   async function loadPropertyDocs(propertyId){
@@ -3455,17 +3524,24 @@
       btn.addEventListener('click', async function(){
         if(!window.confirm('Dokument archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
         if(!window.confirm('Zweite Bestätigung: Dokument jetzt wirklich archivieren?')) return;
-        var archiveRes = await client.rpc('archive_document_file', {
-          p_file_id: btn.getAttribute('data-id'),
-          p_reason: 'Dokument archiviert'
-        });
-        if(archiveRes.error){
-          window.alert('Dokument konnte nicht archiviert werden: ' + archiveRes.error.message);
-          return;
+        setActionButtonLoading(btn, true, 'Archiviert …');
+        try {
+          var archiveRes = await client.rpc('archive_document_file', {
+            p_file_id: btn.getAttribute('data-id'),
+            p_reason: 'Dokument archiviert'
+          });
+          if(archiveRes.error){
+            window.alert('Dokument konnte nicht archiviert werden: ' + archiveRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          await loadAll();
+          loadPropertyDocs(propertyId);
+          renderAllColumns();
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
         }
-        await loadAll();
-        loadPropertyDocs(propertyId);
-        renderAllColumns();
       });
     });
     table.querySelectorAll('.edit-access-btn').forEach(function(btn){
@@ -3485,43 +3561,59 @@
       return '<label><input type="checkbox" class="access-edit-checkbox" value="'+u.id+'"'+checked+'> '+VeraDashboard.escapeHtml(u.last_name+' '+u.first_name)+' ('+VeraDashboard.escapeHtml(u.member_number)+')</label>';
     }).join('') + '<button type="button" class="dash-btn-sm" id="saveAccessBtn-'+propertyId+'" style="margin-top:8px;">Zugriff speichern</button>';
 
-    document.getElementById('saveAccessBtn-'+propertyId).addEventListener('click', async function(){
+    document.getElementById('saveAccessBtn-'+propertyId).addEventListener('click', async function(e){
+      var button = e.currentTarget;
       var checkedIds = Array.prototype.slice.call(picker.querySelectorAll('.access-edit-checkbox:checked')).map(function(c){ return c.value; });
-      await replaceDocumentShares(docId, checkedIds);
-      loadUserPicker(propertyId);
-      loadPropertyDocs(propertyId);
+      setActionButtonLoading(button, true, 'Speichert …');
+      try {
+        var shareRes = await replaceDocumentShares(docId, checkedIds);
+        if(shareRes.error){
+          window.alert('Zugriff konnte nicht gespeichert werden: ' + shareRes.error.message);
+          setActionButtonLoading(button, false);
+          return;
+        }
+        loadUserPicker(propertyId);
+        loadPropertyDocs(propertyId);
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+        setActionButtonLoading(button, false);
+      }
     });
   }
 
   async function linkExistingPropertyDocument(e, propertyId){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var property = allProperties.filter(function(p){ return p.id === propertyId; })[0];
     var statusEl = document.getElementById('docExistingStatus-'+propertyId);
     var fileId = document.getElementById('docExistingSelect-'+propertyId).value;
     var category = document.getElementById('docExistingCategory-'+propertyId).value;
     if(!property || !fileId){
-      statusEl.textContent = 'Bitte ein bestehendes Dokument auswählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte ein bestehendes Dokument auswählen.');
       return;
     }
-    statusEl.textContent = 'Dokument wird mit der Liegenschaft verknüpft …';
-    statusEl.classList.add('show');
-    var updatePayload = {
-      folder_id: (await ensureObjectDocumentFolder(property, null, propertyArchiveKeyFromDocCategory(property, category))).id,
-      property_id: propertyId,
-      unit_id: null
-    };
-    if(supportsArchiveCategory) updatePayload.archive_category = propertyArchiveKeyFromDocCategory(property, category);
-    var res = await client.from('document_files').update(updatePayload).eq('id', fileId);
-    if(res.error){
-      statusEl.textContent = 'Fehler: ' + res.error.message;
-      return;
+    showFormStatus(statusEl, 'Dokument wird mit der Liegenschaft verknüpft …');
+    setActionButtonLoading(submitBtn, true, 'Verknüpft …');
+    try {
+      var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
+      var updatePayload = {
+        folder_id: (await ensureObjectDocumentFolder(property, null, archiveKey)).id,
+        property_id: propertyId,
+        unit_id: null
+      };
+      if(supportsArchiveCategory) updatePayload.archive_category = archiveKey;
+      var res = await client.from('document_files').update(updatePayload).eq('id', fileId);
+      if(res.error){ showFormStatus(statusEl, 'Fehler: ' + res.error.message); return; }
+      showFormStatus(statusEl, 'Bestehendes Dokument wurde verknüpft.');
+      document.getElementById('docExistingSelect-'+propertyId).value = '';
+      await loadAll();
+      loadPropertyDocs(propertyId);
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
     }
-    statusEl.textContent = 'Bestehendes Dokument wurde verknüpft.';
-    document.getElementById('docExistingSelect-'+propertyId).value = '';
-    await loadAll();
-    loadPropertyDocs(propertyId);
-    renderAllColumns();
   }
 })();
 </script>
