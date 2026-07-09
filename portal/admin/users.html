@@ -482,8 +482,8 @@
     return c.last_name + ' ' + c.first_name;
   }
   function registrationState(c){
-    if(c.portal_registered_at) return 'active';
-    if(c.portal_invited_at) return 'pending';
+    var hasRegistrationColumn = Object.prototype.hasOwnProperty.call(c, 'portal_registered_at');
+    if(hasRegistrationColumn) return c.portal_registered_at ? 'active' : 'pending';
     if(c.status === 'active') return 'active';
     return 'pending';
   }
@@ -492,8 +492,10 @@
     return '<span class="status-badge '+(state === 'active' ? 'active' : 'pending')+'">'+REGISTRATION_LABEL[state]+'</span>';
   }
   function registrationMetaText(c){
-    if(c.portal_registered_at) return 'Passwort gesetzt am ' + VeraDashboard.formatDate(c.portal_registered_at);
+    var hasRegistrationColumn = Object.prototype.hasOwnProperty.call(c, 'portal_registered_at');
+    if(hasRegistrationColumn && c.portal_registered_at) return 'Passwort gesetzt am ' + VeraDashboard.formatDate(c.portal_registered_at);
     if(c.portal_invited_at) return 'Einladung versendet am ' + VeraDashboard.formatDate(c.portal_invited_at);
+    if(hasRegistrationColumn) return 'Registrierung noch nicht abgeschlossen';
     return c.status === 'active' ? 'Altkontakt ohne Registrierungszeitpunkt' : 'Noch kein Abschluss gespeichert';
   }
 
