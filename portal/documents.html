@@ -1623,8 +1623,12 @@
         fmSetButtonLoading(confirmBtn, false);
         return;
       }
-      await fmShareFileIdsWithProfiles(fileIds, profileIds, document.getElementById('shareModalNeedsConfirmation').checked, externalEmails);
-      statusEl.textContent = 'Geteilt und per E-Mail versendet.';
+      var mailState = await fmShareFileIdsWithProfiles(fileIds, profileIds, document.getElementById('shareModalNeedsConfirmation').checked, externalEmails);
+      statusEl.textContent = mailState.failed
+        ? 'Geteilt, aber E-Mail konnte nicht versendet werden: ' + mailState.message
+        : mailState.skipped
+        ? 'Geteilt. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.'
+        : 'Geteilt und per E-Mail versendet.';
       setTimeout(fmCloseShareModal, 900);
     } catch(err) {
       statusEl.textContent = 'Teilen fehlgeschlagen: ' + (err.message || err);
@@ -1647,8 +1651,14 @@
       var upsertRes = await client.from('document_shares').upsert(rows, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
       if(upsertRes.error) throw upsertRes.error;
     }
-    try { await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } }); }
-    catch(err) { /* Freigabe steht, Mail-Fehler blockiert nicht. */ }
+    try {
+      var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } });
+      if(mailRes.error) return { failed:true, skipped:false, message: mailRes.error.message };
+      if(mailRes.data && mailRes.data.skipped) return { failed:false, skipped:true, message:'' };
+    } catch(err) {
+      return { failed:true, skipped:false, message: err.message || String(err) };
+    }
+    return { failed:false, skipped:false, message:'' };
   }
 
   async function fmGetFolderAssignment(folderId){

@@ -953,6 +953,23 @@
     statusEl.classList.add('show');
   }
 
+  async function sendDocumentShareNotice(fileIds, profileIds, statusEl, successMessage){
+    try {
+      var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds } });
+      if(mailRes.error){
+        showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + ', aber E-Mail konnte nicht versendet werden: ' + mailRes.error.message);
+        return;
+      }
+      if(mailRes.data && mailRes.data.skipped){
+        showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + '. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.');
+        return;
+      }
+      showFormStatus(statusEl, successMessage || 'Dokument freigegeben und per E-Mail angekündigt.');
+    } catch(err) {
+      showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + ', aber E-Mail konnte nicht versendet werden: ' + (err.message || err));
+    }
+  }
+
   function refreshNewDocumentSelectors(){
     var propertySelect = document.getElementById('p_existing_documents');
     if(propertySelect) propertySelect.innerHTML = existingDocumentMultiOptionsHtml([]);
@@ -2548,14 +2565,11 @@
         return;
       }
 
-      try {
-        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-      } catch(err) {}
+      await sendDocumentShareNotice([fileId], [recipientId], statusEl, 'Dokument wurde nur für die ausgewählte Person freigegeben');
 
       titleInput.value = '';
       recipientSelect.value = '';
       fileInput.value = '';
-      showFormStatus(statusEl, 'Dokument wurde nur für die ausgewählte Person freigegeben.');
       await loadAll();
       loadUnitLinkedDocs(unit);
       renderAllColumns();
@@ -2599,10 +2613,7 @@
         showFormStatus(statusEl, 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
         return;
       }
-      try {
-        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-      } catch(err) {}
-      showFormStatus(statusEl, 'Bestehendes Dokument wurde zugewiesen und freigegeben.');
+      await sendDocumentShareNotice([fileId], [recipientId], statusEl, 'Bestehendes Dokument wurde zugewiesen und freigegeben');
       document.getElementById('unitExistingDocSelect-'+unit.id).value = '';
       document.getElementById('unitExistingDocRecipient-'+unit.id).value = '';
       await loadAll();
@@ -2683,14 +2694,12 @@
           showFormStatus(statusEl, 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
           return;
         }
-        try {
-          await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-        } catch(err) {}
+        await sendDocumentShareNotice([fileId], [recipientId], statusEl, 'Dokument abgelegt und freigegeben');
       }
 
       titleInput.value = node.label;
       fileInput.value = '';
-      showFormStatus(statusEl, recipientId ? 'Dokument abgelegt und freigegeben.' : 'Dokument abgelegt.');
+      if(!recipientId) showFormStatus(statusEl, 'Dokument abgelegt.');
       await loadAll();
       renderAllColumns();
     } catch(err) {
@@ -2734,11 +2743,9 @@
         return;
       }
       if(recipientId){
-        try {
-          await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-        } catch(err) {}
+        await sendDocumentShareNotice([fileId], [recipientId], statusEl, 'Dokument verknüpft und freigegeben');
       }
-      showFormStatus(statusEl, recipientId ? 'Dokument verknüpft und freigegeben.' : 'Dokument verknüpft.');
+      if(!recipientId) showFormStatus(statusEl, 'Dokument verknüpft.');
       await loadAll();
       renderAllColumns();
     } catch(err) {
@@ -3482,12 +3489,10 @@
           showFormStatus(statusEl, 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
           return;
         }
-        try {
-          await client.functions.invoke('send-document-share', { body: { fileIds: [docId], profileIds: shareIds } });
-        } catch(err) {}
+        await sendDocumentShareNotice([docId], shareIds, statusEl, 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft');
       }
 
-      showFormStatus(statusEl, 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft.');
+      if(!shareIds.length) showFormStatus(statusEl, 'Dokument wurde hochgeladen, unter Dokumente abgelegt und mit der Liegenschaft verknüpft.');
       document.getElementById('docForm-'+propertyId).reset();
       document.getElementById('docUsers-'+propertyId).style.display = 'none';
       await loadAll();

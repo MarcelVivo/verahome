@@ -462,15 +462,21 @@
         previewEl.innerHTML = '<p class="cal-jump-no-results">Freigabe fehlgeschlagen: '+VeraDashboard.escapeHtml(shareRes.error.message)+'</p>';
         return;
       }
-      try { await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: [recipientId] } }); }
-      catch(err) { /* Freigabe steht, Mail-Fehler blockiert nichts */ }
+      var mailNotice = '';
+      try {
+        var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: [recipientId] } });
+        if(mailRes.error) mailNotice = ' Freigabe steht, aber E-Mail konnte nicht versendet werden: ' + mailRes.error.message;
+        else if(mailRes.data && mailRes.data.skipped) mailNotice = ' E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.';
+      } catch(err) {
+        mailNotice = ' Freigabe steht, aber E-Mail konnte nicht versendet werden: ' + (err.message || err);
+      }
 
       var msgRes = await client.from('messages').insert(payload);
       if(msgRes.error){
         previewEl.innerHTML = '<p class="cal-jump-no-results">Nachricht konnte nicht erstellt werden: '+VeraDashboard.escapeHtml(msgRes.error.message)+'</p>';
         return;
       }
-      previewEl.innerHTML = '';
+      previewEl.innerHTML = mailNotice ? '<p class="cal-jump-no-results">'+VeraDashboard.escapeHtml(mailNotice.trim())+'</p>' : '';
       cfg.reload();
     }
   }
