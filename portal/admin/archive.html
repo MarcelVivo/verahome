@@ -230,7 +230,7 @@
     profile = ctx.profile;
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar("admin-archive", ctx.profile);
-    document.getElementById("archiveReloadBtn").addEventListener("click", loadArchive);
+	    document.getElementById("archiveReloadBtn").addEventListener("click", function(evt){ loadArchive(evt.currentTarget); });
     document.getElementById("archiveSearch").addEventListener("input", renderArchive);
     loadArchive();
   });
@@ -242,21 +242,36 @@
     el.classList.toggle("error", !!isError);
   }
 
-  async function loadArchive(){
-    setStatus("Archiv wird geladen …");
-    var sections = [];
-    for(var i = 0; i < SECTION_CONFIG.length; i++){
-      var cfg = SECTION_CONFIG[i];
-      var query = client.from(cfg.table).select(cfg.select).not("archived_at", "is", null);
-      if(cfg.order) query = query.order(cfg.order, { ascending:false });
-      var res = await query.limit(100);
-      sections.push({ config: cfg, rows: res.data || [], error: res.error });
-    }
-    archiveSections = sections;
-    renderArchive();
-    var errors = sections.filter(function(section){ return section.error; });
-    setStatus(errors.length ? "Einige Archivbereiche konnten nicht geladen werden. SQL-Migration prüfen." : "");
-  }
+	  async function loadArchive(button){
+	    if(button && button.disabled) return;
+	    var originalText = button ? button.textContent : "";
+	    if(button){
+	      button.disabled = true;
+	      button.textContent = "Wird geladen …";
+	    }
+	    setStatus("Archiv wird geladen …");
+	    try {
+	      var sections = [];
+	      for(var i = 0; i < SECTION_CONFIG.length; i++){
+	        var cfg = SECTION_CONFIG[i];
+	        var query = client.from(cfg.table).select(cfg.select).not("archived_at", "is", null);
+	        if(cfg.order) query = query.order(cfg.order, { ascending:false });
+	        var res = await query.limit(100);
+	        sections.push({ config: cfg, rows: res.data || [], error: res.error });
+	      }
+	      archiveSections = sections;
+	      renderArchive();
+	      var errors = sections.filter(function(section){ return section.error; });
+	      setStatus(errors.length ? "Einige Archivbereiche konnten nicht geladen werden. SQL-Migration prüfen." : "");
+	    } catch(err) {
+	      setStatus("Archiv konnte nicht geladen werden: " + (err.message || err), true);
+	    } finally {
+	      if(button){
+	        button.disabled = false;
+	        button.textContent = originalText;
+	      }
+	    }
+	  }
 
   function matchesSearch(row, cfg, query){
     if(!query) return true;
@@ -328,18 +343,26 @@
     }
     setStatus("Eintrag wird wiederhergestellt …");
     var payload = cfg.restorePayload ? cfg.restorePayload() : { archived_at:null, archived_by:null, archived_reason:null };
-    var res = await client.from(table).update(payload).eq("id", id);
-    if(res.error){
-      setStatus("Fehler beim Wiederherstellen: " + res.error.message, true);
-      if(button){
-        button.disabled = false;
-        button.textContent = "Wiederherstellen";
-      }
-      return;
-    }
-    setStatus('"' + itemLabel + '" wurde wiederhergestellt.');
-    await loadArchive();
-  }
+	    try {
+	      var res = await client.from(table).update(payload).eq("id", id);
+	      if(res.error){
+	        setStatus("Fehler beim Wiederherstellen: " + res.error.message, true);
+	        if(button){
+	          button.disabled = false;
+	          button.textContent = "Wiederherstellen";
+	        }
+	        return;
+	      }
+	      setStatus('"' + itemLabel + '" wurde wiederhergestellt.');
+	      await loadArchive();
+	    } catch(err) {
+	      setStatus("Fehler beim Wiederherstellen: " + (err.message || err), true);
+	      if(button){
+	        button.disabled = false;
+	        button.textContent = "Wiederherstellen";
+	      }
+	    }
+	  }
 })();
 </script>
 </body>

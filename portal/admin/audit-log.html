@@ -154,8 +154,8 @@
     if(!ctx) return;
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar("admin-audit-log", ctx.profile);
-    document.getElementById("auditReloadBtn").addEventListener("click", loadAudit);
-    document.getElementById("auditExportBtn").addEventListener("click", exportAuditCsv);
+	    document.getElementById("auditReloadBtn").addEventListener("click", function(evt){ loadAudit(evt.currentTarget); });
+	    document.getElementById("auditExportBtn").addEventListener("click", function(evt){ exportAuditCsv(evt.currentTarget); });
     document.getElementById("auditSearch").addEventListener("input", renderAudit);
     document.getElementById("auditAreaFilter").addEventListener("change", renderAudit);
     document.getElementById("auditActionFilter").addEventListener("change", renderAudit);
@@ -173,50 +173,65 @@
     el.classList.toggle("error", !!isError);
   }
 
-  async function loadAudit(){
-    setStatus("Protokoll wird geladen …");
-    var res = await client.from("audit_log")
-      .select("id, actor_id, action, entity_table, entity_id, metadata, created_at, actor:profiles!actor_id(first_name,last_name,email)")
-      .order("created_at", { ascending:false })
-      .limit(300);
+	  async function loadAudit(button){
+	    if(button && button.disabled) return;
+	    var originalText = button ? button.textContent : "";
+	    if(button){
+	      button.disabled = true;
+	      button.textContent = "Wird geladen …";
+	    }
+	    setStatus("Protokoll wird geladen …");
+	    try {
+	      var res = await client.from("audit_log")
+	        .select("id, actor_id, action, entity_table, entity_id, metadata, created_at, actor:profiles!actor_id(first_name,last_name,email)")
+	        .order("created_at", { ascending:false })
+	        .limit(300);
 
-    if(res.error){
-      setStatus("Fehler beim Laden: " + res.error.message, true);
-      return;
-    }
-    auditRows = res.data || [];
-    try{
-      var accessRes = await client.from("document_access_log")
-        .select("id, actor_id, bucket, file_path, action, document_file_id, property_document_id, metadata, created_at, actor:profiles!actor_id(first_name,last_name,email)")
-        .order("created_at", { ascending:false })
-        .limit(300);
-      if(!accessRes.error){
-        auditRows = auditRows.concat((accessRes.data || []).map(function(row){
-          return {
-            id: row.id,
-            actor_id: row.actor_id,
-            action: "document_access." + (row.action || "open"),
-            entity_table: "public.document_access_log",
-            entity_id: row.file_path,
-            metadata: {
-              operation: String(row.action || "open").toUpperCase(),
-              changed_columns: [row.bucket],
-              new_record: { title: row.file_path, bucket: row.bucket }
-            },
-            created_at: row.created_at,
-            actor: row.actor
-          };
-        }));
-      }
-    } catch(e) {
-      /* Tabelle existiert erst nach Ausfuehren von supabase/document-access-log.sql. */
-    }
-    auditRows.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
-    auditRows = auditRows.slice(0, 300);
-    renderAreaOptions();
-    renderAudit();
-    setStatus("");
-  }
+	      if(res.error){
+	        setStatus("Fehler beim Laden: " + res.error.message, true);
+	        return;
+	      }
+	      auditRows = res.data || [];
+	      try{
+	        var accessRes = await client.from("document_access_log")
+	          .select("id, actor_id, bucket, file_path, action, document_file_id, property_document_id, metadata, created_at, actor:profiles!actor_id(first_name,last_name,email)")
+	          .order("created_at", { ascending:false })
+	          .limit(300);
+	        if(!accessRes.error){
+	          auditRows = auditRows.concat((accessRes.data || []).map(function(row){
+	            return {
+	              id: row.id,
+	              actor_id: row.actor_id,
+	              action: "document_access." + (row.action || "open"),
+	              entity_table: "public.document_access_log",
+	              entity_id: row.file_path,
+	              metadata: {
+	                operation: String(row.action || "open").toUpperCase(),
+	                changed_columns: [row.bucket],
+	                new_record: { title: row.file_path, bucket: row.bucket }
+	              },
+	              created_at: row.created_at,
+	              actor: row.actor
+	            };
+	          }));
+	        }
+	      } catch(e) {
+	        /* Tabelle existiert erst nach Ausfuehren von supabase/document-access-log.sql. */
+	      }
+	      auditRows.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+	      auditRows = auditRows.slice(0, 300);
+	      renderAreaOptions();
+	      renderAudit();
+	      setStatus("");
+	    } catch(err) {
+	      setStatus("Fehler beim Laden: " + (err.message || err), true);
+	    } finally {
+	      if(button){
+	        button.disabled = false;
+	        button.textContent = originalText;
+	      }
+	    }
+	  }
 
   function tableLabel(entityTable){
     return TABLE_LABELS[entityTable] || entityTable || "Unbekannt";
@@ -353,29 +368,44 @@
     document.getElementById("auditDetailBackdrop").hidden = true;
   }
 
-  function exportAuditCsv(){
-    var rows = filteredAuditRows();
-    if(!rows.length){
-      setStatus("Keine Protokolleinträge zum Exportieren.", true);
-      return;
-    }
-    VeraDashboard.downloadCsv(
-      "vera-protokoll-" + new Date().toISOString().slice(0, 10) + ".csv",
-      ["Zeit", "Bereich", "Aktion", "Eintrag", "Eintrag-ID", "Geändert von", "Felder"],
-      rows.map(function(row){
-        return [
-          VeraDashboard.formatDateTime(row.created_at),
-          tableLabel(row.entity_table),
-          actionLabel(row),
-          entityTitle(row),
-          row.entity_id || "",
-          actorLabel(row),
-          changedColumns(row)
-        ];
-      })
-    );
-    setStatus(rows.length + " Protokolleinträge als CSV exportiert.");
-  }
+	  function exportAuditCsv(button){
+	    if(button && button.disabled) return;
+	    var rows = filteredAuditRows();
+	    if(!rows.length){
+	      setStatus("Keine Protokolleinträge zum Exportieren.", true);
+	      return;
+	    }
+	    var originalText = button ? button.textContent : "";
+	    if(button){
+	      button.disabled = true;
+	      button.textContent = "Wird exportiert …";
+	    }
+	    try {
+	      VeraDashboard.downloadCsv(
+	        "vera-protokoll-" + new Date().toISOString().slice(0, 10) + ".csv",
+	        ["Zeit", "Bereich", "Aktion", "Eintrag", "Eintrag-ID", "Geändert von", "Felder"],
+	        rows.map(function(row){
+	          return [
+	            VeraDashboard.formatDateTime(row.created_at),
+	            tableLabel(row.entity_table),
+	            actionLabel(row),
+	            entityTitle(row),
+	            row.entity_id || "",
+	            actorLabel(row),
+	            changedColumns(row)
+	          ];
+	        })
+	      );
+	      setStatus(rows.length + " Protokolleinträge als CSV exportiert.");
+	    } catch(err) {
+	      setStatus("Export fehlgeschlagen: " + (err.message || err), true);
+	    } finally {
+	      if(button){
+	        button.disabled = false;
+	        button.textContent = originalText;
+	      }
+	    }
+	  }
 })();
 </script>
 </body>
