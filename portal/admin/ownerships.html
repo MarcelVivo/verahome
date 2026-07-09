@@ -231,18 +231,25 @@
       start_date: document.getElementById('o_start').value || new Date().toISOString().slice(0,10),
       end_date: document.getElementById('o_unbefristet').checked ? null : (document.getElementById('o_end').value || null)
     };
-    var res = editingOwnershipId
-      ? await client.from('ownerships').update(payload).eq('id', editingOwnershipId)
-      : await client.from('ownerships').insert(payload);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
-    statusEl.classList.add('show');
-    if(res.error){
+    try {
+      var res = editingOwnershipId
+        ? await client.from('ownerships').update(payload).eq('id', editingOwnershipId)
+        : await client.from('ownerships').insert(payload);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
+      statusEl.classList.add('show');
+      if(res.error){
+        saveBtn.disabled = false;
+        saveBtn.textContent = editingOwnershipId ? 'Speichern' : 'Anlegen';
+        return;
+      }
+      await loadOwnerships();
+      closeOwnershipModal();
+    } catch(err) {
+      statusEl.textContent = 'Unerwarteter Fehler: ' + err.message;
+      statusEl.classList.add('show');
       saveBtn.disabled = false;
       saveBtn.textContent = editingOwnershipId ? 'Speichern' : 'Anlegen';
-      return;
     }
-    await loadOwnerships();
-    closeOwnershipModal();
   }
 
   async function deleteOwnership(){
@@ -251,19 +258,25 @@
     var deleteBtn = document.getElementById('ownershipDeleteBtn');
     deleteBtn.disabled = true;
     deleteBtn.textContent = 'Wird archiviert …';
-    var res = await client.from('ownerships').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Eigentümerschaft archiviert'
-    }).eq('id', editingOwnershipId);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
+    try {
+      var res = await client.from('ownerships').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Eigentümerschaft archiviert'
+      }).eq('id', editingOwnershipId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Archivieren';
+        return;
+      }
+      closeOwnershipModal();
+      loadOwnerships();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
       deleteBtn.disabled = false;
       deleteBtn.textContent = 'Archivieren';
-      return;
     }
-    closeOwnershipModal();
-    loadOwnerships();
   }
 
   var allOwnerships = [];

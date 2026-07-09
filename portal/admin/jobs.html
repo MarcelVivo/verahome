@@ -253,28 +253,35 @@
       description: document.getElementById('j_description').value.trim() || null,
       status: document.getElementById('j_status').value
     };
-    var res = editingJobId
-      ? await client.from('job_assignments').update(payload).eq('id', editingJobId)
-      : await client.from('job_assignments').insert(payload);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
-    statusEl.classList.add('show');
-    if(res.error){
-      saveBtn.disabled = false;
-      saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
-      return;
-    }
-    if(document.getElementById('j_add_appointment').checked){
-      var apptRes = await createAppointmentForJob(payload);
-      if(apptRes && apptRes.error){
-        statusEl.textContent = 'Auftrag gespeichert, Termin konnte aber nicht erstellt werden: ' + apptRes.error.message;
+    try {
+      var res = editingJobId
+        ? await client.from('job_assignments').update(payload).eq('id', editingJobId)
+        : await client.from('job_assignments').insert(payload);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
+      statusEl.classList.add('show');
+      if(res.error){
         saveBtn.disabled = false;
         saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
-        await loadJobs();
         return;
       }
+      if(document.getElementById('j_add_appointment').checked){
+        var apptRes = await createAppointmentForJob(payload);
+        if(apptRes && apptRes.error){
+          statusEl.textContent = 'Auftrag gespeichert, Termin konnte aber nicht erstellt werden: ' + apptRes.error.message;
+          saveBtn.disabled = false;
+          saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
+          await loadJobs();
+          return;
+        }
+      }
+      await loadJobs();
+      closeJobModal();
+    } catch(err) {
+      statusEl.textContent = 'Unerwarteter Fehler: ' + err.message;
+      statusEl.classList.add('show');
+      saveBtn.disabled = false;
+      saveBtn.textContent = editingJobId ? 'Speichern' : 'Anlegen';
     }
-    await loadJobs();
-    closeJobModal();
   }
 
   async function createAppointmentForJob(jobPayload){
@@ -308,19 +315,25 @@
     var deleteBtn = document.getElementById('jobDeleteBtn');
     deleteBtn.disabled = true;
     deleteBtn.textContent = 'Wird archiviert …';
-    var res = await client.from('job_assignments').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Auftrag archiviert'
-    }).eq('id', editingJobId);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
+    try {
+      var res = await client.from('job_assignments').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Auftrag archiviert'
+      }).eq('id', editingJobId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Archivieren';
+        return;
+      }
+      closeJobModal();
+      loadJobs();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
       deleteBtn.disabled = false;
       deleteBtn.textContent = 'Archivieren';
-      return;
     }
-    closeJobModal();
-    loadJobs();
   }
 
   var allJobs = [];

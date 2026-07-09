@@ -199,23 +199,28 @@
       if(!amount || !date){ window.alert('Bitte neuen Mietzins und Gültigkeitsdatum angeben.'); return; }
       btn.disabled = true;
       btn.textContent = 'Wird gespeichert …';
-      var res = await client.from('tenancy_rent_changes').insert({
-        tenancy_id: editingTenancyId, rent_chf: Number(amount), effective_date: date,
-        note: document.getElementById('rc_note').value.trim() || null
-      });
-      if(res.error){
-        window.alert('Fehler: ' + res.error.message);
+      try {
+        var res = await client.from('tenancy_rent_changes').insert({
+          tenancy_id: editingTenancyId, rent_chf: Number(amount), effective_date: date,
+          note: document.getElementById('rc_note').value.trim() || null
+        });
+        if(res.error){
+          window.alert('Fehler: ' + res.error.message);
+          btn.disabled = false;
+          btn.textContent = 'Mietzinsänderung hinzufügen';
+          return;
+        }
+        document.getElementById('rc_amount').value = '';
+        document.getElementById('rc_date').value = '';
+        document.getElementById('rc_note').value = '';
+        document.getElementById('t_rent').value = amount;
+        await loadRentHistory(editingTenancyId);
+      } catch(err) {
+        window.alert('Unerwarteter Fehler: ' + err.message);
+      } finally {
         btn.disabled = false;
         btn.textContent = 'Mietzinsänderung hinzufügen';
-        return;
       }
-      document.getElementById('rc_amount').value = '';
-      document.getElementById('rc_date').value = '';
-      document.getElementById('rc_note').value = '';
-      document.getElementById('t_rent').value = amount;
-      await loadRentHistory(editingTenancyId);
-      btn.disabled = false;
-      btn.textContent = 'Mietzinsänderung hinzufügen';
     });
 
     document.getElementById('tenanciesTable').addEventListener('click', function(e){
@@ -291,18 +296,25 @@
       deposit_reference: document.getElementById('t_deposit_ref').value.trim() || null,
       deposit_returned_at: document.getElementById('t_deposit_returned').value || null
     };
-    var res = editingTenancyId
-      ? await client.from('tenancies').update(payload).eq('id', editingTenancyId)
-      : await client.from('tenancies').insert(payload);
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
-    statusEl.classList.add('show');
-    if(res.error){
+    try {
+      var res = editingTenancyId
+        ? await client.from('tenancies').update(payload).eq('id', editingTenancyId)
+        : await client.from('tenancies').insert(payload);
+      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
+      statusEl.classList.add('show');
+      if(res.error){
+        saveBtn.disabled = false;
+        saveBtn.textContent = editingTenancyId ? 'Speichern' : 'Anlegen';
+        return;
+      }
+      await loadTenancies();
+      closeTenancyModal();
+    } catch(err) {
+      statusEl.textContent = 'Unerwarteter Fehler: ' + err.message;
+      statusEl.classList.add('show');
       saveBtn.disabled = false;
       saveBtn.textContent = editingTenancyId ? 'Speichern' : 'Anlegen';
-      return;
     }
-    await loadTenancies();
-    closeTenancyModal();
   }
 
   async function loadRentHistory(tenancyId){
@@ -325,19 +337,25 @@
     var deleteBtn = document.getElementById('tenancyDeleteBtn');
     deleteBtn.disabled = true;
     deleteBtn.textContent = 'Wird archiviert …';
-    var res = await client.from('tenancies').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Mietverhältnis archiviert'
-    }).eq('id', editingTenancyId);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
+    try {
+      var res = await client.from('tenancies').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Mietverhältnis archiviert'
+      }).eq('id', editingTenancyId);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Archivieren';
+        return;
+      }
+      closeTenancyModal();
+      loadTenancies();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
       deleteBtn.disabled = false;
       deleteBtn.textContent = 'Archivieren';
-      return;
     }
-    closeTenancyModal();
-    loadTenancies();
   }
 
   var allTenancies = [];
