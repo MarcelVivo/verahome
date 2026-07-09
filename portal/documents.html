@@ -1055,18 +1055,27 @@
   async function fmCreateFolder(){
     var name = window.prompt('Ordnername:');
     if(!name || !name.trim()) return;
-    var assignment = await fmGetFolderAssignment(fmCurrentFolderId());
-    await client.from('document_folders').insert({
-      name: name.trim(),
-      parent_id: fmCurrentFolderId(),
-      property_id: assignment.property_id,
-      unit_id: assignment.unit_id,
-      contact_profile_id: assignment.contact_profile_id || null,
-      is_private_admin: !!assignment.is_private_admin,
-      archive_category: assignment.archive_category || null,
-      created_by: profile.id
-    });
-    fmLoadCurrentFolder();
+    fmSetStatus('Ordner wird erstellt …');
+    try {
+      var assignment = await fmGetFolderAssignment(fmCurrentFolderId());
+      var payload = {
+        name: name.trim(),
+        parent_id: fmCurrentFolderId(),
+        property_id: assignment.property_id || null,
+        unit_id: assignment.unit_id || null,
+        contact_profile_id: assignment.contact_profile_id || null,
+        is_private_admin: !!assignment.is_private_admin,
+        archive_category: assignment.archive_category || null,
+        created_by: profile.id
+      };
+      var res = await client.from('document_folders').insert(payload).select('*').single();
+      if(res.error) throw res.error;
+      fmSetStatus('Ordner erstellt.');
+      fmSelected = { type: 'folder', item: res.data };
+      await fmLoadCurrentFolder();
+    } catch(err) {
+      fmSetStatus('Ordner konnte nicht erstellt werden: ' + (err.message || err));
+    }
   }
 
   async function fmRenameFolder(id, currentName){
