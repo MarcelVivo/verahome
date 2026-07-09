@@ -190,36 +190,49 @@
 
     document.getElementById('newAvailabilityForm').addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
       var statusEl = document.getElementById('availabilityStatus');
       var start = document.getElementById('av_start').value;
       var end = document.getElementById('av_end').value;
       if(!start || !end || end <= start){
-        statusEl.textContent = 'Ende muss nach Start liegen.';
-        statusEl.classList.add('show');
+        showFormStatus(statusEl, 'Ende muss nach Start liegen.');
         return;
       }
-      var res = await client.from('booking_availability').insert({
-        weekday: document.getElementById('av_weekday').value,
-        start_time: start, end_time: end, created_by: profile.id
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Hinzugefügt.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newAvailabilityForm').reset(); loadAvailability(); }
+      setActionButtonLoading(submitBtn, true, 'Fügt hinzu …');
+      try {
+        var res = await client.from('booking_availability').insert({
+          weekday: document.getElementById('av_weekday').value,
+          start_time: start, end_time: end, created_by: profile.id
+        });
+        showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Hinzugefügt.');
+        if(!res.error){ document.getElementById('newAvailabilityForm').reset(); loadAvailability(); }
+      } catch(err) {
+        showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      } finally {
+        setActionButtonLoading(submitBtn, false);
+      }
     });
 
     document.getElementById('newBlockedForm').addEventListener('submit', async function(e){
       e.preventDefault();
+      var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
       var statusEl = document.getElementById('blockedStatus');
       var date = document.getElementById('bd_date').value;
-      if(!date){ statusEl.textContent = 'Bitte Datum wählen.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('booking_blocked_dates').insert({
-        blocked_date: date,
-        reason: document.getElementById('bd_reason').value.trim() || null,
-        created_by: profile.id
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Tag gesperrt.';
-      statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newBlockedForm').reset(); loadBlockedDates(); }
+      if(!date){ showFormStatus(statusEl, 'Bitte Datum wählen.'); return; }
+      setActionButtonLoading(submitBtn, true, 'Sperrt …');
+      try {
+        var res = await client.from('booking_blocked_dates').insert({
+          blocked_date: date,
+          reason: document.getElementById('bd_reason').value.trim() || null,
+          created_by: profile.id
+        });
+        showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Tag gesperrt.');
+        if(!res.error){ document.getElementById('newBlockedForm').reset(); loadBlockedDates(); }
+      } catch(err) {
+        showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      } finally {
+        setActionButtonLoading(submitBtn, false);
+      }
     });
 
     document.getElementById('bookingSearch').addEventListener('input', function(){
@@ -257,16 +270,19 @@
     table.querySelectorAll('.del-availability-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Diese Verfügbarkeit wirklich entfernen?')) return;
-        btn.disabled = true;
-        btn.textContent = 'Wird entfernt …';
-        var deleteRes = await client.from('booking_availability').delete().eq('id', btn.getAttribute('data-id'));
-        if(deleteRes.error){
-          window.alert('Verfügbarkeit konnte nicht entfernt werden: ' + deleteRes.error.message);
-          btn.disabled = false;
-          btn.textContent = 'Entfernen';
-          return;
+        setActionButtonLoading(btn, true, 'Wird entfernt …');
+        try {
+          var deleteRes = await client.from('booking_availability').delete().eq('id', btn.getAttribute('data-id'));
+          if(deleteRes.error){
+            window.alert('Verfügbarkeit konnte nicht entfernt werden: ' + deleteRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadAvailability();
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
         }
-        loadAvailability();
       });
     });
   }
@@ -285,16 +301,19 @@
     table.querySelectorAll('.del-blocked-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Diesen gesperrten Tag wirklich entfernen?')) return;
-        btn.disabled = true;
-        btn.textContent = 'Wird entfernt …';
-        var deleteRes = await client.from('booking_blocked_dates').delete().eq('id', btn.getAttribute('data-id'));
-        if(deleteRes.error){
-          window.alert('Gesperrter Tag konnte nicht entfernt werden: ' + deleteRes.error.message);
-          btn.disabled = false;
-          btn.textContent = 'Entfernen';
-          return;
+        setActionButtonLoading(btn, true, 'Wird entfernt …');
+        try {
+          var deleteRes = await client.from('booking_blocked_dates').delete().eq('id', btn.getAttribute('data-id'));
+          if(deleteRes.error){
+            window.alert('Gesperrter Tag konnte nicht entfernt werden: ' + deleteRes.error.message);
+            setActionButtonLoading(btn, false);
+            return;
+          }
+          loadBlockedDates();
+        } catch(err) {
+          window.alert('Unerwarteter Fehler: ' + err.message);
+          setActionButtonLoading(btn, false);
         }
-        loadBlockedDates();
       });
     });
   }
