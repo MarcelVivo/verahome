@@ -131,16 +131,35 @@
     document.getElementById('newStatementForm').addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('newStatementStatus');
-      var res = await client.from('utility_statements').insert({
-        property_id: document.getElementById('st_property').value,
-        period_start: document.getElementById('st_start').value,
-        period_end: document.getElementById('st_end').value,
-        total_costs: parseFloat(document.getElementById('st_total').value) || 0,
-        created_by: profile.id
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Abrechnung angelegt.';
+      var submitBtn = e.submitter || document.querySelector('#newStatementForm button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
+      var originalText = submitBtn ? submitBtn.textContent : '';
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird angelegt …';
+      }
+      statusEl.textContent = 'Abrechnung wird angelegt …';
       statusEl.classList.add('show');
-      if(!res.error){ document.getElementById('newStatementForm').reset(); loadStatements(); }
+      try {
+        var res = await client.from('utility_statements').insert({
+          property_id: document.getElementById('st_property').value,
+          period_start: document.getElementById('st_start').value,
+          period_end: document.getElementById('st_end').value,
+          total_costs: parseFloat(document.getElementById('st_total').value) || 0,
+          created_by: profile.id
+        });
+        statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Abrechnung angelegt.';
+        statusEl.classList.add('show');
+        if(!res.error){ document.getElementById('newStatementForm').reset(); loadStatements(); }
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + (err.message || err);
+        statusEl.classList.add('show');
+      } finally {
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      }
     });
 
     await loadStatements();
@@ -244,7 +263,9 @@
       recalcPreview(row);
     });
 
-    document.getElementById('saveShares-'+stmt.id).addEventListener('click', async function(){
+    document.getElementById('saveShares-'+stmt.id).addEventListener('click', async function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      if(btn.disabled) return;
       var statusEl = document.getElementById('statementPanelStatus-'+stmt.id);
       var rows = panel.querySelectorAll('tr[data-tenancy]');
       var upserts = [];
@@ -265,21 +286,50 @@
         statusEl.classList.add('show');
         return;
       }
-      var res = await client.from('utility_statement_shares').upsert(upserts, { onConflict: 'utility_statement_id,tenancy_id' });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Zeilen gespeichert.';
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Wird gespeichert …';
+      statusEl.textContent = 'Zeilen werden gespeichert …';
       statusEl.classList.add('show');
+      try {
+        var res = await client.from('utility_statement_shares').upsert(upserts, { onConflict: 'utility_statement_id,tenancy_id' });
+        statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Zeilen gespeichert.';
+        statusEl.classList.add('show');
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + (err.message || err);
+        statusEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
 
     var publishBtn = document.getElementById('publish-'+stmt.id);
     if(publishBtn){
-      publishBtn.addEventListener('click', async function(){
+      publishBtn.addEventListener('click', async function(btnEvt){
+        var btn = btnEvt.currentTarget;
+        if(btn.disabled) return;
         if(!window.confirm('Abrechnung veröffentlichen? Dies erzeugt automatisch Rechnungen und kann nicht rückgängig gemacht werden.')) return;
         if(!window.confirm('Letzte Bestätigung: Abrechnung jetzt endgültig veröffentlichen?')) return;
-        var res = await client.rpc('publish_utility_statement', { p_statement_id: stmt.id });
-        if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
-        window.alert('Abrechnung veröffentlicht, Rechnungen wurden erstellt.');
-        openPanels[stmt.id] = false;
-        loadStatements();
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Wird veröffentlicht …';
+        try {
+          var res = await client.rpc('publish_utility_statement', { p_statement_id: stmt.id });
+          if(res.error){
+            window.alert('Fehler: ' + res.error.message);
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+          }
+          window.alert('Abrechnung veröffentlicht, Rechnungen wurden erstellt.');
+          openPanels[stmt.id] = false;
+          loadStatements();
+        } catch(err) {
+          window.alert('Fehler: ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
       });
     }
   }
