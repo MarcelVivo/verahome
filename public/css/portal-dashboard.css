@@ -390,6 +390,16 @@
 .filemgr-dropzone.drag-over{background:rgba(201,168,76,.08);box-shadow:inset 0 0 0 2px rgba(201,168,76,.35);}
 .filemgr-confirm-label{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--color-gray-text);font-weight:400;}
 .filemgr-confirm-label input{width:auto;}
+.filemgr-choice-group{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0;
+}
+.filemgr-choice{
+  display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 12px;
+  border:1px solid var(--color-blue-light);border-radius:12px;background:var(--color-bg);
+  color:var(--color-navy);font-size:.84rem;font-weight:800;cursor:pointer;touch-action:manipulation;
+}
+.filemgr-choice:has(input:checked){border-color:var(--color-gold);background:rgba(201,168,76,.12);}
+.filemgr-choice input{width:auto;accent-color:var(--color-gold);flex-shrink:0;}
 .filemgr-upload-modal{max-width:460px;}
 .filemgr-path-preview{
   padding:11px 13px;border:1px solid var(--color-blue-light);border-radius:10px;background:var(--color-bg);
@@ -1476,6 +1486,7 @@
   .filemgr-breadcrumb{grid-column:1 / -1;order:3;}
   .filemgr-toolbar-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;}
   .filemgr-toolbar-actions .dash-btn-sm{width:100%;}
+  .filemgr-choice-group{grid-template-columns:1fr;}
   .filemgr-detail-actions{display:grid;grid-template-columns:1fr 1fr;}
   .filemgr-detail-actions .btn,
   .filemgr-detail-actions .dash-btn-sm{min-height:44px;}

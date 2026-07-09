@@ -85,8 +85,8 @@
             <div class="filemgr-toolbar-actions">
               <input type="file" id="fm_upload_input" multiple hidden
                 accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx">
-              <button type="button" class="dash-btn-sm" id="fm_upload_btn">Datei hochladen</button>
-              <button type="button" class="dash-btn-sm" id="fm_new_folder_btn">Neuer Ordner</button>
+              <button type="button" class="dash-btn-sm" id="fm_upload_btn">Dokument hochladen</button>
+              <button type="button" class="dash-btn-sm" id="fm_new_folder_btn">Ordner erstellen</button>
             </div>
           </div>
           <div class="filemgr-subbar">
@@ -116,6 +116,16 @@
           <p class="doc-meta">Jedes Dokument wird direkt einer Liegenschaft, Wohnung, einem Kontakt oder der privaten Admin-Ablage zugeordnet. Der passende Ordnerpfad wird automatisch angelegt.</p>
           <form class="auth-form" id="uploadScopeForm">
             <input type="file" id="uploadScopeFiles" multiple required accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx">
+            <div class="filemgr-choice-group" aria-label="Ablageart">
+              <label class="filemgr-choice">
+                <input type="radio" name="uploadScopeFolderMode" value="existing" checked>
+                <span>Bestehenden Ordner wählen</span>
+              </label>
+              <label class="filemgr-choice">
+                <input type="radio" name="uploadScopeFolderMode" value="new">
+                <span>Neuen Ordner erstellen</span>
+              </label>
+            </div>
             <select id="uploadScopeType">
               <option value="property">Liegenschaft / Objekt</option>
               <option value="unit">Wohnung / Einheit</option>
@@ -126,6 +136,10 @@
             <select id="uploadScopeUnit"></select>
             <select id="uploadScopeContact"></select>
             <select id="uploadScopeArchive"></select>
+            <label class="auth-form-label" id="uploadScopeNewFolderWrap" hidden>
+              Neuer Ordnername
+              <input id="uploadScopeNewFolderName" placeholder="z.B. Mietvertrag 2026">
+            </label>
             <label class="filemgr-confirm-label" id="uploadScopeShareWrap">
               <input type="checkbox" id="uploadScopeShareResidents" checked> Zugehörige Mieter/Eigentümer automatisch freigeben
             </label>
@@ -465,6 +479,10 @@
     ['uploadScopeType','uploadScopeProperty','uploadScopeUnit','uploadScopeContact','uploadScopeArchive'].forEach(function(id){
       document.getElementById(id).addEventListener('change', fmUpdateUploadScopeForm);
     });
+    document.querySelectorAll('input[name="uploadScopeFolderMode"]').forEach(function(input){
+      input.addEventListener('change', fmUpdateUploadScopeForm);
+    });
+    document.getElementById('uploadScopeNewFolderName').addEventListener('input', fmUpdateUploadScopeForm);
     document.getElementById('folderScopeCancel').addEventListener('click', fmCloseFolderCreateModal);
     document.getElementById('folderScopeForm').addEventListener('submit', fmSubmitCreateFolder);
     document.getElementById('folderScopeName').addEventListener('input', fmUpdateFolderScopeForm);
@@ -572,6 +590,23 @@
     return 'Liegenschaften / ' + fmPropertyDisplay(property) + ' / ' + fmArchiveLabel(scope.archive_category);
   }
 
+  function fmFolderMatchesScope(folder, scope){
+    if(!folder || !scope || !folder.archive_category) return false;
+    return String(folder.archive_category || '') === String(scope.archive_category || '') &&
+      String(folder.property_id || '') === String(scope.property_id || '') &&
+      String(folder.unit_id || '') === String(scope.unit_id || '') &&
+      String(folder.contact_profile_id || '') === String(scope.contact_profile_id || '') &&
+      !!folder.is_private_admin === !!scope.is_private_admin;
+  }
+
+  function fmUploadTargetPathPreview(scope){
+    var currentFolder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(scope && scope.upload_folder_mode === 'existing' && fmFolderMatchesScope(currentFolder, scope)){
+      return fmPath.map(function(p){ return p.name; }).join(' / ');
+    }
+    return fmScopedPathPreview(scope) + (scope && scope.upload_folder_name ? ' / ' + scope.upload_folder_name : '');
+  }
+
   function fmCurrentUploadScope(){
     var type = document.getElementById('uploadScopeType').value;
     var propertyId = document.getElementById('uploadScopeProperty').value || null;
@@ -582,13 +617,17 @@
       var unit = fmUnits.filter(function(u){ return u.id === unitId; })[0];
       propertyId = unit ? unit.property_id : null;
     }
+    var folderModeInput = document.querySelector('input[name="uploadScopeFolderMode"]:checked');
+    var folderMode = folderModeInput ? folderModeInput.value : 'existing';
     return {
       type: type,
       property_id: type === 'property' || type === 'unit' ? propertyId : null,
       unit_id: type === 'unit' ? unitId : null,
       contact_profile_id: type === 'contact' ? contactId : null,
       is_private_admin: type === 'private',
-      archive_category: archiveKey
+      archive_category: archiveKey,
+      upload_folder_mode: folderMode,
+      upload_folder_name: folderMode === 'new' ? document.getElementById('uploadScopeNewFolderName').value.trim() : ''
     };
   }
 
@@ -609,12 +648,16 @@
     var contactSelect = document.getElementById('uploadScopeContact');
     var archiveSelect = document.getElementById('uploadScopeArchive');
     var shareWrap = document.getElementById('uploadScopeShareWrap');
+    var newFolderWrap = document.getElementById('uploadScopeNewFolderWrap');
+    var folderModeInput = document.querySelector('input[name="uploadScopeFolderMode"]:checked');
+    var folderMode = folderModeInput ? folderModeInput.value : 'existing';
     var currentUnit = unitSelect.value;
 
     propertySelect.hidden = !(type === 'property' || type === 'unit');
     unitSelect.hidden = type !== 'unit';
     contactSelect.hidden = type !== 'contact';
     shareWrap.hidden = !(type === 'property' || type === 'unit');
+    newFolderWrap.hidden = folderMode !== 'new';
 
     var propertyId = propertySelect.value;
     var units = fmUnits.filter(function(u){ return !propertyId || u.property_id === propertyId; });
@@ -633,7 +676,7 @@
 
     var scope = fmCurrentUploadScope();
     document.getElementById('uploadScopePathPreview').innerHTML =
-      '<strong>Zielordner:</strong> ' + VeraDashboard.escapeHtml(fmScopedPathPreview(scope));
+      '<strong>Zielordner:</strong> ' + VeraDashboard.escapeHtml(fmUploadTargetPathPreview(scope));
   }
 
   function fmOpenUploadScopeModal(files){
@@ -644,6 +687,8 @@
     fileInput.required = !fmPendingUploadFiles.length;
     fileInput.hidden = !!fmPendingUploadFiles.length;
     document.getElementById('uploadScopeType').value = fmCurrentFolderSuggestedScopeType();
+    document.querySelector('input[name="uploadScopeFolderMode"][value="existing"]').checked = true;
+    document.getElementById('uploadScopeNewFolderName').value = '';
     document.getElementById('uploadScopeStatus').textContent = fmPendingUploadFiles.length
       ? fmPendingUploadFiles.length + ' Datei(en) aus Drag & Drop werden abgelegt.'
       : '';
@@ -664,6 +709,8 @@
     fmPendingUploadFiles = [];
     document.getElementById('uploadScopeForm').reset();
     document.getElementById('uploadScopeFiles').hidden = false;
+    document.querySelector('input[name="uploadScopeFolderMode"][value="existing"]').checked = true;
+    document.getElementById('uploadScopeNewFolderWrap').hidden = true;
   }
 
   function fmPopulateFolderScopeBase(){
@@ -896,6 +943,7 @@
     if(scope.type === 'unit' && !scope.unit_id) return 'Bitte eine Wohnung / Einheit wählen.';
     if(scope.type === 'contact' && !scope.contact_profile_id) return 'Bitte einen Kontakt wählen.';
     if(!scope.archive_category) return 'Bitte einen Ordner / Aktenbereich wählen.';
+    if(scope.upload_folder_mode === 'new' && !scope.upload_folder_name) return 'Bitte einen Namen für den neuen Ordner eingeben.';
     return '';
   }
 
@@ -917,7 +965,9 @@
       statusEl.classList.add('show');
       return;
     }
-    statusEl.textContent = 'Ordner wird angelegt und Dateien werden hochgeladen …';
+    statusEl.textContent = scope.upload_folder_mode === 'new'
+      ? 'Neuer Ordner wird erstellt und Dateien werden hochgeladen …'
+      : 'Dateien werden im gewählten Ordner abgelegt …';
     statusEl.classList.add('show');
     try {
       var uploadedIds = await fmUploadFileList(chosenFiles, scope);
@@ -1288,6 +1338,13 @@
     var validation = fmValidateUploadScope(scope);
     if(validation) throw new Error(validation);
     var folder = await fmEnsureScopedFolder(scope);
+    var currentFolder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(scope.upload_folder_mode === 'existing' && fmFolderMatchesScope(currentFolder, scope)){
+      folder = currentFolder;
+    }
+    if(scope.upload_folder_mode === 'new' && scope.upload_folder_name){
+      folder = await fmFindOrCreateFolder(scope.upload_folder_name, folder.id, scope);
+    }
     var folderId = folder.id;
     fmSetStatus('Wird hochgeladen …');
     var uploadedIds = [];
