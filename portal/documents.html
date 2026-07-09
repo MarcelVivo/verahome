@@ -1436,11 +1436,14 @@
 
   async function fmDeleteFile(id, path, name){
     if(!window.confirm('Datei "'+name+'" archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
-    await client.from('document_files').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Datei archiviert'
-    }).eq('id', id);
+    var res = await client.rpc('archive_document_file', {
+      p_file_id: id,
+      p_reason: 'Datei archiviert'
+    });
+    if(res.error){
+      window.alert('Datei konnte nicht archiviert werden: ' + res.error.message);
+      return;
+    }
     fmSelected = null;
     fmLoadCurrentFolder();
   }

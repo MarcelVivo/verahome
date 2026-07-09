@@ -3202,11 +3202,14 @@
     table.querySelectorAll('.del-doc-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Dokument archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
-        await client.from('document_files').update({
-          archived_at: new Date().toISOString(),
-          archived_by: profile.id,
-          archived_reason: 'Dokument archiviert'
-        }).eq('id', btn.getAttribute('data-id'));
+        var archiveRes = await client.rpc('archive_document_file', {
+          p_file_id: btn.getAttribute('data-id'),
+          p_reason: 'Dokument archiviert'
+        });
+        if(archiveRes.error){
+          window.alert('Dokument konnte nicht archiviert werden: ' + archiveRes.error.message);
+          return;
+        }
         await loadAll();
         loadPropertyDocs(propertyId);
         renderAllColumns();

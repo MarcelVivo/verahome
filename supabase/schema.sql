@@ -5214,3 +5214,23 @@ begin
   where folder_id in (select id from folder_tree);
 end;
 $$;
+
+create or replace function public.archive_document_file(p_file_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.document_files
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Dokument archiviert')
+  where id = p_file_id
+    and archived_at is null;
+end;
+$$;
