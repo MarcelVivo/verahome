@@ -780,17 +780,33 @@
     table.querySelectorAll('button[data-deactivate-id]').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Diesen Dauerauftrag wirklich deaktivieren?')) return;
-        await client.from('recurring_invoices').update({ active:false }).eq('id', btn.getAttribute('data-deactivate-id'));
+        btn.disabled = true;
+        btn.textContent = 'Wird deaktiviert …';
+        var deactivateRes = await client.from('recurring_invoices').update({ active:false }).eq('id', btn.getAttribute('data-deactivate-id'));
+        if(deactivateRes.error){
+          window.alert('Dauerauftrag konnte nicht deaktiviert werden: ' + deactivateRes.error.message);
+          btn.disabled = false;
+          btn.textContent = 'Deaktivieren';
+          return;
+        }
         loadRecurring();
       });
     });
   }
 
   async function confirmRecurringOccurrence(recurringId, btn){
+    if(!window.confirm('Fällige Rechnung jetzt erstellen und senden?')) return;
     btn.disabled = true;
+    btn.textContent = 'Wird erstellt …';
     var res = await VeraPortal.generateRecurringInvoiceOccurrence(recurringId);
-    if(res.error){ window.alert('Fehler: ' + res.error.message); btn.disabled = false; return; }
+    if(res.error){
+      window.alert('Fehler: ' + res.error.message);
+      btn.disabled = false;
+      btn.textContent = 'Jetzt erstellen & senden';
+      return;
+    }
     var newInvoice = res.data;
+    btn.textContent = 'E-Mail wird gesendet …';
     try {
       var emailRes = await VeraPortal.sendInvoiceEmail(newInvoice.id);
       if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
