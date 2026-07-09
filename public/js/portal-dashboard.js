@@ -8,6 +8,7 @@
 */
 window.VeraDashboard = (function () {
   "use strict";
+  var PORTAL_OWNER_EMAIL = "kontakt@marcelspahr.ch";
 
   /* Schlanke Hauptnavigation: Objekt/Dokument/Kontakt als zentrale
      Arbeitsachsen. Spezialseiten wie Mietverhältnisse, Eigentümer,
@@ -27,7 +28,7 @@ window.VeraDashboard = (function () {
       { key: "messages", href: "/portal/messages.html", label: "Nachrichten" },
       { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
       { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen" },
-      { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Admin", roles: ["admin"] }
+      { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Admin", roles: ["admin"], portalOwnerOnly: true }
     ]}
   ];
   var ADMIN_NAV_GROUP = { label: "Verknüpfte Bereiche", hiddenFromMainNav: true, items: [
@@ -163,18 +164,27 @@ window.VeraDashboard = (function () {
     return INVOICE_ISSUER_CATEGORIES.indexOf(profile.category) > -1;
   }
 
+  function canManagePortal(profile) {
+    return !!profile && String(profile.email || "").toLowerCase() === PORTAL_OWNER_EMAIL;
+  }
+
   function rolesOverlap(itemRoles, roles) {
     return itemRoles.some(function (r) { return roles.indexOf(r) > -1; });
+  }
+
+  function navItemVisibleForProfile(item, profile, roles) {
+    if (item.portalOwnerOnly && !canManagePortal(profile)) return false;
+    return !item.roles || rolesOverlap(item.roles, roles);
   }
 
   function navActiveKey(activeKey) {
     return NAV_ACTIVE_KEY_MAP[activeKey] || activeKey;
   }
 
-  function renderNavGroup(group, activeKey, roles) {
+  function renderNavGroup(group, activeKey, roles, profile) {
     var currentKey = navActiveKey(activeKey);
     var itemsHtml = group.items.filter(function (item) {
-      return !item.roles || rolesOverlap(item.roles, roles);
+      return navItemVisibleForProfile(item, profile, roles);
     }).map(function (item) {
       var inner = item.label;
       if (BADGE_SECTIONS.indexOf(item.key) > -1) {
@@ -196,7 +206,7 @@ window.VeraDashboard = (function () {
     var items = [];
     NAV_GROUPS.forEach(function (group) {
       group.items.forEach(function (item) {
-        if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: group.label || "Hauptnavigation" }, item));
+        if (navItemVisibleForProfile(item, profile, roles)) items.push(Object.assign({ group: group.label || "Hauptnavigation" }, item));
       });
     });
     if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
@@ -204,7 +214,7 @@ window.VeraDashboard = (function () {
     }
     if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
       SERVICES_NAV_GROUP.items.forEach(function (item) {
-        if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: SERVICES_NAV_GROUP.label }, item));
+        if (navItemVisibleForProfile(item, profile, roles)) items.push(Object.assign({ group: SERVICES_NAV_GROUP.label }, item));
       });
     }
     return items.map(function (item) {
@@ -465,14 +475,14 @@ window.VeraDashboard = (function () {
     if (existing) existing.remove();
 
     var items = NAV_GROUPS[0].items.filter(function (item) {
-      return !item.roles || rolesOverlap(item.roles, roles);
+      return navItemVisibleForProfile(item, profile, roles);
     });
     if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
       items = items.concat(ADMIN_NAV_GROUP.items);
     }
     if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
       items = items.concat(SERVICES_NAV_GROUP.items.filter(function (item) {
-        return !item.roles || rolesOverlap(item.roles, roles);
+        return navItemVisibleForProfile(item, profile, roles);
       }));
     }
 
@@ -541,15 +551,15 @@ window.VeraDashboard = (function () {
     roles = roles || [profile.category];
 
     var linksHtml = NAV_GROUPS.map(function (group) {
-      return renderNavGroup(group, activeKey, roles);
+      return renderNavGroup(group, activeKey, roles, profile);
     }).join("");
 
     if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
-      linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, roles);
+      linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, roles, profile);
     }
 
     if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
-      linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, roles);
+      linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, roles, profile);
     }
 
     var roleLabel = roles.map(categoryLabel).join(", ");
@@ -688,7 +698,7 @@ window.VeraDashboard = (function () {
   }
 
   function renderAdminPortalEditorButton(profile) {
-    if (!profile || profile.category !== "admin" || document.getElementById("dashPortalEditorTop")) return;
+    if (!profile || profile.category !== "admin" || !canManagePortal(profile) || document.getElementById("dashPortalEditorTop")) return;
     var actions = ensureTopActions();
     var link = document.createElement("a");
     link.id = "dashPortalEditorTop";
@@ -739,6 +749,7 @@ window.VeraDashboard = (function () {
     formatDateTime: formatDateTime,
     categoryLabel: categoryLabel,
     canIssueInvoices: canIssueInvoices,
+    canManagePortal: canManagePortal,
     applyQueryParamSearch: applyQueryParamSearch,
     downloadIcs: downloadIcs,
     downloadCsv: downloadCsv,

@@ -110,6 +110,10 @@
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
+    if(!VeraDashboard.canManagePortal(profile)){
+      window.location.href = '/portal/dashboard.html';
+      return;
+    }
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar('admin-portal-editor', profile);
     loadAllSettings();
