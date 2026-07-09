@@ -622,6 +622,7 @@
     );
 
     if(itemsRes.error){
+      await client.from('invoices').delete().eq('id', invoiceId);
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
       setInvoiceSaving(false);
       return;
@@ -639,6 +640,7 @@
     // Dauerauftrag: this invoice IS the current month's occurrence, so
     // last_generated_period is stamped immediately — otherwise the new
     // template would show up as "fällig" again in the very same month.
+    var recurringWarning = '';
     if(document.getElementById('inv_recurring').checked){
       var rule = document.getElementById('inv_recurring_rule').value;
       var day = rule === 'tag_des_monats' ? parseInt(document.getElementById('inv_recurring_day').value, 10) : null;
@@ -658,17 +660,22 @@
           last_generated_period: currentPeriod
         }).select().single();
         if(!recRes.error){
-          await client.from('recurring_invoice_line_items').insert(
+          var recItemsRes = await client.from('recurring_invoice_line_items').insert(
             lineItems.map(function(li){
               return { recurring_invoice_id: recRes.data.id, description: li.description, quantity: li.quantity, unit_price: li.unit_price, sort_order: li.sort_order };
             })
           );
+          if(recItemsRes.error){
+            recurringWarning = 'Rechnung wurde erstellt, aber Dauerauftrag-Positionen konnten nicht gespeichert werden: ' + recItemsRes.error.message;
+          }
         } else {
           console.warn('Dauerauftrag konnte nicht angelegt werden:', recRes.error.message);
+          recurringWarning = 'Rechnung wurde erstellt, aber der Dauerauftrag konnte nicht angelegt werden: ' + recRes.error.message;
         }
       }
     }
 
+    if(recurringWarning) window.alert(recurringWarning);
     window.location.href = '/portal/invoice-detail.html?id=' + invoiceId;
   }
 
@@ -712,6 +719,17 @@
       return;
     }
 
+    var oldItemsRes = await client.from('invoice_line_items')
+      .select('description, quantity, unit_price, sort_order')
+      .eq('invoice_id', invoiceId)
+      .order('sort_order');
+    if(oldItemsRes.error){
+      statusEl.textContent = 'Bestehende Positionen konnten nicht gesichert werden: ' + oldItemsRes.error.message;
+      setInvoiceSaving(false);
+      return;
+    }
+    var oldItems = oldItemsRes.data || [];
+
     var delRes = await client.from('invoice_line_items').delete().eq('invoice_id', invoiceId);
     if(delRes.error){
       statusEl.textContent = 'Fehler beim Aktualisieren der Positionen: ' + delRes.error.message;
@@ -723,6 +741,11 @@
       lineItems.map(function(li){ return Object.assign({ invoice_id: invoiceId }, li); })
     );
     if(itemsRes.error){
+      if(oldItems.length){
+        await client.from('invoice_line_items').insert(
+          oldItems.map(function(li){ return Object.assign({ invoice_id: invoiceId }, li); })
+        );
+      }
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
       setInvoiceSaving(false);
       return;
