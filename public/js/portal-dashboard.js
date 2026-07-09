@@ -9,39 +9,49 @@
 window.VeraDashboard = (function () {
   "use strict";
 
-  /* Reihenfolge in der Sidebar: (1) taegliches Geschaeft ganz oben,
-     (2) Verwaltung/Stammdaten (nur Admin), (3) wiederkehrende Services
-     zuunterst. Tickets ist bewusst kein Sidebar-Eintrag mehr, sondern
-     ein eigener Schnellzugriff-Button oben rechts (siehe
-     renderAdminQuickbar) — Julia braucht ihn haeufig genug, dass ein
-     Klick weniger Weg spart. */
+  /* Schlanke Hauptnavigation: Objekt/Dokument/Kontakt als zentrale
+     Arbeitsachsen. Spezialseiten wie Mietverhältnisse, Eigentümer,
+     Waschpläne, Rapporte, Nebenkosten und Aufträge bleiben technisch
+     erreichbar, sind aber nicht mehr eigene Hauptregister. Sie werden
+     kontextbezogen aus Objekten/Buchhaltung/Admin geöffnet. */
   var NAV_GROUPS = [
     { label: null, items: [
       { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht" },
-      { key: "termine", href: "/portal/admin/termine.html", label: "Termine", roles: ["admin"] },
-      { key: "my-appointments", href: "/portal/my-appointments.html", label: "Terminkalender", roles: ["handwerker", "hauswart"] },
-      { key: "calendar", href: "/portal/calendar.html", label: "Kalender", roles: ["mieter", "eigentuemer", "partner", "firma", "aemter"] },
-      { key: "owner-report", href: "/portal/owner-report.html", label: "Objekt-Ertrag", roles: ["eigentuemer"] },
+      { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte", roles: ["admin"] },
+      { key: "owner-report", href: "/portal/owner-report.html", label: "Objekte", roles: ["eigentuemer"] },
       { key: "documents", href: "/portal/documents.html", label: "Dokumente" },
-      { key: "messages", href: "/portal/messages.html", label: "Nachrichten" }
+      { key: "admin-users", href: "/portal/admin/users.html", label: "Kontakte", roles: ["admin"] },
+      { key: "termine", href: "/portal/admin/termine.html", label: "Termine", roles: ["admin"] },
+      { key: "my-appointments", href: "/portal/my-appointments.html", label: "Termine", roles: ["handwerker", "hauswart"] },
+      { key: "calendar", href: "/portal/calendar.html", label: "Termine", roles: ["mieter", "eigentuemer", "partner", "firma", "aemter"] },
+      { key: "messages", href: "/portal/messages.html", label: "Nachrichten" },
+      { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
+      { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen" },
+      { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Admin", roles: ["admin"] }
     ]}
   ];
-  var ADMIN_NAV_GROUP = { label: "Verwaltung", items: [
-    { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte" },
-    { key: "admin-users", href: "/portal/admin/users.html", label: "Kontakte" },
+  var ADMIN_NAV_GROUP = { label: "Verknüpfte Bereiche", hiddenFromMainNav: true, items: [
     { key: "admin-tenancies", href: "/portal/admin/tenancies.html", label: "Mietverhältnisse" },
     { key: "admin-ownerships", href: "/portal/admin/ownerships.html", label: "Eigentümerschaften" },
     { key: "admin-jobs", href: "/portal/admin/jobs.html", label: "Aufträge" },
     { key: "admin-utility-statements", href: "/portal/admin/utility-statements.html", label: "Nebenkosten" },
-    { key: "admin-portal-editor", href: "/portal/admin/portal-editor.html", label: "Portal bearbeiten" },
     { key: "admin-homepage-content", href: "/portal/admin/homepage-content.html", label: "Homepage editieren" }
   ]};
-  var SERVICES_NAV_GROUP = { label: "Services", items: [
-    { key: "meldungen", href: "/portal/meldungen.html", label: "Meldungen" },
-    { key: "invoices", href: "/portal/invoices.html", label: "Buchhaltung" },
+  var SERVICES_NAV_GROUP = { label: "Verknüpfte Services", hiddenFromMainNav: true, items: [
     { key: "rapporte", href: "/portal/rapporte.html", label: "Rapporte", roles: ["hauswart", "admin"] },
     { key: "waschplan", href: "/portal/waschplan.html", label: "Waschpläne" }
   ]};
+  var NAV_ACTIVE_KEY_MAP = {
+    "admin-tenancies": "admin-properties",
+    "admin-ownerships": "admin-properties",
+    "admin-jobs": "admin-properties",
+    "rapporte": "admin-properties",
+    "waschplan": "admin-properties",
+    "admin-utility-statements": "invoices",
+    "invoice-detail": "invoices",
+    "tickets": "meldungen",
+    "admin-homepage-content": "admin-portal-editor"
+  };
   /* Nav item keys that get an unread-count badge, and the subset of
      those for which visiting the page should mark the section "seen"
      (messages excluded — it clears itself per-message via
@@ -157,7 +167,12 @@ window.VeraDashboard = (function () {
     return itemRoles.some(function (r) { return roles.indexOf(r) > -1; });
   }
 
+  function navActiveKey(activeKey) {
+    return NAV_ACTIVE_KEY_MAP[activeKey] || activeKey;
+  }
+
   function renderNavGroup(group, activeKey, roles) {
+    var currentKey = navActiveKey(activeKey);
     var itemsHtml = group.items.filter(function (item) {
       return !item.roles || rolesOverlap(item.roles, roles);
     }).map(function (item) {
@@ -168,7 +183,7 @@ window.VeraDashboard = (function () {
           '<span class="dash-nav-badge" data-badge-for="' + item.key + '" hidden></span>';
       }
       return (
-        '<a class="dash-nav-link' + (item.key === activeKey ? " active" : "") + '" data-nav-key="' +
+        '<a class="dash-nav-link' + (item.key === currentKey ? " active" : "") + '" data-nav-key="' +
         item.key + '" href="' + item.href + '">' + inner + "</a>"
       );
     }).join("");
@@ -184,12 +199,14 @@ window.VeraDashboard = (function () {
         if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: group.label || "Hauptnavigation" }, item));
       });
     });
-    if (profile.category === "admin") {
+    if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
       ADMIN_NAV_GROUP.items.forEach(function (item) { items.push(Object.assign({ group: ADMIN_NAV_GROUP.label }, item)); });
     }
-    SERVICES_NAV_GROUP.items.forEach(function (item) {
-      if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: SERVICES_NAV_GROUP.label }, item));
-    });
+    if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
+      SERVICES_NAV_GROUP.items.forEach(function (item) {
+        if (!item.roles || rolesOverlap(item.roles, roles)) items.push(Object.assign({ group: SERVICES_NAV_GROUP.label }, item));
+      });
+    }
     return items.map(function (item) {
       return { key: item.key, href: item.href, label: item.label, group: item.group, visible: true };
     });
@@ -205,7 +222,12 @@ window.VeraDashboard = (function () {
       el.hidden = item.visible === false && !isPortalPreviewEditMode();
       el.classList.toggle("portal-preview-hidden-item", item.visible === false);
       var labelEl = el.querySelector(".dash-nav-label") || el.querySelector("span") || el;
-      if (item.label && labelEl) labelEl.textContent = item.label;
+      var label = item.label;
+      if (item.key === "meldungen" && label === "Meldungen") label = "Anfragen";
+      if (item.key === "admin-portal-editor" && label === "Portal bearbeiten") label = "Admin";
+      if (item.key === "my-appointments" && label === "Terminkalender") label = "Termine";
+      if (item.key === "calendar" && label === "Kalender") label = "Termine";
+      if (item.label && labelEl) labelEl.textContent = label;
     });
   }
 
@@ -438,18 +460,21 @@ window.VeraDashboard = (function () {
      waere ein Icon-Satz ohnehin kaum noch unterscheidbar. */
   function renderBottomTabBar(activeKey, profile, roles) {
     roles = roles || [profile.category];
+    var currentKey = navActiveKey(activeKey);
     var existing = document.getElementById("dashTabbar");
     if (existing) existing.remove();
 
     var items = NAV_GROUPS[0].items.filter(function (item) {
       return !item.roles || rolesOverlap(item.roles, roles);
     });
-    if (profile.category === "admin") {
+    if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
       items = items.concat(ADMIN_NAV_GROUP.items);
     }
-    items = items.concat(SERVICES_NAV_GROUP.items.filter(function (item) {
-      return !item.roles || rolesOverlap(item.roles, roles);
-    }));
+    if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
+      items = items.concat(SERVICES_NAV_GROUP.items.filter(function (item) {
+        return !item.roles || rolesOverlap(item.roles, roles);
+      }));
+    }
 
     var bar = document.createElement("nav");
     bar.id = "dashTabbar";
@@ -459,7 +484,7 @@ window.VeraDashboard = (function () {
       var badge = BADGE_SECTIONS.indexOf(item.key) > -1
         ? '<span class="dash-nav-badge" data-badge-for="' + item.key + '" hidden></span>'
         : "";
-      return '<a class="dash-tab' + (item.key === activeKey ? " active" : "") + '" data-nav-key="' + item.key + '" href="' + item.href + '">' +
+      return '<a class="dash-tab' + (item.key === currentKey ? " active" : "") + '" data-nav-key="' + item.key + '" href="' + item.href + '">' +
         "<span>" + escapeHtml(item.label) + "</span>" + badge +
       "</a>";
     }).join("") +
@@ -519,11 +544,13 @@ window.VeraDashboard = (function () {
       return renderNavGroup(group, activeKey, roles);
     }).join("");
 
-    if (profile.category === "admin") {
+    if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
       linksHtml += renderNavGroup(ADMIN_NAV_GROUP, activeKey, roles);
     }
 
-    linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, roles);
+    if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
+      linksHtml += renderNavGroup(SERVICES_NAV_GROUP, activeKey, roles);
+    }
 
     var roleLabel = roles.map(categoryLabel).join(", ");
 
