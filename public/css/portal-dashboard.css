@@ -58,6 +58,11 @@
 }
 .dash-top-actions > *{pointer-events:auto;}
 .dash-top-search-group{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:280px;}
+#dashAdminQuickbar{order:10;}
+#dashPortalEditorTop{order:20;}
+#dashContentEditorTop{order:30;}
+#dashEmailModeTop{order:40;}
+#dashLogoutTop{order:50;}
 .dash-logout-top{
   padding:10px 22px;border-radius:50px;border:1.5px solid var(--color-blue-light);
   color:var(--color-navy);font-size:.85rem;font-weight:600;background:var(--color-white);
@@ -1544,19 +1549,26 @@
     grid-template-columns:1fr;align-items:stretch;gap:8px;padding:10px 14px;
     pointer-events:auto;
   }
+  .dash-top-actions::after{
+    content:"";display:block;grid-column:1 / -1;order:35;height:1px;
+    background:linear-gradient(90deg,transparent,var(--color-blue-light),transparent);
+  }
   .dash-top-actions > *{min-width:0;}
   .dash-top-search-group{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;}
   #dashAdminQuickbar{width:100%;display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;}
   .admin-quickbar-search{min-width:0;}
   .admin-quickbar-tickets{width:44px;height:44px;}
   .dash-content-editor-top,.dash-logout-top,.dash-email-mode-switch{
-    min-height:42px;justify-content:center;padding-left:13px;padding-right:13px;
+    min-height:44px;justify-content:center;padding-left:13px;padding-right:13px;
   }
   .dash-email-mode-top{width:100%;}
   .dash-email-mode-switch{width:100%;}
   .dash-email-mode-switch strong{font-size:.74rem;}
   .dash-top-actions .dash-content-editor-top,
   .dash-top-actions .dash-logout-top{width:100%;}
+  #dashPortalEditorTop,#dashContentEditorTop,#dashEmailModeTop,#dashLogoutTop{
+    border-radius:16px;
+  }
   .dash-top-actions > a,
   .dash-top-actions > button,
   .dash-top-actions > label,
@@ -1577,6 +1589,11 @@
   .dash-table th,.dash-table td{white-space:nowrap;}
   .dash-btn-sm,.btn,.auth-form button,.auth-submit{
     min-height:44px;touch-action:manipulation;
+  }
+  .dash-btn-row{gap:8px;}
+  .auth-form input,.auth-form select,.auth-form textarea,
+  .dash-search-input,.admin-quickbar-search input{
+    min-height:44px;
   }
   input,select,textarea{font-size:16px;}
   .share-modal-backdrop{align-items:stretch;}
@@ -1600,6 +1617,13 @@
   .msg-compose{position:sticky;bottom:var(--portal-bottom-nav-height);background:var(--color-white);}
 }
 
+@media (min-width:641px) and (max-width:900px){
+  .share-modal{
+    width:min(100%,720px);max-height:calc(100dvh - var(--nav-height) - var(--portal-bottom-nav-height) - 18px);
+    overflow:auto;-webkit-overflow-scrolling:touch;
+  }
+}
+
 @media (max-width:720px){
   :root{--portal-bottom-nav-height:76px;}
   .dash-content{padding-left:14px;padding-right:14px;}
@@ -1618,11 +1642,13 @@
     grid-template-columns:1fr 1fr;
     max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch;
   }
+  .dash-top-actions::after{grid-column:1 / -1;}
   body:has(#dashTopActions) .dash-content{padding-top:158px;}
   body:has(#dashAdminQuickbar) .dash-content{padding-top:188px;}
   .dash-top-search-group,#dashAdminQuickbar,.dash-email-mode-top{grid-column:1 / -1;}
   .dash-top-actions .dash-content-editor-top,
   .dash-top-actions .dash-logout-top{width:auto;}
+  #dashPortalEditorTop,#dashContentEditorTop{font-size:.76rem;}
   .dash-email-mode-switch{justify-content:flex-start;}
   .homepage-preview-frame,.portal-preview-frame{height:62vh;min-height:430px;}
   .homepage-preview-card,.homepage-edit-panel{padding:14px;border-radius:14px;}
@@ -1642,6 +1668,13 @@
   .filemgr-detail-actions .btn,
   .filemgr-detail-actions .dash-btn-sm{min-height:44px;}
   .filemgr-detail-actions .danger{grid-column:1 / -1;}
+  .auth-form-row{grid-template-columns:1fr;}
+  .site-content-row,.site-service-row,.portal-ui-row,.portal-module-row{
+    grid-template-columns:1fr;
+  }
+  .site-service-fields,.portal-ui-fields{
+    grid-template-columns:1fr;
+  }
   .obj-flow-guide{grid-template-columns:1fr;}
   .obj-hierarchy > *{flex-basis:88vw;}
   .obj-pane{min-height:360px;}
@@ -1665,10 +1698,16 @@
   body:has(#dashAdminQuickbar) .dash-content{padding-top:206px;}
   .dash-content-editor-top,.dash-logout-top{font-size:.74rem;padding-left:10px;padding-right:10px;}
   .dash-email-mode-switch{padding-right:9px;}
+  .dash-email-mode-switch strong{font-size:.72rem;}
   .dash-email-mode-track{width:34px;flex-basis:34px;}
   .dash-email-mode-switch input:checked + .dash-email-mode-track::after{transform:translateX(12px);}
   .dash-tab{padding:0 13px;font-size:.8rem;}
   .dash-tabbar{gap:3px;}
+  .dash-tabbar{
+    overflow-x:auto;justify-content:flex-start;scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+  }
+  .dash-tab{flex:0 0 auto;scroll-snap-align:center;}
   .dash-table{min-width:620px;}
   .filemgr-column{flex-basis:88vw;min-width:88vw;}
   .filemgr-preview-column{min-width:88vw;flex-basis:88vw;}
