@@ -283,6 +283,8 @@
     document.getElementById('newContactForm').addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('newContactStatus');
+      var submitBtn = e.submitter || document.querySelector('#newContactForm button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
       var categories = getCheckedCategories(document.getElementById('nc_categories'));
       var address = readAddressFields('ncAddressType', 'nc_street', 'nc_zip', 'nc_city');
       var address2 = readAddressFields('ncAddress2Type', 'nc_address2_street', 'nc_address2_zip', 'nc_address2_city');
@@ -328,10 +330,19 @@
       }
       statusEl.textContent = 'Wird angelegt …';
       statusEl.classList.add('show');
+      var originalText = submitBtn ? submitBtn.textContent : '';
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird angelegt …';
+      }
       try {
         var res = await client.functions.invoke('admin-create-user', { body: payload });
         if(res.error || (res.data && res.data.error)){
           statusEl.textContent = 'Fehler: ' + (await edgeFunctionErrorMessage(res));
+          if(submitBtn){
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+          }
           return;
         }
         statusEl.textContent = 'Kontakt angelegt, Einladung versendet.';
@@ -345,8 +356,16 @@
         );
         await loadAll();
         renderAllColumns();
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       } catch(err) {
         statusEl.textContent = 'Fehler: ' + err.message;
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       }
     });
 
@@ -385,6 +404,11 @@
   function closeNewContactModal(){
     document.getElementById('newContactModalBackdrop').hidden = true;
     document.getElementById('newContactForm').reset();
+    var submitBtn = document.querySelector('#newContactForm button[type="submit"]');
+    if(submitBtn){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Kontakt anlegen';
+    }
     document.getElementById('nc_categories').innerHTML = categoryChecksHtml('nc', []);
     applyContactCategoryUI(
       document.getElementById('nc_company_name'),
@@ -638,6 +662,8 @@
     document.getElementById('contactEditForm-'+id).addEventListener('submit', async function(e){
       e.preventDefault();
       var statusEl = document.getElementById('contactEditStatus-'+id);
+      var submitBtn = e.submitter || document.querySelector('#contactEditForm-'+id+' button[type="submit"]');
+      if(submitBtn && submitBtn.disabled) return;
       var categories = getCheckedCategories(categoriesEl);
       var companyName = document.getElementById('contactCompanyName-'+id).value.trim();
       if(!categories.length){
@@ -654,41 +680,56 @@
       var address = readAddressFields('contactAddressType-'+id, 'contactStreet-'+id, 'contactZip-'+id, 'contactCity-'+id);
       var address2 = readAddressFields('contactAddress2Type-'+id, 'contactAddress2Street-'+id, 'contactAddress2Zip-'+id, 'contactAddress2City-'+id);
       var address3 = readAddressFields('contactAddress3Type-'+id, 'contactAddress3Street-'+id, 'contactAddress3Zip-'+id, 'contactAddress3City-'+id);
-      var res = await client.from('profiles').update({
-        first_name: document.getElementById('contactFirstName-'+id).value.trim(),
-        last_name: document.getElementById('contactLastName-'+id).value.trim(),
-        category: categories[0],
-        company_name: isFirma ? companyName : null,
-        email2: document.getElementById('contactEmail2-'+id).value.trim() || null,
-        email3: document.getElementById('contactEmail3-'+id).value.trim() || null,
-        phone: document.getElementById('contactPhone-'+id).value.trim() || null,
-        phone2: document.getElementById('contactPhone2-'+id).value.trim() || null,
-        phone3: document.getElementById('contactPhone3-'+id).value.trim() || null,
-        address_type: address.type,
-        address_street: address.street,
-        address_zip: address.zip,
-        address_city: address.city,
-        address2_type: address2.type,
-        address2_street: address2.street,
-        address2_zip: address2.zip,
-        address2_city: address2.city,
-        address3_type: address3.type,
-        address3_street: address3.street,
-        address3_zip: address3.zip,
-        address3_city: address3.city
-      }).eq('id', id);
-      if(!res.error){
-        var rolesRes = await client.rpc('set_profile_roles', {
-          p_profile_id: id,
-          p_categories: categories
-        });
-        if(rolesRes.error) res = rolesRes;
+      var originalText = submitBtn ? submitBtn.textContent : '';
+      if(submitBtn){
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird gespeichert …';
       }
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Kontakt gespeichert.';
-      statusEl.classList.add('show');
-      if(!res.error){
-        await loadAll();
-        renderAllColumns();
+      try {
+        var res = await client.from('profiles').update({
+          first_name: document.getElementById('contactFirstName-'+id).value.trim(),
+          last_name: document.getElementById('contactLastName-'+id).value.trim(),
+          category: categories[0],
+          company_name: isFirma ? companyName : null,
+          email2: document.getElementById('contactEmail2-'+id).value.trim() || null,
+          email3: document.getElementById('contactEmail3-'+id).value.trim() || null,
+          phone: document.getElementById('contactPhone-'+id).value.trim() || null,
+          phone2: document.getElementById('contactPhone2-'+id).value.trim() || null,
+          phone3: document.getElementById('contactPhone3-'+id).value.trim() || null,
+          address_type: address.type,
+          address_street: address.street,
+          address_zip: address.zip,
+          address_city: address.city,
+          address2_type: address2.type,
+          address2_street: address2.street,
+          address2_zip: address2.zip,
+          address2_city: address2.city,
+          address3_type: address3.type,
+          address3_street: address3.street,
+          address3_zip: address3.zip,
+          address3_city: address3.city
+        }).eq('id', id);
+        if(!res.error){
+          var rolesRes = await client.rpc('set_profile_roles', {
+            p_profile_id: id,
+            p_categories: categories
+          });
+          if(rolesRes.error) res = rolesRes;
+        }
+        statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Kontakt gespeichert.';
+        statusEl.classList.add('show');
+        if(!res.error){
+          await loadAll();
+          renderAllColumns();
+        }
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + err.message;
+        statusEl.classList.add('show');
+      } finally {
+        if(submitBtn){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       }
     });
 
@@ -697,22 +738,32 @@
         var nextStatus = btn.getAttribute('data-status');
         var actionLabel = nextStatus === 'active' ? 'aktivieren' : 'sperren';
         if(!window.confirm('Kontakt "' + contactDisplayName(contact) + '" wirklich ' + actionLabel + '?')) return;
+        if(btn.disabled) return;
+        var originalText = btn.textContent;
         btn.disabled = true;
-        var res = await client.from('profiles').update({ status: nextStatus }).eq('id', id);
-        if(res.error){
-          window.alert('Fehler beim Statuswechsel: ' + res.error.message);
+        btn.textContent = 'Wird geändert …';
+        try {
+          var res = await client.from('profiles').update({ status: nextStatus }).eq('id', id);
+          if(res.error){
+            window.alert('Fehler beim Statuswechsel: ' + res.error.message);
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+          }
+          await loadAll();
+          renderAllColumns();
+          openContactModal(id);
+        } catch(err) {
+          window.alert('Fehler beim Statuswechsel: ' + err.message);
           btn.disabled = false;
-          return;
+          btn.textContent = originalText;
         }
-        await loadAll();
-        renderAllColumns();
-        openContactModal(id);
       });
     });
 
     modalBody.querySelector('.delete-contact-btn').addEventListener('click', function(btnEvt){
       var btn = btnEvt.currentTarget;
-      deleteContact(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      deleteContact(btn.getAttribute('data-id'), btn.getAttribute('data-name'), btn);
     });
 
     modalBody.querySelector('.resend-invite-btn').addEventListener('click', function(btnEvt){
@@ -777,19 +828,32 @@
       window.location.href = 'mailto:' + encodeURIComponent(contact.email) + '?subject=' + subject + '&body=' + body;
     });
 
-    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(){
+    section.querySelector('.obj-send-chat-btn').addEventListener('click', async function(btnEvt){
+      var btn = btnEvt.currentTarget;
+      if(btn.disabled) return;
       var text = section.querySelector('.obj-send-chat-text').value.trim();
       if(!text){ statusEl.textContent = 'Bitte eine Nachricht eingeben.'; statusEl.classList.add('show'); return; }
-      var res = await client.from('messages').insert({
-        sender_profile_id: profile.id, recipient_profile_id: contact.id, body: text
-      });
-      statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
-      statusEl.classList.add('show');
-      if(!res.error) section.querySelector('.obj-send-chat-text').value = '';
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Wird gesendet …';
+      try {
+        var res = await client.from('messages').insert({
+          sender_profile_id: profile.id, recipient_profile_id: contact.id, body: text
+        });
+        statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Im Chat gesendet.';
+        statusEl.classList.add('show');
+        if(!res.error) section.querySelector('.obj-send-chat-text').value = '';
+      } catch(err) {
+        statusEl.textContent = 'Fehler: ' + err.message;
+        statusEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     });
   }
 
-  async function deleteContact(contactId, name){
+  async function deleteContact(contactId, name, btn){
     if(!window.confirm(
       'Kontakt "' + name + '" archivieren?\n\n' +
       'Der Kontakt verschwindet aus der aktiven Ansicht, bleibt aber für Verlauf, Dokumente und Audit nachvollziehbar erhalten.'
@@ -798,6 +862,12 @@
       'Zweite Bestätigung:\n\n' +
       'Kontakt "' + name + '" jetzt wirklich archivieren?'
     )) return;
+    if(btn && btn.disabled) return;
+    var originalText = btn ? btn.textContent : '';
+    if(btn){
+      btn.disabled = true;
+      btn.textContent = 'Wird archiviert …';
+    }
     try {
       var res = await client.rpc('archive_profile', {
         p_profile_id: contactId,
@@ -805,6 +875,10 @@
       });
       if(res.error){
         window.alert('Fehler beim Archivieren: ' + res.error.message);
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
         return;
       }
       closeContactModal();
@@ -812,6 +886,10 @@
       renderAllColumns();
     } catch(err) {
       window.alert('Fehler beim Archivieren: ' + err.message);
+      if(btn){
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     }
   }
 })();
