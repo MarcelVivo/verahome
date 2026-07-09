@@ -3251,7 +3251,8 @@
       if(upRes.error) continue;
       var row = { id: imageId, file_path: path, is_cover: queue[i].is_cover, sort_order: i };
       row[idField] = recordId;
-      await client.from(table).insert(row);
+      var insertRes = await client.from(table).insert(row);
+      if(insertRes.error) await client.storage.from('property-images').remove([path]);
     }
   }
 
@@ -3276,13 +3277,17 @@
         var imageId = crypto.randomUUID();
         var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         var path = propertyId + '/' + imageId + '-' + safeName;
-        var upRes = await client.storage.from('property-images').upload(path, file);
-        if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
-        var insertRes = await client.from('property_images').insert({
-          id: imageId, property_id: propertyId, file_path: path,
-          is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
-        });
-        if(insertRes.error){ showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message); continue; }
+      var upRes = await client.storage.from('property-images').upload(path, file);
+      if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
+      var insertRes = await client.from('property_images').insert({
+        id: imageId, property_id: propertyId, file_path: path,
+        is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
+      });
+        if(insertRes.error){
+          await client.storage.from('property-images').remove([path]);
+          showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message);
+          continue;
+        }
         hasCover = true;
         nextOrder++;
       }
@@ -3400,13 +3405,17 @@
         var imageId = crypto.randomUUID();
         var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         var path = 'units/' + unitId + '/' + imageId + '-' + safeName;
-        var upRes = await client.storage.from('property-images').upload(path, file);
-        if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
-        var insertRes = await client.from('unit_images').insert({
-          id: imageId, unit_id: unitId, file_path: path,
-          is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
-        });
-        if(insertRes.error){ showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message); continue; }
+      var upRes = await client.storage.from('property-images').upload(path, file);
+      if(upRes.error){ showFormStatus(statusEl, 'Fehler: ' + upRes.error.message); continue; }
+      var insertRes = await client.from('unit_images').insert({
+        id: imageId, unit_id: unitId, file_path: path,
+        is_cover: !hasCover, sort_order: nextOrder, created_by: profile.id
+      });
+        if(insertRes.error){
+          await client.storage.from('property-images').remove([path]);
+          showFormStatus(statusEl, 'Fehler beim Speichern: ' + insertRes.error.message);
+          continue;
+        }
         hasCover = true;
         nextOrder++;
       }
