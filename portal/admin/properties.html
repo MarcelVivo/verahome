@@ -2942,7 +2942,7 @@
           '<button type="button" class="prop-icon-btn cover-btn" data-id="'+img.id+'" title="Als Titelbild">★</button>' +
           (idx > 0 ? '<button type="button" class="prop-icon-btn up-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach oben">↑</button>' : '') +
           (idx < images.length - 1 ? '<button type="button" class="prop-icon-btn down-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach unten">↓</button>' : '') +
-          '<button type="button" class="prop-icon-btn danger del-btn" data-id="'+img.id+'" data-path="'+img.file_path+'" title="Löschen">✕</button>' +
+          '<button type="button" class="prop-icon-btn danger del-btn" data-id="'+img.id+'" data-path="'+img.file_path+'" title="Bild entfernen" aria-label="Bild entfernen">✕</button>' +
         '</div></div>';
     }).join('');
 
@@ -2965,8 +2965,23 @@
     });
     el.querySelectorAll('.del-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
-        await client.from('property_images').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Bild wirklich aus dieser Liegenschaft entfernen?')) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
+        if(storageRes.error){
+          window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
+          btn.disabled = false;
+          btn.textContent = '✕';
+          return;
+        }
+        var deleteRes = await client.from('property_images').delete().eq('id', btn.getAttribute('data-id'));
+        if(deleteRes.error){
+          window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
+          btn.disabled = false;
+          btn.textContent = '✕';
+          return;
+        }
         loadThumbs(propertyId);
       });
     });
@@ -3045,7 +3060,7 @@
           '<button type="button" class="prop-icon-btn unit-cover-btn" data-id="'+img.id+'" title="Als Titelbild">★</button>' +
           (idx > 0 ? '<button type="button" class="prop-icon-btn unit-up-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach oben">↑</button>' : '') +
           (idx < images.length - 1 ? '<button type="button" class="prop-icon-btn unit-down-btn" data-id="'+img.id+'" data-idx="'+idx+'" title="Nach unten">↓</button>' : '') +
-          '<button type="button" class="prop-icon-btn danger unit-del-btn" data-id="'+img.id+'" data-path="'+img.file_path+'" title="Löschen">✕</button>' +
+          '<button type="button" class="prop-icon-btn danger unit-del-btn" data-id="'+img.id+'" data-path="'+img.file_path+'" title="Bild entfernen" aria-label="Bild entfernen">✕</button>' +
         '</div></div>';
     }).join('');
 
@@ -3068,8 +3083,23 @@
     });
     el.querySelectorAll('.unit-del-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
-        await client.from('unit_images').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Bild wirklich aus dieser Einheit entfernen?')) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var storageRes = await client.storage.from('property-images').remove([btn.getAttribute('data-path')]);
+        if(storageRes.error){
+          window.alert('Bild konnte nicht entfernt werden: ' + storageRes.error.message);
+          btn.disabled = false;
+          btn.textContent = '✕';
+          return;
+        }
+        var deleteRes = await client.from('unit_images').delete().eq('id', btn.getAttribute('data-id'));
+        if(deleteRes.error){
+          window.alert('Bildzuordnung konnte nicht entfernt werden: ' + deleteRes.error.message);
+          btn.disabled = false;
+          btn.textContent = '✕';
+          return;
+        }
         loadUnitThumbs(unitId);
       });
     });
