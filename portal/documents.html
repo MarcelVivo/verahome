@@ -1075,7 +1075,7 @@
     var itemsHtml = fmFolders.map(function(f){
       var active = fmIsSelected('folder', f.id) ? ' active' : '';
       return '<button type="button" draggable="true" class="filemgr-column-item folder'+active+'" data-type="folder" data-id="'+f.id+'">' +
-        '<span class="filemgr-column-icon">📁</span><span>'+VeraDashboard.escapeHtml(f.name)+'</span><span class="filemgr-column-chevron">›</span></button>';
+        '<span class="filemgr-column-icon">📁</span><span>'+VeraDashboard.escapeHtml(f.name)+'</span><span class="filemgr-column-action" data-folder-actions title="Ordneraktionen">⋯</span><span class="filemgr-column-chevron">›</span></button>';
     }).join('') + fmFiles.map(function(f){
       var active = fmIsSelected('file', f.id) ? ' active' : '';
       return '<button type="button" draggable="true" class="filemgr-column-item file'+active+'" data-type="file" data-id="'+f.id+'">' +
@@ -1095,12 +1095,19 @@
     if(fmSelected && fmSelected.type === 'file') fmRenderFilePreview(fmSelected.item);
 
     columns.querySelectorAll('.filemgr-column-item').forEach(function(btn){
-      btn.addEventListener('click', function(){
+      btn.addEventListener('click', function(event){
         var type = btn.getAttribute('data-type');
         var id = btn.getAttribute('data-id');
         if(type === 'folder'){
           var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
-          if(folder){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); }
+          if(!folder) return;
+          if(event.target.closest('[data-folder-actions]')){
+            fmSelected = { type:'folder', item: folder };
+            fmRenderColumns();
+            fmRenderDetail();
+            return;
+          }
+          fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder();
           return;
         } else {
           var file = fmFiles.filter(function(f){ return f.id === id; })[0];

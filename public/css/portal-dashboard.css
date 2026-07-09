@@ -427,8 +427,15 @@
 }
 .filemgr-column-item span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .filemgr-column-item:hover,.filemgr-column-item.active{background:#0B6BD3;color:#fff;}
+.filemgr-column-item.folder{grid-template-columns:24px minmax(0,1fr) 30px 16px;}
 .filemgr-column-item.file{grid-template-columns:24px minmax(0,1fr) 0;}
 .filemgr-column-icon{font-size:1.05rem;}
+.filemgr-column-action{
+  width:30px;height:30px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:1rem;line-height:1;font-weight:900;opacity:.78;
+}
+.filemgr-column-action:hover{background:rgba(255,255,255,.18);opacity:1;}
+.filemgr-column-item:not(.active) .filemgr-column-action:hover{background:var(--color-blue-light);color:var(--color-navy);}
 .filemgr-column-chevron{opacity:.7;text-align:right;}
 .filemgr-preview-column{
   flex:1 1 560px;min-width:420px;padding:12px;border-left:1px solid var(--color-blue-light);
@@ -1281,6 +1288,8 @@
   .filemgr-detail-preview,.filemgr-detail-icon{width:120px;height:96px;font-size:2.6rem;margin-bottom:12px;}
   .filemgr-column{flex-basis:86vw;padding:10px;}
   .filemgr-column-item{min-height:46px;font-size:.88rem;}
+  .filemgr-column-item.folder{grid-template-columns:24px minmax(0,1fr) 36px 16px;}
+  .filemgr-column-action{width:36px;height:36px;font-size:1.1rem;}
   .filemgr-preview-column{flex-basis:86vw;min-width:86vw;padding:10px;}
   .filemgr-preview-head{align-items:flex-start;flex-direction:column;gap:4px;}
   .filemgr-preview-stage,.filemgr-preview-frame{min-height:320px;}
