@@ -9,6 +9,8 @@ Diese Struktur verpackt das bestehende Vera Portal mit Capacitor als iOS-App. Di
 - Einstieg: `/portal/login.html`
 - Datenbank/API: unverändert über die bestehende Supabase-Konfiguration im Portal
 - Ziel: lokaler iPhone-Test über Xcode, noch kein App-Store-Release
+- Native iOS-Struktur: `ios/` ist im Repo bereits angelegt
+- Capacitor: v7, kompatibel mit der aktuell lokalen Node-20-Umgebung
 
 ## Voraussetzungen auf dem Mac
 
@@ -18,16 +20,32 @@ Diese Struktur verpackt das bestehende Vera Portal mit Capacitor als iOS-App. Di
 - Apple-ID in Xcode unter `Settings > Accounts`
 - Für längerfristige TestFlight/App-Store-Verteilung: Apple Developer Account
 
-## Einmalig installieren
+## Einmalig installieren / aktualisieren
 
 Im Projektordner ausführen:
 
 ```bash
 npm install
-npm run ios:add
+npm run ios:sync
 ```
 
-Damit werden die Capacitor-Pakete installiert und der native Ordner `ios/` erzeugt.
+Damit werden die Capacitor-Pakete installiert, `dist/ios-web` erzeugt und der aktuelle Portal-Code in `ios/` synchronisiert.
+
+Falls dabei diese Meldung erscheint:
+
+```text
+xcode-select: error: tool 'xcodebuild' requires Xcode
+```
+
+dann ist auf dem Mac noch nicht Xcode, sondern nur die Command Line Tools aktiv. Danach einmal ausführen:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -runFirstLaunch
+npm run ios:sync
+```
+
+`npm run ios:add` wird nur benötigt, falls der Ordner `ios/` absichtlich gelöscht und neu erzeugt wurde.
 
 ## Portal-Code in die App synchronisieren
 
@@ -37,7 +55,7 @@ Nach jeder Änderung am Vera Portal:
 npm run ios:sync
 ```
 
-Das kopiert den aktuellen Web-/Portal-Code in die iOS-App.
+Das erstellt zuerst `dist/ios-web` aus der statischen Website und kopiert danach den aktuellen Web-/Portal-Code in die iOS-App.
 
 ## In Xcode öffnen
 
