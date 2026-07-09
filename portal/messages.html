@@ -512,13 +512,15 @@
       var res = await client.from('messages').select('*')
         .or('sender_profile_id.eq.'+profile.id+',recipient_profile_id.eq.'+profile.id)
         .order('created_at', { ascending:true });
+      if(res.error){
+        threadEl.innerHTML = '<p class="dash-empty">Nachrichten konnten nicht geladen werden: '+VeraDashboard.escapeHtml(res.error.message)+'</p>';
+        return;
+      }
       var msgs = res.data || [];
       renderThread(threadEl, msgs, profile.id);
       msgs.filter(function(m){ return m.recipient_profile_id === profile.id && !m.read_at; })
         .forEach(function(m){
-          VeraPortal.markMessageRead(m.id).then(function(res){
-            if(res.error) console.error('markMessageRead failed for', m.id, res.error);
-          });
+          VeraPortal.markMessageRead(m.id);
         });
     }
 
@@ -562,6 +564,10 @@
       var res = await client.from('profiles')
         .select('id, first_name, last_name, member_number')
         .neq('category', 'admin').order('last_name');
+      if(res.error){
+        listEl.innerHTML = '<p class="dash-empty">Kontakte konnten nicht geladen werden: '+VeraDashboard.escapeHtml(res.error.message)+'</p>';
+        return;
+      }
       allPartners = res.data || [];
       await loadUnreadCounts();
       renderPartnerList(allPartners);
@@ -576,6 +582,7 @@
         .select('sender_profile_id')
         .eq('recipient_profile_id', profile.id)
         .is('read_at', null);
+      if(res.error) return;
       unreadBySender = {};
       (res.data || []).forEach(function(m){
         unreadBySender[m.sender_profile_id] = (unreadBySender[m.sender_profile_id] || 0) + 1;
@@ -621,14 +628,16 @@
         .or('and(sender_profile_id.eq.'+profile.id+',recipient_profile_id.eq.'+currentPartnerId+
             '),and(sender_profile_id.eq.'+currentPartnerId+',recipient_profile_id.eq.'+profile.id+')')
         .order('created_at', { ascending:true });
+      if(res.error){
+        threadEl.innerHTML = '<p class="dash-empty">Nachrichten konnten nicht geladen werden: '+VeraDashboard.escapeHtml(res.error.message)+'</p>';
+        return;
+      }
       var msgs = res.data || [];
       renderThread(threadEl, msgs, profile.id);
       var unreadMsgs = msgs.filter(function(m){ return m.recipient_profile_id === profile.id && !m.read_at; });
       if(unreadMsgs.length){
         unreadMsgs.forEach(function(m){
-          VeraPortal.markMessageRead(m.id).then(function(res){
-            if(res.error) console.error('markMessageRead failed for', m.id, res.error);
-          });
+          VeraPortal.markMessageRead(m.id);
         });
         // Sofort lokal auf 0 setzen, statt auf den nächsten Poll zu
         // warten -- der Badge soll verschwinden, sobald die
