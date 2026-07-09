@@ -64,6 +64,7 @@
             <option value="updated">Einstellung geändert</option>
           </select>
           <button type="button" class="dash-btn-sm" id="auditReloadBtn">Neu laden</button>
+          <button type="button" class="dash-btn-sm" id="auditExportBtn">CSV exportieren</button>
         </div>
         <p class="doc-meta">Es werden die letzten 300 Protokolleinträge geladen. Das Protokoll ist nur für Admins sichtbar.</p>
         <p class="form-status" id="auditStatus"></p>
@@ -154,6 +155,7 @@
     client = VeraPortal.getClient();
     VeraDashboard.renderSidebar("admin-audit-log", ctx.profile);
     document.getElementById("auditReloadBtn").addEventListener("click", loadAudit);
+    document.getElementById("auditExportBtn").addEventListener("click", exportAuditCsv);
     document.getElementById("auditSearch").addEventListener("input", renderAudit);
     document.getElementById("auditAreaFilter").addEventListener("change", renderAudit);
     document.getElementById("auditActionFilter").addEventListener("change", renderAudit);
@@ -287,8 +289,12 @@
     return haystack.indexOf(q) > -1;
   }
 
+  function filteredAuditRows(){
+    return auditRows.filter(rowMatches);
+  }
+
   function renderAudit(){
-    var rows = auditRows.filter(rowMatches);
+    var rows = filteredAuditRows();
     document.getElementById("auditSummary").innerHTML =
       '<span class="status-badge info">'+rows.length+' angezeigt</span>' +
       '<span class="doc-meta">'+auditRows.length+' geladen</span>';
@@ -345,6 +351,30 @@
 
   function closeAuditDetail(){
     document.getElementById("auditDetailBackdrop").hidden = true;
+  }
+
+  function exportAuditCsv(){
+    var rows = filteredAuditRows();
+    if(!rows.length){
+      setStatus("Keine Protokolleinträge zum Exportieren.", true);
+      return;
+    }
+    VeraDashboard.downloadCsv(
+      "vera-protokoll-" + new Date().toISOString().slice(0, 10) + ".csv",
+      ["Zeit", "Bereich", "Aktion", "Eintrag", "Eintrag-ID", "Geändert von", "Felder"],
+      rows.map(function(row){
+        return [
+          VeraDashboard.formatDateTime(row.created_at),
+          tableLabel(row.entity_table),
+          actionLabel(row),
+          entityTitle(row),
+          row.entity_id || "",
+          actorLabel(row),
+          changedColumns(row)
+        ];
+      })
+    );
+    setStatus(rows.length + " Protokolleinträge als CSV exportiert.");
   }
 })();
 </script>
