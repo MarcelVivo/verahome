@@ -1005,6 +1005,7 @@
   var allPropertyPermissions = [];
   var allDocumentFiles = [];
   var allAppliances = [];
+  var allJobAssignments = [];
   var selectedPropertyId = null;
   var selectedUnitId = null;
   var selectedDetailType = null;
@@ -1041,6 +1042,12 @@
       allAppliances = appliancesRes.data || [];
     } catch(err) {
       allAppliances = [];
+    }
+    try {
+      var jobsRes = await client.from('job_assignments').select('*').is('archived_at', null).order('created_at', { ascending:false });
+      allJobAssignments = jobsRes.data || [];
+    } catch(err) {
+      allJobAssignments = [];
     }
   }
 
@@ -1232,8 +1239,95 @@
     return rows.map(function(a){
       return '<button type="button" class="obj-row obj-hierarchy-row" data-detail-type="appliance" data-detail-id="'+a.id+'">' +
         '<strong>'+VeraDashboard.escapeHtml(a.label)+'</strong>' +
-        '<span class="obj-row-meta">'+VeraDashboard.escapeHtml([a.manufacturer, a.model, a.serial_number].filter(Boolean).join(' · ') || a.category || 'Gerät')+'</span></button>';
+      '<span class="obj-row-meta">'+VeraDashboard.escapeHtml([a.manufacturer, a.model, a.serial_number].filter(Boolean).join(' · ') || a.category || 'Gerät')+'</span></button>';
     }).join('');
+  }
+
+  function propertyUnits(propertyId){
+    return allUnits.filter(function(unit){ return unit.property_id === propertyId; });
+  }
+
+  function unitIdsForProperty(propertyId){
+    return propertyUnits(propertyId).map(function(unit){ return unit.id; });
+  }
+
+  function activeTenanciesForProperty(propertyId){
+    var unitIds = unitIdsForProperty(propertyId);
+    return allTenancies.filter(function(tenancy){
+      return unitIds.indexOf(tenancy.unit_id) !== -1 && tenancy.status === 'active';
+    });
+  }
+
+  function ownershipsForProperty(propertyId){
+    var unitIds = unitIdsForProperty(propertyId);
+    return allOwnerships.filter(function(ownership){
+      return ownership.property_id === propertyId || unitIds.indexOf(ownership.unit_id) !== -1;
+    });
+  }
+
+  function documentsForProperty(propertyId){
+    var unitIds = unitIdsForProperty(propertyId);
+    return allDocumentFiles.filter(function(file){
+      return file.property_id === propertyId || unitIds.indexOf(file.unit_id) !== -1;
+    });
+  }
+
+  function appliancesForProperty(propertyId){
+    var unitIds = unitIdsForProperty(propertyId);
+    return allAppliances.filter(function(appliance){
+      return appliance.property_id === propertyId || unitIds.indexOf(appliance.unit_id) !== -1;
+    });
+  }
+
+  function jobsForProperty(propertyId){
+    var unitIds = unitIdsForProperty(propertyId);
+    return allJobAssignments.filter(function(job){
+      return job.property_id === propertyId || unitIds.indexOf(job.unit_id) !== -1;
+    });
+  }
+
+  function dossierQuery(value){
+    return encodeURIComponent(value || '');
+  }
+
+  function objectDossierHtml(property, unit){
+    if(!property) return '';
+    var propertyId = property.id;
+    var unitId = unit ? unit.id : null;
+    var scopeLabel = unit ? unit.label : property.label;
+    var query = dossierQuery(scopeLabel);
+    var stats = unit ? [
+      { label:'Mieter', value:allTenancies.filter(function(t){ return t.unit_id === unitId && t.status === 'active'; }).length },
+      { label:'Eigentümer', value:allOwnerships.filter(function(o){ return o.unit_id === unitId; }).length },
+      { label:'Dokumente', value:allDocumentFiles.filter(function(d){ return d.unit_id === unitId; }).length },
+      { label:'Geräte', value:allAppliances.filter(function(a){ return a.unit_id === unitId; }).length },
+      { label:'Aufträge', value:allJobAssignments.filter(function(j){ return j.unit_id === unitId; }).length }
+    ] : [
+      { label:'Einheiten', value:propertyUnits(propertyId).length },
+      { label:'Mieter', value:activeTenanciesForProperty(propertyId).length },
+      { label:'Eigentümer', value:ownershipsForProperty(propertyId).length },
+      { label:'Dokumente', value:documentsForProperty(propertyId).length },
+      { label:'Geräte', value:appliancesForProperty(propertyId).length },
+      { label:'Aufträge', value:jobsForProperty(propertyId).length }
+    ];
+    return '<div class="obj-dossier-card">' +
+      '<div class="obj-dossier-head">' +
+        '<div><span class="obj-step-label">Dossier</span><strong>'+VeraDashboard.escapeHtml(scopeLabel)+'</strong></div>' +
+        '<span>'+VeraDashboard.escapeHtml(unit ? 'Einheit' : 'Liegenschaft')+'</span>' +
+      '</div>' +
+      '<div class="obj-dossier-stats">' +
+        stats.map(function(item){ return '<div><strong>'+item.value+'</strong><span>'+VeraDashboard.escapeHtml(item.label)+'</span></div>'; }).join('') +
+      '</div>' +
+      '<div class="obj-dossier-actions">' +
+        '<a href="/portal/documents.html">Dokumente</a>' +
+        '<a href="/portal/admin/tenancies.html?q='+query+'">Mietverhältnisse</a>' +
+        '<a href="/portal/admin/ownerships.html?q='+query+'">Eigentümer</a>' +
+        '<a href="/portal/admin/jobs.html?q='+query+'">Aufträge</a>' +
+        '<a href="/portal/admin/utility-statements.html?q='+query+'">Nebenkosten</a>' +
+        '<a href="/portal/admin/archive.html">Archiv</a>' +
+        '<a href="/portal/admin/audit-log.html">Protokoll</a>' +
+      '</div>' +
+    '</div>';
   }
 
   function propertyQuickDetailHtml(property){
@@ -1251,6 +1345,7 @@
       '<h2>'+VeraDashboard.escapeHtml(property.label)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'Keine Adresse')+'</p>' +
       '<div class="obj-detail-stats">'+(stats || '<span>Noch keine Einheiten</span>')+'</div>' +
+      objectDossierHtml(property, null) +
       nextStepsHtml(property, null) +
       '<div class="obj-context-action">' +
         '<strong>Was gehört zu dieser Liegenschaft?</strong>' +
@@ -1278,6 +1373,7 @@
         (unit.visibility === 'public' ? '<span>Inserat online</span>' : '<span>privat</span>') +
       '</div>' +
       '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Mieterakte, Verträge, Kautionen, Nebenkosten und Korrespondenz werden nur für explizit berechtigte Personen freigegeben.</div>' +
+      objectDossierHtml(property, unit) +
       nextStepsHtml(property, unit) +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-unit="'+unit.id+'">Einheit bearbeiten & zuweisen</button>' +
