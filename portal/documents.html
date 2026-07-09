@@ -930,6 +930,7 @@
     var query = client.from('document_folders').select('*').eq('name', name);
     query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
     var existing = await query.limit(1).maybeSingle();
+    if(existing.error) throw existing.error;
     if(existing.data) return existing.data;
     var payload = fmApplyDocumentScopePayload({
       name: name,
@@ -1119,43 +1120,53 @@
 
   async function fmMoveDraggedToFolder(targetFolderId){
     if(!fmDragged) return;
-    var targetAssignment = await fmGetFolderAssignment(targetFolderId);
-    var assignmentPayload = {
-      property_id: targetAssignment.property_id || null,
-      unit_id: targetAssignment.unit_id || null,
-      contact_profile_id: targetAssignment.contact_profile_id || null,
-      is_private_admin: !!targetAssignment.is_private_admin,
-      archive_category: targetAssignment.archive_category || null
-    };
-    var targetIsConcreteArchive = !!targetAssignment.archive_category;
-    if(fmDragged.type === 'folder'){
-      if(fmDragged.id === targetFolderId) return;
-      var canMove = await fmCanMoveFolder(fmDragged.id, targetFolderId);
-      if(!canMove){
-        fmSetStatus('Ein Ordner kann nicht in sich selbst oder in einen eigenen Unterordner verschoben werden.');
-        fmDragged = null;
-        return;
-      }
-      var folderIds = await fmCollectFolderIdsRecursive(fmDragged.id);
-      var fileIds = (await fmCollectFilesRecursive(fmDragged.id)).map(function(f){ return f.id; });
-      var folderMovePayload = {
-        parent_id: targetFolderId,
-        updated_at: new Date().toISOString()
+    try {
+      var targetAssignment = await fmGetFolderAssignment(targetFolderId);
+      var assignmentPayload = {
+        property_id: targetAssignment.property_id || null,
+        unit_id: targetAssignment.unit_id || null,
+        contact_profile_id: targetAssignment.contact_profile_id || null,
+        is_private_admin: !!targetAssignment.is_private_admin,
+        archive_category: targetAssignment.archive_category || null
       };
-      if(targetIsConcreteArchive) folderMovePayload = Object.assign(folderMovePayload, assignmentPayload);
-      await client.from('document_folders').update(folderMovePayload).in('id', folderIds);
-      if(targetIsConcreteArchive && fileIds.length) await client.from('document_files').update(assignmentPayload).in('id', fileIds);
-    } else {
-      if(!targetIsConcreteArchive){
-        fmSetStatus('Dateien bitte in einen konkreten Aktenordner verschieben, nicht in einen Sammelordner.');
-        fmDragged = null;
-        return;
+      var targetIsConcreteArchive = !!targetAssignment.archive_category;
+      if(fmDragged.type === 'folder'){
+        if(fmDragged.id === targetFolderId) return;
+        var canMove = await fmCanMoveFolder(fmDragged.id, targetFolderId);
+        if(!canMove){
+          fmSetStatus('Ein Ordner kann nicht in sich selbst oder in einen eigenen Unterordner verschoben werden.');
+          fmDragged = null;
+          return;
+        }
+        var folderIds = await fmCollectFolderIdsRecursive(fmDragged.id);
+        var fileIds = (await fmCollectFilesRecursive(fmDragged.id)).map(function(f){ return f.id; });
+        var folderMovePayload = {
+          parent_id: targetFolderId,
+          updated_at: new Date().toISOString()
+        };
+        if(targetIsConcreteArchive) folderMovePayload = Object.assign(folderMovePayload, assignmentPayload);
+        var folderMoveRes = await client.from('document_folders').update(folderMovePayload).in('id', folderIds);
+        if(folderMoveRes.error) throw folderMoveRes.error;
+        if(targetIsConcreteArchive && fileIds.length){
+          var folderFileMoveRes = await client.from('document_files').update(assignmentPayload).in('id', fileIds);
+          if(folderFileMoveRes.error) throw folderFileMoveRes.error;
+        }
+      } else {
+        if(!targetIsConcreteArchive){
+          fmSetStatus('Dateien bitte in einen konkreten Aktenordner verschieben, nicht in einen Sammelordner.');
+          fmDragged = null;
+          return;
+        }
+        var fileMoveRes = await client.from('document_files').update(Object.assign({ folder_id: targetFolderId }, assignmentPayload)).eq('id', fmDragged.id);
+        if(fileMoveRes.error) throw fileMoveRes.error;
       }
-      await client.from('document_files').update(Object.assign({ folder_id: targetFolderId }, assignmentPayload)).eq('id', fmDragged.id);
+      fmDragged = null;
+      fmSelected = null;
+      fmLoadCurrentFolder();
+    } catch(err) {
+      fmDragged = null;
+      fmSetStatus('Verschieben fehlgeschlagen: ' + (err.message || err));
     }
-    fmDragged = null;
-    fmSelected = null;
-    fmLoadCurrentFolder();
   }
 
   async function fmCanMoveFolder(folderId, targetFolderId){
@@ -1385,7 +1396,7 @@
       document.getElementById('fmDetailShareFolder').onclick = function(){ fmOpenShareModal('folder', folder.id, folder.name); };
       document.getElementById('fmDetailAssignFolder').onclick = function(){ fmOpenAssignModal('folder', folder); };
       document.getElementById('fmDetailRenameFolder').onclick = function(){ fmRenameFolder(folder.id, folder.name); };
-      document.getElementById('fmDetailDeleteFolder').onclick = function(){ fmDeleteFolder(folder.id, folder.name); };
+      document.getElementById('fmDetailDeleteFolder').onclick = function(){ fmDeleteFolder(folder.id, folder.name, this); };
       return;
     }
     var file = fmSelected.item;
@@ -1406,13 +1417,17 @@
     document.getElementById('fmDetailShareFile').onclick = function(){ fmOpenShareModal('file', file.id, file.title); };
     document.getElementById('fmDetailAssignFile').onclick = function(){ fmOpenAssignModal('file', file); };
     document.getElementById('fmDetailRenameFile').onclick = function(){ fmRenameFile(file.id, file.title); };
-    document.getElementById('fmDetailDeleteFile').onclick = function(){ fmDeleteFile(file.id, file.file_path, file.title); };
+    document.getElementById('fmDetailDeleteFile').onclick = function(){ fmDeleteFile(file.id, file.file_path, file.title, this); };
   }
 
   async function fmRenameFolder(id, currentName){
     var name = window.prompt('Neuer Name:', currentName);
     if(!name || !name.trim() || name.trim() === currentName) return;
-    await client.from('document_folders').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('id', id);
+    var res = await client.from('document_folders').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('id', id);
+    if(res.error){
+      window.alert('Ordner konnte nicht umbenannt werden: ' + res.error.message);
+      return;
+    }
     fmSelected = null;
     fmLoadCurrentFolder();
   }
@@ -1420,7 +1435,11 @@
   async function fmRenameFile(id, currentName){
     var name = window.prompt('Neuer Dateiname:', currentName);
     if(!name || !name.trim() || name.trim() === currentName) return;
-    await client.from('document_files').update({ title: name.trim() }).eq('id', id);
+    var res = await client.from('document_files').update({ title: name.trim() }).eq('id', id);
+    if(res.error){
+      window.alert('Datei konnte nicht umbenannt werden: ' + res.error.message);
+      return;
+    }
     fmSelected = null;
     fmLoadCurrentFolder();
   }
@@ -1442,34 +1461,50 @@
     return ids;
   }
 
-  async function fmDeleteFolder(id, name){
+  async function fmDeleteFolder(id, name, button){
     if(!window.confirm('Ordner "'+name+'" archivieren? Alle Unterordner und Dateien bleiben im geschützten Archiv erhalten.')) return;
     if(!window.confirm('Zweite Bestätigung: Ordner "'+name+'" jetzt wirklich archivieren?')) return;
-    var res = await client.rpc('archive_document_folder', {
-      p_folder_id: id,
-      p_reason: 'Ordner archiviert'
-    });
-    if(res.error){
-      window.alert('Ordner konnte nicht archiviert werden: ' + res.error.message);
-      return;
+    if(button && button.disabled) return;
+    fmSetButtonLoading(button, true, 'Wird archiviert …');
+    try {
+      var res = await client.rpc('archive_document_folder', {
+        p_folder_id: id,
+        p_reason: 'Ordner archiviert'
+      });
+      if(res.error){
+        window.alert('Ordner konnte nicht archiviert werden: ' + res.error.message);
+        fmSetButtonLoading(button, false);
+        return;
+      }
+      fmSelected = null;
+      fmLoadCurrentFolder();
+    } catch(err) {
+      window.alert('Ordner konnte nicht archiviert werden: ' + (err.message || err));
+      fmSetButtonLoading(button, false);
     }
-    fmSelected = null;
-    fmLoadCurrentFolder();
   }
 
-  async function fmDeleteFile(id, path, name){
+  async function fmDeleteFile(id, path, name, button){
     if(!window.confirm('Datei "'+name+'" archivieren? Die Datei bleibt im geschützten Archiv erhalten.')) return;
     if(!window.confirm('Zweite Bestätigung: Datei "'+name+'" jetzt wirklich archivieren?')) return;
-    var res = await client.rpc('archive_document_file', {
-      p_file_id: id,
-      p_reason: 'Datei archiviert'
-    });
-    if(res.error){
-      window.alert('Datei konnte nicht archiviert werden: ' + res.error.message);
-      return;
+    if(button && button.disabled) return;
+    fmSetButtonLoading(button, true, 'Wird archiviert …');
+    try {
+      var res = await client.rpc('archive_document_file', {
+        p_file_id: id,
+        p_reason: 'Datei archiviert'
+      });
+      if(res.error){
+        window.alert('Datei konnte nicht archiviert werden: ' + res.error.message);
+        fmSetButtonLoading(button, false);
+        return;
+      }
+      fmSelected = null;
+      fmLoadCurrentFolder();
+    } catch(err) {
+      window.alert('Datei konnte nicht archiviert werden: ' + (err.message || err));
+      fmSetButtonLoading(button, false);
     }
-    fmSelected = null;
-    fmLoadCurrentFolder();
   }
 
   async function fmUploadFiles(){
@@ -1557,23 +1592,36 @@
 
   function fmCloseShareModal(){
     document.getElementById('shareModalBackdrop').hidden = true;
+    fmSetButtonLoading(document.getElementById('shareModalConfirm'), false);
     fmShareTarget = null;
   }
 
   async function fmSubmitShare(){
     if(!fmShareTarget) return;
+    var confirmBtn = document.getElementById('shareModalConfirm');
+    if(confirmBtn && confirmBtn.disabled) return;
     var statusEl = document.getElementById('shareModalStatus');
     var profileIds = Array.prototype.slice.call(document.querySelectorAll('#shareModalPicker input[type=checkbox]:checked')).map(function(cb){ return cb.value; });
     var externalEmails = fmParseEmails(document.getElementById('shareModalEmails').value);
     if(!profileIds.length && !externalEmails.length){ statusEl.textContent = 'Bitte mindestens einen Nutzer oder eine E-Mail-Adresse auswählen.'; return; }
     statusEl.textContent = 'Wird geteilt …';
-    var fileIds = fmShareTarget.type === 'folder'
-      ? (await fmCollectFilesRecursive(fmShareTarget.id)).map(function(f){ return f.id; })
-      : [fmShareTarget.id];
-    if(!fileIds.length){ statusEl.textContent = 'Keine Dateien zum Teilen vorhanden.'; return; }
-    await fmShareFileIdsWithProfiles(fileIds, profileIds, document.getElementById('shareModalNeedsConfirmation').checked, externalEmails);
-    statusEl.textContent = 'Geteilt und per E-Mail versendet.';
-    setTimeout(fmCloseShareModal, 900);
+    fmSetButtonLoading(confirmBtn, true, 'Wird geteilt …');
+    try {
+      var fileIds = fmShareTarget.type === 'folder'
+        ? (await fmCollectFilesRecursive(fmShareTarget.id)).map(function(f){ return f.id; })
+        : [fmShareTarget.id];
+      if(!fileIds.length){
+        statusEl.textContent = 'Keine Dateien zum Teilen vorhanden.';
+        fmSetButtonLoading(confirmBtn, false);
+        return;
+      }
+      await fmShareFileIdsWithProfiles(fileIds, profileIds, document.getElementById('shareModalNeedsConfirmation').checked, externalEmails);
+      statusEl.textContent = 'Geteilt und per E-Mail versendet.';
+      setTimeout(fmCloseShareModal, 900);
+    } catch(err) {
+      statusEl.textContent = 'Teilen fehlgeschlagen: ' + (err.message || err);
+      fmSetButtonLoading(confirmBtn, false);
+    }
   }
 
   function fmParseEmails(raw){
@@ -1716,58 +1764,57 @@
     statusEl.textContent = 'Wird zugewiesen …';
     statusEl.classList.add('show');
     fmSetButtonLoading(confirmBtn, true, 'Wird zugewiesen …');
-    var targetFolder;
     try {
-      targetFolder = await fmEnsureScopedFolder(scope);
-    } catch(err) {
-      statusEl.textContent = 'Fehler beim Ordner: ' + (err.message || err);
-      fmSetButtonLoading(confirmBtn, false);
-      return;
-    }
-    var fileIds = [];
-    var updateRes;
-    var updatePayload = {
-      folder_id: targetFolder.id,
-      property_id: scope.property_id || null,
-      unit_id: scope.unit_id || null,
-      contact_profile_id: scope.contact_profile_id || null,
-      is_private_admin: !!scope.is_private_admin,
-      archive_category: scope.archive_category || null
-    };
-    var folderPayload = {
-      property_id: updatePayload.property_id,
-      unit_id: updatePayload.unit_id,
-      contact_profile_id: updatePayload.contact_profile_id,
-      is_private_admin: updatePayload.is_private_admin,
-      archive_category: updatePayload.archive_category,
-      updated_at: new Date().toISOString()
-    };
-    if(fmAssignTarget.type === 'folder'){
-      var folderIds = await fmCollectFolderIdsRecursive(fmAssignTarget.item.id);
-      updateRes = await client.from('document_folders').update(folderPayload).in('id', folderIds);
-      fileIds = (await fmCollectFilesRecursive(fmAssignTarget.item.id)).map(function(f){ return f.id; });
-      if(fileIds.length){
-        var fileUpdatePayload = Object.assign({}, updatePayload);
-        delete fileUpdatePayload.folder_id;
-        var fileUpdateRes = await client.from('document_files').update(fileUpdatePayload).in('id', fileIds);
-        if(fileUpdateRes.error){ statusEl.textContent = 'Fehler: ' + fileUpdateRes.error.message; fmSetButtonLoading(confirmBtn, false); return; }
+      var targetFolder = await fmEnsureScopedFolder(scope);
+      var fileIds = [];
+      var updateRes;
+      var updatePayload = {
+        folder_id: targetFolder.id,
+        property_id: scope.property_id || null,
+        unit_id: scope.unit_id || null,
+        contact_profile_id: scope.contact_profile_id || null,
+        is_private_admin: !!scope.is_private_admin,
+        archive_category: scope.archive_category || null
+      };
+      var folderPayload = {
+        property_id: updatePayload.property_id,
+        unit_id: updatePayload.unit_id,
+        contact_profile_id: updatePayload.contact_profile_id,
+        is_private_admin: updatePayload.is_private_admin,
+        archive_category: updatePayload.archive_category,
+        updated_at: new Date().toISOString()
+      };
+      if(fmAssignTarget.type === 'folder'){
+        var folderIds = await fmCollectFolderIdsRecursive(fmAssignTarget.item.id);
+        updateRes = await client.from('document_folders').update(folderPayload).in('id', folderIds);
+        if(updateRes.error) throw updateRes.error;
+        fileIds = (await fmCollectFilesRecursive(fmAssignTarget.item.id)).map(function(f){ return f.id; });
+        if(fileIds.length){
+          var fileUpdatePayload = Object.assign({}, updatePayload);
+          delete fileUpdatePayload.folder_id;
+          var fileUpdateRes = await client.from('document_files').update(fileUpdatePayload).in('id', fileIds);
+          if(fileUpdateRes.error) throw fileUpdateRes.error;
+        }
+      } else {
+        updateRes = await client.from('document_files').update(updatePayload).eq('id', fmAssignTarget.item.id);
+        if(updateRes.error) throw updateRes.error;
+        fileIds = [fmAssignTarget.item.id];
       }
-    } else {
-      updateRes = await client.from('document_files').update(updatePayload).eq('id', fmAssignTarget.item.id);
-      fileIds = [fmAssignTarget.item.id];
+      if(scope.type === 'contact' && scope.contact_profile_id && fileIds.length){
+        await fmShareFileIdsWithProfiles(fileIds, [scope.contact_profile_id], false);
+        statusEl.textContent = 'Kontaktakte zugewiesen und Kontakt freigegeben.';
+      } else if(document.getElementById('assignShareResidents').checked && (scope.property_id || scope.unit_id)){
+        var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
+        if(residents.length && fileIds.length) await fmShareFileIdsWithProfiles(fileIds, residents, false);
+        statusEl.textContent = residents.length ? 'Zugewiesen und Bewohner freigegeben.' : 'Zugewiesen. Keine aktiven Bewohner gefunden.';
+      } else {
+        statusEl.textContent = 'Zugewiesen.';
+      }
+      setTimeout(function(){ fmCloseAssignModal(); fmSelected = null; fmLoadCurrentFolder(); }, 900);
+    } catch(err) {
+      statusEl.textContent = 'Zuweisung fehlgeschlagen: ' + (err.message || err);
+      fmSetButtonLoading(confirmBtn, false);
     }
-    if(updateRes.error){ statusEl.textContent = 'Fehler: ' + updateRes.error.message; fmSetButtonLoading(confirmBtn, false); return; }
-    if(scope.type === 'contact' && scope.contact_profile_id && fileIds.length){
-      await fmShareFileIdsWithProfiles(fileIds, [scope.contact_profile_id], false);
-      statusEl.textContent = 'Kontaktakte zugewiesen und Kontakt freigegeben.';
-    } else if(document.getElementById('assignShareResidents').checked && (scope.property_id || scope.unit_id)){
-      var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
-      if(residents.length && fileIds.length) await fmShareFileIdsWithProfiles(fileIds, residents, false);
-      statusEl.textContent = residents.length ? 'Zugewiesen und Bewohner freigegeben.' : 'Zugewiesen. Keine aktiven Bewohner gefunden.';
-    } else {
-      statusEl.textContent = 'Zugewiesen.';
-    }
-    setTimeout(function(){ fmCloseAssignModal(); fmSelected = null; fmLoadCurrentFolder(); }, 900);
   }
 
 })();
