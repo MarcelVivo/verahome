@@ -191,20 +191,31 @@
       if(this.checked) document.getElementById('t_end').value = '';
     });
     document.getElementById('addRentChangeBtn').addEventListener('click', async function(){
+      var btn = this;
+      if(btn.disabled) return;
       if(!editingTenancyId) return;
       var amount = document.getElementById('rc_amount').value;
       var date = document.getElementById('rc_date').value;
       if(!amount || !date){ window.alert('Bitte neuen Mietzins und Gültigkeitsdatum angeben.'); return; }
+      btn.disabled = true;
+      btn.textContent = 'Wird gespeichert …';
       var res = await client.from('tenancy_rent_changes').insert({
         tenancy_id: editingTenancyId, rent_chf: Number(amount), effective_date: date,
         note: document.getElementById('rc_note').value.trim() || null
       });
-      if(res.error){ window.alert('Fehler: ' + res.error.message); return; }
+      if(res.error){
+        window.alert('Fehler: ' + res.error.message);
+        btn.disabled = false;
+        btn.textContent = 'Mietzinsänderung hinzufügen';
+        return;
+      }
       document.getElementById('rc_amount').value = '';
       document.getElementById('rc_date').value = '';
       document.getElementById('rc_note').value = '';
       document.getElementById('t_rent').value = amount;
-      loadRentHistory(editingTenancyId);
+      await loadRentHistory(editingTenancyId);
+      btn.disabled = false;
+      btn.textContent = 'Mietzinsänderung hinzufügen';
     });
 
     document.getElementById('tenanciesTable').addEventListener('click', function(e){
@@ -227,8 +238,13 @@
   function openTenancyModal(tenancy){
     editingTenancyId = tenancy ? tenancy.id : null;
     document.getElementById('tenancyModalTitle').textContent = tenancy ? 'Mietverhältnis bearbeiten' : 'Neues Mietverhältnis';
-    document.getElementById('tenancySaveBtn').textContent = tenancy ? 'Speichern' : 'Anlegen';
-    document.getElementById('tenancyDeleteBtn').hidden = !tenancy;
+    var saveBtn = document.getElementById('tenancySaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = tenancy ? 'Speichern' : 'Anlegen';
+    var deleteBtn = document.getElementById('tenancyDeleteBtn');
+    deleteBtn.disabled = false;
+    deleteBtn.textContent = 'Archivieren';
+    deleteBtn.hidden = !tenancy;
     document.getElementById('t_tenant').value = tenancy ? tenancy.tenant_profile_id : '';
     document.getElementById('t_unit').value = tenancy ? tenancy.unit_id : '';
     document.getElementById('t_start').value = tenancy ? tenancy.start_date : '';
@@ -255,11 +271,17 @@
 
   async function saveTenancy(e){
     e.preventDefault();
+    var saveBtn = document.getElementById('tenancySaveBtn');
+    if(saveBtn.disabled) return;
     var statusEl = document.getElementById('tenancyFormStatus');
     var tenant = document.getElementById('t_tenant').value;
     var unit = document.getElementById('t_unit').value;
     var start = document.getElementById('t_start').value;
     if(!tenant || !unit || !start){ statusEl.textContent = 'Bitte alle Pflichtfelder ausfüllen.'; statusEl.classList.add('show'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Wird gespeichert …';
+    statusEl.textContent = 'Mietverhältnis wird gespeichert …';
+    statusEl.classList.add('show');
     var payload = {
       tenant_profile_id: tenant, unit_id: unit, start_date: start,
       end_date: document.getElementById('t_unbefristet').checked ? null : (document.getElementById('t_end').value || null),
@@ -274,10 +296,13 @@
       : await client.from('tenancies').insert(payload);
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
     statusEl.classList.add('show');
-    if(!res.error){
-      await loadTenancies();
-      closeTenancyModal();
+    if(res.error){
+      saveBtn.disabled = false;
+      saveBtn.textContent = editingTenancyId ? 'Speichern' : 'Anlegen';
+      return;
     }
+    await loadTenancies();
+    closeTenancyModal();
   }
 
   async function loadRentHistory(tenancyId){
@@ -297,12 +322,20 @@
   async function deleteTenancy(){
     if(!editingTenancyId) return;
     if(!window.confirm('Dieses Mietverhältnis archivieren? Es bleibt im Verlauf erhalten.')) return;
+    var deleteBtn = document.getElementById('tenancyDeleteBtn');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Wird archiviert …';
     var res = await client.from('tenancies').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
       archived_reason: 'Mietverhältnis archiviert'
     }).eq('id', editingTenancyId);
-    if(res.error){ window.alert('Fehler beim Archivieren: ' + res.error.message); return; }
+    if(res.error){
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = 'Archivieren';
+      return;
+    }
     closeTenancyModal();
     loadTenancies();
   }

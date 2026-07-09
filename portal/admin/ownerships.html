@@ -185,8 +185,13 @@
   function openOwnershipModal(ownership){
     editingOwnershipId = ownership ? ownership.id : null;
     document.getElementById('ownershipModalTitle').textContent = ownership ? 'Eigentümerschaft bearbeiten' : 'Neue Eigentümerschaft';
-    document.getElementById('ownershipSaveBtn').textContent = ownership ? 'Speichern' : 'Anlegen';
-    document.getElementById('ownershipDeleteBtn').hidden = !ownership;
+    var saveBtn = document.getElementById('ownershipSaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = ownership ? 'Speichern' : 'Anlegen';
+    var deleteBtn = document.getElementById('ownershipDeleteBtn');
+    deleteBtn.disabled = false;
+    deleteBtn.textContent = 'Archivieren';
+    deleteBtn.hidden = !ownership;
     document.getElementById('o_owner').value = ownership ? ownership.owner_profile_id : '';
     document.getElementById('o_property').value = ownership ? (ownership.property_id || '') : '';
     document.getElementById('o_unit').value = ownership ? (ownership.unit_id || '') : '';
@@ -208,11 +213,17 @@
 
   async function saveOwnership(e){
     e.preventDefault();
+    var saveBtn = document.getElementById('ownershipSaveBtn');
+    if(saveBtn.disabled) return;
     var statusEl = document.getElementById('ownershipFormStatus');
     var owner = document.getElementById('o_owner').value;
     var propertyId = document.getElementById('o_property').value;
     var unitId = document.getElementById('o_unit').value;
     if(!owner || (!propertyId && !unitId)){ statusEl.textContent = 'Bitte Eigentümer und mindestens Objekt oder Einheit angeben.'; statusEl.classList.add('show'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Wird gespeichert …';
+    statusEl.textContent = 'Eigentümerschaft wird gespeichert …';
+    statusEl.classList.add('show');
     var shareVal = document.getElementById('o_share').value;
     var payload = {
       owner_profile_id: owner, property_id: propertyId || null, unit_id: unitId || null,
@@ -225,21 +236,32 @@
       : await client.from('ownerships').insert(payload);
     statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gespeichert.';
     statusEl.classList.add('show');
-    if(!res.error){
-      await loadOwnerships();
-      closeOwnershipModal();
+    if(res.error){
+      saveBtn.disabled = false;
+      saveBtn.textContent = editingOwnershipId ? 'Speichern' : 'Anlegen';
+      return;
     }
+    await loadOwnerships();
+    closeOwnershipModal();
   }
 
   async function deleteOwnership(){
     if(!editingOwnershipId) return;
     if(!window.confirm('Diese Eigentümerschaft archivieren? Sie bleibt im Verlauf erhalten.')) return;
+    var deleteBtn = document.getElementById('ownershipDeleteBtn');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Wird archiviert …';
     var res = await client.from('ownerships').update({
       archived_at: new Date().toISOString(),
       archived_by: profile.id,
       archived_reason: 'Eigentümerschaft archiviert'
     }).eq('id', editingOwnershipId);
-    if(res.error){ window.alert('Fehler beim Archivieren: ' + res.error.message); return; }
+    if(res.error){
+      window.alert('Fehler beim Archivieren: ' + res.error.message);
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = 'Archivieren';
+      return;
+    }
     closeOwnershipModal();
     loadOwnerships();
   }
