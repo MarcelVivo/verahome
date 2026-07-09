@@ -237,7 +237,16 @@
       }).join('');
     table.querySelectorAll('.del-availability-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.from('booking_availability').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Diese Verfügbarkeit wirklich entfernen?')) return;
+        btn.disabled = true;
+        btn.textContent = 'Wird entfernt …';
+        var deleteRes = await client.from('booking_availability').delete().eq('id', btn.getAttribute('data-id'));
+        if(deleteRes.error){
+          window.alert('Verfügbarkeit konnte nicht entfernt werden: ' + deleteRes.error.message);
+          btn.disabled = false;
+          btn.textContent = 'Entfernen';
+          return;
+        }
         loadAvailability();
       });
     });
@@ -256,7 +265,16 @@
       }).join('');
     table.querySelectorAll('.del-blocked-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await client.from('booking_blocked_dates').delete().eq('id', btn.getAttribute('data-id'));
+        if(!window.confirm('Diesen gesperrten Tag wirklich entfernen?')) return;
+        btn.disabled = true;
+        btn.textContent = 'Wird entfernt …';
+        var deleteRes = await client.from('booking_blocked_dates').delete().eq('id', btn.getAttribute('data-id'));
+        if(deleteRes.error){
+          window.alert('Gesperrter Tag konnte nicht entfernt werden: ' + deleteRes.error.message);
+          btn.disabled = false;
+          btn.textContent = 'Entfernen';
+          return;
+        }
         loadBlockedDates();
       });
     });
@@ -1131,7 +1149,15 @@
       if(editAppointment && calLastTargetEl) calShowApptForm(calLastTargetEl, editAppointment);
     } else if(unblockBtn){
       if(!window.confirm('Sperrung wirklich aufheben?')) return;
-      await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
+      unblockBtn.disabled = true;
+      unblockBtn.textContent = 'Wird freigegeben …';
+      var unblockRes = await client.from('booking_blocks').delete().eq('id', unblockBtn.getAttribute('data-unblock-id'));
+      if(unblockRes.error){
+        window.alert('Sperrung konnte nicht aufgehoben werden: ' + unblockRes.error.message);
+        unblockBtn.disabled = false;
+        unblockBtn.textContent = 'Freigeben';
+        return;
+      }
       calHidePopover();
       loadCalWeek();
     } else if(blockSlotBtn){
