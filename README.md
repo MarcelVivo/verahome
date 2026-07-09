@@ -47,6 +47,10 @@ npx serve .
 
 Dann im Browser: `http://localhost:8080`
 
+## iPhone-App testen
+
+Das Vera Portal kann als iOS-App mit Capacitor lokal auf einem iPhone getestet werden. Die App startet direkt im Portal-Login und nutzt weiterhin die bestehende Supabase-Datenbank. Anleitung: [`docs/ios-app.md`](docs/ios-app.md).
+
 ## Bilder ersetzen
 
 Siehe [`public/README.md`](public/README.md) für die vollständige Liste aller erwarteten Dateinamen.

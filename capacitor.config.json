@@ -1,0 +1,12 @@
+{
+  "appId": "ch.verahome.portal",
+  "appName": "Vera Home",
+  "webDir": ".",
+  "server": {
+    "iosScheme": "verahome",
+    "appStartPath": "/portal/login.html"
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

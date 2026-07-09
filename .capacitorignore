@@ -1,0 +1,11 @@
+.git
+.DS_Store
+node_modules
+ios
+android
+supabase
+docs
+README.md
+package.json
+package-lock.json
+capacitor.config.json
