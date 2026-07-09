@@ -807,11 +807,15 @@
     }
     var newInvoice = res.data;
     btn.textContent = 'E-Mail wird gesendet …';
+    var emailSkipped = false;
     try {
       var emailRes = await VeraPortal.sendInvoiceEmail(newInvoice.id);
+      emailSkipped = !!(emailRes && emailRes.data && emailRes.data.skipped);
       if(emailRes.error) console.warn('E-Mail-Versand fehlgeschlagen:', emailRes.error);
     } catch(e) { console.warn('E-Mail-Versand fehlgeschlagen:', e); }
-    window.alert('Rechnung ' + newInvoice.invoice_number + ' wurde erstellt.');
+    window.alert(emailSkipped
+      ? 'Rechnung ' + newInvoice.invoice_number + ' wurde erstellt. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.'
+      : 'Rechnung ' + newInvoice.invoice_number + ' wurde erstellt und E-Mail-Versand angestossen.');
     await loadRecurring();
     if(document.getElementById('issuedCard').style.display !== 'none') await loadIssued();
   }
