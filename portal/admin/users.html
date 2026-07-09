@@ -589,7 +589,7 @@
           '<button type="submit" class="dash-btn-sm">Kontakt speichern</button>' +
           '<button type="button" class="dash-btn-sm resend-invite-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Einladungslink erneut senden</button>' +
           statusActions +
-          '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Kontakt löschen</button>' +
+          '<button type="button" class="dash-btn-sm danger delete-contact-btn" data-id="'+id+'" data-name="'+VeraDashboard.escapeHtml(contactDisplayName(c))+'">Kontakt archivieren</button>' +
         '</div>' +
         '<p class="form-status" id="contactEditStatus-'+id+'"></p>' +
       '</form>' +
@@ -694,8 +694,11 @@
 
     modalBody.querySelectorAll('.status-btn').forEach(function(btn){
       btn.addEventListener('click', async function(){
+        var nextStatus = btn.getAttribute('data-status');
+        var actionLabel = nextStatus === 'active' ? 'aktivieren' : 'sperren';
+        if(!window.confirm('Kontakt "' + contactDisplayName(contact) + '" wirklich ' + actionLabel + '?')) return;
         btn.disabled = true;
-        var res = await client.from('profiles').update({ status: btn.getAttribute('data-status') }).eq('id', id);
+        var res = await client.from('profiles').update({ status: nextStatus }).eq('id', id);
         if(res.error){
           window.alert('Fehler beim Statuswechsel: ' + res.error.message);
           btn.disabled = false;
@@ -790,6 +793,10 @@
     if(!window.confirm(
       'Kontakt "' + name + '" archivieren?\n\n' +
       'Der Kontakt verschwindet aus der aktiven Ansicht, bleibt aber für Verlauf, Dokumente und Audit nachvollziehbar erhalten.'
+    )) return;
+    if(!window.confirm(
+      'Zweite Bestätigung:\n\n' +
+      'Kontakt "' + name + '" jetzt wirklich archivieren?'
     )) return;
     try {
       var res = await client.rpc('archive_profile', {
