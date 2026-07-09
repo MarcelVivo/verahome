@@ -2318,7 +2318,15 @@
     el.querySelectorAll('[data-remove-hauswart]').forEach(function(btn){
       btn.addEventListener('click', async function(){
         if(!window.confirm('Hauswart-Zuweisung wirklich entfernen?')) return;
-        await client.from('property_permissions').delete().eq('id', btn.getAttribute('data-remove-hauswart'));
+        btn.disabled = true;
+        btn.textContent = '…';
+        var deleteRes = await client.from('property_permissions').delete().eq('id', btn.getAttribute('data-remove-hauswart'));
+        if(deleteRes.error){
+          window.alert('Hauswart-Zuweisung konnte nicht entfernt werden: ' + deleteRes.error.message);
+          btn.disabled = false;
+          btn.textContent = '✕';
+          return;
+        }
         loadUnitHauswarts(unit);
       });
     });
@@ -2712,7 +2720,14 @@
       document.querySelectorAll('#hauswartUsers-'+propertyId+' input:checked')
     ).map(function(c){ return c.value; });
 
-    await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'hauswart');
+    statusEl.textContent = 'Zuweisung wird gespeichert …';
+    statusEl.classList.add('show');
+    var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'hauswart');
+    if(deleteRes.error){
+      statusEl.textContent = 'Fehler: bestehende Hauswart-Zuweisungen konnten nicht aktualisiert werden: ' + deleteRes.error.message;
+      statusEl.classList.add('show');
+      return;
+    }
     if(checkedIds.length){
       var insRes = await client.from('property_permissions').insert(
         checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'hauswart', created_by: profile.id }; })
@@ -2917,7 +2932,14 @@
       document.querySelectorAll('#laundryPermUsers-'+propertyId+' input:checked')
     ).map(function(c){ return c.value; });
 
-    await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'waschplan');
+    statusEl.textContent = 'Berechtigung wird gespeichert …';
+    statusEl.classList.add('show');
+    var deleteRes = await client.from('property_permissions').delete().eq('property_id', propertyId).eq('permission', 'waschplan');
+    if(deleteRes.error){
+      statusEl.textContent = 'Fehler: bestehende Waschplan-Berechtigungen konnten nicht aktualisiert werden: ' + deleteRes.error.message;
+      statusEl.classList.add('show');
+      return;
+    }
     if(checkedIds.length){
       var insRes = await client.from('property_permissions').insert(
         checkedIds.map(function(pid){ return { property_id: propertyId, profile_id: pid, permission: 'waschplan', created_by: profile.id }; })
