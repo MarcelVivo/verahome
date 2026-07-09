@@ -176,7 +176,7 @@
     document.getElementById('ownershipSearch').addEventListener('input', function(){
       var q = this.value.trim();
       renderOwnershipsTable(allOwnerships.filter(function(o){
-        var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '');
+        var scope = o.units ? [o.units.properties ? o.units.properties.label : '', o.units.label].filter(Boolean).join(' – ') : (o.properties ? o.properties.label : '');
         return VeraDashboard.matchesSearch([o.owner?o.owner.last_name+' '+o.owner.first_name:'', scope], q);
       }));
     });
@@ -248,7 +248,7 @@
 
   async function loadOwnerships(){
     var res = await client.from('ownerships')
-      .select('*, owner:profiles!owner_profile_id(first_name,last_name), properties(label), units(label)')
+      .select('*, owner:profiles!owner_profile_id(first_name,last_name), properties(label), units(label, properties(label))')
       .order('created_at', { ascending:false });
     allOwnerships = res.data || [];
     renderOwnershipsTable(allOwnerships);
@@ -259,7 +259,7 @@
     if(!rows.length){ table.innerHTML = '<tr><td class="dash-empty">'+(allOwnerships.length?'Keine Treffer.':'Noch keine Eigentümerschaften.')+'</td></tr>'; return; }
     table.innerHTML = '<tr><th>Eigentümer</th><th>Objekt/Einheit</th><th>Anteil</th></tr>' +
       rows.map(function(o){
-        var scope = o.units ? o.units.label : (o.properties ? o.properties.label : '–');
+        var scope = o.units ? [o.units.properties ? o.units.properties.label : '', o.units.label].filter(Boolean).join(' – ') : (o.properties ? o.properties.label : '–');
         return '<tr class="dash-row-clickable" data-ownership-id="'+o.id+'"><td>'+VeraDashboard.escapeHtml(o.owner?o.owner.last_name+' '+o.owner.first_name:'–')+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(scope)+'</td>' +
           '<td>'+(o.share_percent!=null?o.share_percent+'%':'–')+'</td></tr>';

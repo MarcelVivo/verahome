@@ -1319,7 +1319,7 @@
         stats.map(function(item){ return '<div><strong>'+item.value+'</strong><span>'+VeraDashboard.escapeHtml(item.label)+'</span></div>'; }).join('') +
       '</div>' +
       '<div class="obj-dossier-actions">' +
-        '<a href="/portal/documents.html">Dokumente</a>' +
+        '<a href="/portal/documents.html?q='+query+'">Dokumente</a>' +
         '<a href="/portal/admin/tenancies.html?q='+query+'">Mietverhältnisse</a>' +
         '<a href="/portal/admin/ownerships.html?q='+query+'">Eigentümer</a>' +
         '<a href="/portal/admin/jobs.html?q='+query+'">Aufträge</a>' +

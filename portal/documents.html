@@ -522,15 +522,17 @@
     document.getElementById('assignUnitSelect').addEventListener('change', fmRenderAssignArchive);
     document.getElementById('assignContactSelect').addEventListener('change', fmRenderAssignArchive);
 
-    client.from('profiles').select('id, first_name, last_name, company_name, category, email')
+    var profilesPromise = client.from('profiles').select('id, first_name, last_name, company_name, category, email')
       .neq('category', 'admin').is('archived_at', null).order('category').order('last_name')
       .then(function(res){ fmAllProfiles = res.data || []; });
-    client.from('properties').select('id, label, street, city, property_type').is('archived_at', null).order('label')
+    var propertiesPromise = client.from('properties').select('id, label, street, city, property_type').is('archived_at', null).order('label')
       .then(function(res){ fmProperties = res.data || []; });
-    client.from('units').select('id, label, property_id, unit_type').is('archived_at', null).order('label')
+    var unitsPromise = client.from('units').select('id, label, property_id, unit_type').is('archived_at', null).order('label')
       .then(function(res){ fmUnits = res.data || []; });
 
-    fmLoadCurrentFolder();
+    Promise.all([profilesPromise, propertiesPromise, unitsPromise]).then(function(){
+      fmLoadCurrentFolder().then(fmApplyQueryContext);
+    });
   }
 
   function fmSetStatus(msg){
@@ -1121,6 +1123,69 @@
 
   function fmIsSelected(type, id){
     return fmSelected && fmSelected.type === type && fmSelected.item.id === id;
+  }
+
+  function fmContextQuery(){
+    var params = new URLSearchParams(window.location.search);
+    return (params.get('q') || '').trim();
+  }
+
+  function fmMatchesContext(row, query){
+    if(!query) return false;
+    var property = row.property_id ? fmProperties.filter(function(p){ return p.id === row.property_id; })[0] : null;
+    var unit = row.unit_id ? fmUnits.filter(function(u){ return u.id === row.unit_id; })[0] : null;
+    var unitProperty = unit && unit.property_id ? fmProperties.filter(function(p){ return p.id === unit.property_id; })[0] : null;
+    var contact = row.contact_profile_id ? fmAllProfiles.filter(function(p){ return p.id === row.contact_profile_id; })[0] : null;
+    return VeraDashboard.matchesSearch([
+      row.name,
+      row.title,
+      row.archive_category,
+      fmArchiveLabel(row.archive_category),
+      property ? fmPropertyDisplay(property) : '',
+      unit ? fmUnitDisplay(unit) : '',
+      unitProperty ? fmPropertyDisplay(unitProperty) : '',
+      contact ? fmProfileDisplay(contact) : '',
+      row.is_private_admin ? 'Admin' : ''
+    ], query);
+  }
+
+  function fmPathForFolder(folders, folderId){
+    if(!folderId) return [];
+    var byId = {};
+    folders.forEach(function(folder){ byId[folder.id] = folder; });
+    var path = [];
+    var current = byId[folderId];
+    while(current){
+      path.unshift(current);
+      current = current.parent_id ? byId[current.parent_id] : null;
+    }
+    return path;
+  }
+
+  async function fmApplyQueryContext(){
+    var query = fmContextQuery();
+    if(!query) return;
+    var foldersRes = await client.from('document_folders').select('*').is('archived_at', null).order('name');
+    var filesRes = await client.from('document_files').select('*').is('archived_at', null).order('title');
+    var folders = foldersRes.data || [];
+    var files = filesRes.data || [];
+    var file = files.filter(function(row){ return fmMatchesContext(row, query); })[0] || null;
+    var folder = folders.filter(function(row){ return fmMatchesContext(row, query); })[0] || null;
+    if(file){
+      fmPath = fmPathForFolder(folders, file.folder_id);
+      fmSelected = { type:'file', item:file };
+      await fmLoadCurrentFolder();
+      fmSetStatus('Kontext geöffnet: ' + query);
+      return;
+    }
+    if(folder){
+      fmPath = fmPathForFolder(folders, folder.id);
+      fmSelected = null;
+      await fmLoadCurrentFolder();
+      fmSetStatus('Ordner geöffnet: ' + folder.name);
+      return;
+    }
+    fmSetStatus('Kein Dokumenten-Kontext gefunden für: ' + query);
   }
 
   function fmRenderColumns(){
