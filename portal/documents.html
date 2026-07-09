@@ -139,6 +139,33 @@
         </div>
       </div>
 
+      <!-- Pflicht-Zuordnung für neue Ordner (admin) -->
+      <div class="share-modal-backdrop" id="folderScopeModalBackdrop" hidden>
+        <div class="share-modal obj-modal filemgr-upload-modal">
+          <h3>Ordner erstellen</h3>
+          <p class="doc-meta">Jeder neue Ordner wird direkt einer Liegenschaft, Wohnung, einem Kontakt oder der privaten Admin-Ablage zugeordnet. Dokumente darin übernehmen diese Zuordnung.</p>
+          <form class="auth-form" id="folderScopeForm">
+            <input id="folderScopeName" placeholder="Ordnername *" required>
+            <select id="folderScopeType">
+              <option value="property">Liegenschaft / Objekt</option>
+              <option value="unit">Wohnung / Einheit</option>
+              <option value="contact">Kontakt / Rolle</option>
+              <option value="private">Nur Ich / Admin</option>
+            </select>
+            <select id="folderScopeProperty"></select>
+            <select id="folderScopeUnit"></select>
+            <select id="folderScopeContact"></select>
+            <select id="folderScopeArchive"></select>
+            <div class="filemgr-path-preview" id="folderScopePathPreview"></div>
+            <p class="form-status" id="folderScopeStatus"></p>
+            <div class="share-modal-actions">
+              <button type="button" class="dash-btn-sm" id="folderScopeCancel">Abbrechen</button>
+              <button type="submit" class="btn btn-primary">Ordner erstellen</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Teilen-Modal (admin) -->
       <div class="share-modal-backdrop" id="shareModalBackdrop" hidden>
         <div class="share-modal">
@@ -420,7 +447,7 @@
 
   function initFileManager(){
     var shell = document.getElementById('filemgrShell');
-    document.getElementById('fm_new_folder_btn').addEventListener('click', fmCreateFolder);
+    document.getElementById('fm_new_folder_btn').addEventListener('click', fmOpenFolderCreateModal);
     document.getElementById('fm_back_btn').addEventListener('click', function(){
       if(fmPath.length) fmPath.pop();
       fmSelected = null;
@@ -437,6 +464,12 @@
     document.getElementById('uploadScopeForm').addEventListener('submit', fmSubmitScopedUpload);
     ['uploadScopeType','uploadScopeProperty','uploadScopeUnit','uploadScopeContact','uploadScopeArchive'].forEach(function(id){
       document.getElementById(id).addEventListener('change', fmUpdateUploadScopeForm);
+    });
+    document.getElementById('folderScopeCancel').addEventListener('click', fmCloseFolderCreateModal);
+    document.getElementById('folderScopeForm').addEventListener('submit', fmSubmitCreateFolder);
+    document.getElementById('folderScopeName').addEventListener('input', fmUpdateFolderScopeForm);
+    ['folderScopeType','folderScopeProperty','folderScopeUnit','folderScopeContact','folderScopeArchive'].forEach(function(id){
+      document.getElementById(id).addEventListener('change', fmUpdateFolderScopeForm);
     });
     shell.addEventListener('dragover', fmHandleShellDragOver);
     shell.addEventListener('dragleave', fmHandleShellDragLeave);
@@ -622,6 +655,143 @@
     fmPendingUploadFiles = [];
     document.getElementById('uploadScopeForm').reset();
     document.getElementById('uploadScopeFiles').hidden = false;
+  }
+
+  function fmPopulateFolderScopeBase(){
+    var propertyOptions = '<option value="">Liegenschaft wählen …</option>' + fmProperties.map(function(p){
+      return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(fmPropertyDisplay(p))+'</option>';
+    }).join('');
+    document.getElementById('folderScopeProperty').innerHTML = propertyOptions;
+    document.getElementById('folderScopeContact').innerHTML = '<option value="">Kontakt wählen …</option>' + fmAllProfiles.map(function(p){
+      return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(fmProfileDisplay(p)+' · '+VeraDashboard.categoryLabel(p.category))+'</option>';
+    }).join('');
+  }
+
+  function fmCurrentFolderCreateScope(){
+    var type = document.getElementById('folderScopeType').value;
+    var propertyId = document.getElementById('folderScopeProperty').value || null;
+    var unitId = document.getElementById('folderScopeUnit').value || null;
+    var contactId = document.getElementById('folderScopeContact').value || null;
+    var archiveKey = document.getElementById('folderScopeArchive').value || null;
+    if(type === 'unit' && unitId && !propertyId){
+      var unit = fmUnits.filter(function(u){ return u.id === unitId; })[0];
+      propertyId = unit ? unit.property_id : null;
+    }
+    return {
+      type: type,
+      property_id: type === 'property' || type === 'unit' ? propertyId : null,
+      unit_id: type === 'unit' ? unitId : null,
+      contact_profile_id: type === 'contact' ? contactId : null,
+      is_private_admin: type === 'private',
+      archive_category: archiveKey
+    };
+  }
+
+  function fmUpdateFolderScopeForm(){
+    var type = document.getElementById('folderScopeType').value;
+    var propertySelect = document.getElementById('folderScopeProperty');
+    var unitSelect = document.getElementById('folderScopeUnit');
+    var contactSelect = document.getElementById('folderScopeContact');
+    var archiveSelect = document.getElementById('folderScopeArchive');
+    var currentUnit = unitSelect.value;
+
+    propertySelect.hidden = !(type === 'property' || type === 'unit');
+    unitSelect.hidden = type !== 'unit';
+    contactSelect.hidden = type !== 'contact';
+
+    var propertyId = propertySelect.value;
+    var units = fmUnits.filter(function(u){ return !propertyId || u.property_id === propertyId; });
+    unitSelect.innerHTML = '<option value="">Einheit wählen …</option>' + units.map(function(u){
+      return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml(fmUnitDisplay(u))+'</option>';
+    }).join('');
+    if(units.some(function(u){ return u.id === currentUnit; })) unitSelect.value = currentUnit;
+
+    var property = fmProperties.filter(function(p){ return p.id === propertySelect.value; })[0] || null;
+    var plan = fmPlanForUploadScope(type, property);
+    var currentArchive = archiveSelect.value;
+    archiveSelect.innerHTML = plan.map(function(node){
+      return '<option value="'+node.key+'">'+VeraDashboard.escapeHtml(node.code + '_' + node.label)+'</option>';
+    }).join('');
+    if(plan.some(function(node){ return node.key === currentArchive; })) archiveSelect.value = currentArchive;
+
+    var scope = fmCurrentFolderCreateScope();
+    document.getElementById('folderScopePathPreview').innerHTML =
+      '<strong>Zielordner:</strong> ' + VeraDashboard.escapeHtml(fmScopedPathPreview(scope)) + ' / ' +
+      VeraDashboard.escapeHtml(document.getElementById('folderScopeName').value.trim() || 'Neuer Ordner');
+  }
+
+  function fmPreselectFolderScopeFromCurrent(){
+    var folder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(!folder) return;
+    if(folder.is_private_admin) document.getElementById('folderScopeType').value = 'private';
+    else if(folder.contact_profile_id) document.getElementById('folderScopeType').value = 'contact';
+    else if(folder.unit_id) document.getElementById('folderScopeType').value = 'unit';
+    else if(folder.property_id) document.getElementById('folderScopeType').value = 'property';
+    if(folder.property_id) document.getElementById('folderScopeProperty').value = folder.property_id;
+    if(folder.contact_profile_id) document.getElementById('folderScopeContact').value = folder.contact_profile_id;
+    if(folder.archive_category) document.getElementById('folderScopeArchive').value = folder.archive_category;
+  }
+
+  function fmOpenFolderCreateModal(){
+    fmPopulateFolderScopeBase();
+    document.getElementById('folderScopeForm').reset();
+    document.getElementById('folderScopeType').value = fmCurrentFolderSuggestedScopeType();
+    fmPreselectFolderScopeFromCurrent();
+    fmUpdateFolderScopeForm();
+    var folder = fmPath.length ? fmPath[fmPath.length - 1] : null;
+    if(folder && folder.unit_id) document.getElementById('folderScopeUnit').value = folder.unit_id;
+    if(folder && folder.archive_category) document.getElementById('folderScopeArchive').value = folder.archive_category;
+    fmUpdateFolderScopeForm();
+    document.getElementById('folderScopeStatus').textContent = '';
+    document.getElementById('folderScopeStatus').classList.remove('show');
+    document.getElementById('folderScopeModalBackdrop').hidden = false;
+  }
+
+  function fmCloseFolderCreateModal(){
+    document.getElementById('folderScopeModalBackdrop').hidden = true;
+    document.getElementById('folderScopeForm').reset();
+  }
+
+  async function fmSubmitCreateFolder(e){
+    e.preventDefault();
+    var statusEl = document.getElementById('folderScopeStatus');
+    var name = document.getElementById('folderScopeName').value.trim();
+    if(!name){
+      statusEl.textContent = 'Bitte einen Ordnernamen eingeben.';
+      statusEl.classList.add('show');
+      return;
+    }
+    var scope = fmCurrentFolderCreateScope();
+    var validation = fmValidateUploadScope(scope);
+    if(validation){
+      statusEl.textContent = validation;
+      statusEl.classList.add('show');
+      return;
+    }
+    statusEl.textContent = 'Zielordner wird erstellt …';
+    statusEl.classList.add('show');
+    try {
+      var parentFolder = await fmEnsureScopedFolder(scope);
+      var payload = {
+        name: name,
+        parent_id: parentFolder.id,
+        property_id: scope.property_id || null,
+        unit_id: scope.unit_id || null,
+        contact_profile_id: scope.contact_profile_id || null,
+        is_private_admin: !!scope.is_private_admin,
+        archive_category: scope.archive_category || null,
+        created_by: profile.id
+      };
+      var res = await client.from('document_folders').insert(payload).select('*').single();
+      if(res.error) throw res.error;
+      statusEl.textContent = 'Ordner erstellt.';
+      fmPath = await fmBuildPathToFolder(res.data.id);
+      fmSelected = null;
+      await fmLoadCurrentFolder();
+      setTimeout(fmCloseFolderCreateModal, 500);
+    } catch(err) {
+      statusEl.textContent = 'Ordner konnte nicht erstellt werden: ' + (err.message || err);
+    }
   }
 
   function fmCurrentFolderSuggestedScopeType(){
@@ -1050,32 +1220,6 @@
     document.getElementById('fmDetailAssignFile').onclick = function(){ fmOpenAssignModal('file', file); };
     document.getElementById('fmDetailRenameFile').onclick = function(){ fmRenameFile(file.id, file.title); };
     document.getElementById('fmDetailDeleteFile').onclick = function(){ fmDeleteFile(file.id, file.file_path, file.title); };
-  }
-
-  async function fmCreateFolder(){
-    var name = window.prompt('Ordnername:');
-    if(!name || !name.trim()) return;
-    fmSetStatus('Ordner wird erstellt …');
-    try {
-      var assignment = await fmGetFolderAssignment(fmCurrentFolderId());
-      var payload = {
-        name: name.trim(),
-        parent_id: fmCurrentFolderId(),
-        property_id: assignment.property_id || null,
-        unit_id: assignment.unit_id || null,
-        contact_profile_id: assignment.contact_profile_id || null,
-        is_private_admin: !!assignment.is_private_admin,
-        archive_category: assignment.archive_category || null,
-        created_by: profile.id
-      };
-      var res = await client.from('document_folders').insert(payload).select('*').single();
-      if(res.error) throw res.error;
-      fmSetStatus('Ordner erstellt.');
-      fmSelected = { type: 'folder', item: res.data };
-      await fmLoadCurrentFolder();
-    } catch(err) {
-      fmSetStatus('Ordner konnte nicht erstellt werden: ' + (err.message || err));
-    }
   }
 
   async function fmRenameFolder(id, currentName){

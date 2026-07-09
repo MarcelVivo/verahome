@@ -397,7 +397,8 @@
 }
 .filemgr-path-preview strong{color:var(--color-navy);}
 #uploadScopeForm input[type="file"]{width:100%;}
-#uploadScopeForm select[hidden],#uploadScopeForm input[hidden],#uploadScopeForm label[hidden]{display:none!important;}
+#uploadScopeForm select[hidden],#uploadScopeForm input[hidden],#uploadScopeForm label[hidden],
+#folderScopeForm select[hidden],#folderScopeForm input[hidden],#folderScopeForm label[hidden]{display:none!important;}
 .auth-form-label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;font-weight:800;color:var(--color-navy);margin:10px 0;}
 .auth-form-label select{
   min-height:42px;border:1px solid var(--color-blue-light);border-radius:8px;background:var(--color-bg);
@@ -1289,7 +1290,7 @@
   .filemgr-upload-modal .share-modal-actions{flex-direction:column-reverse;}
   .filemgr-upload-modal .share-modal-actions .btn,
   .filemgr-upload-modal .share-modal-actions .dash-btn-sm{width:100%;justify-content:center;}
-  #uploadScopeForm select,#uploadScopeForm input{font-size:16px;}
+  #uploadScopeForm select,#uploadScopeForm input,#folderScopeForm select,#folderScopeForm input{font-size:16px;}
   .obj-columns-wrap{overflow:visible;padding-bottom:0;}
   .obj-column{max-height:none;padding:12px;}
   .obj-row{min-height:50px;padding:11px 12px;}
