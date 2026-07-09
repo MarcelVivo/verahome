@@ -2624,6 +2624,7 @@
 
   async function saveArchiveDocument(e){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
     var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
     var node = archiveNodeByKey(property, unit, selectedDetailId);
@@ -2635,74 +2636,76 @@
     var file = fileInput.files[0];
     var recipientId = recipientSelect.value;
     if(!property || !node || !title || !file){
-      statusEl.textContent = 'Bitte Titel und Datei wählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte Titel und Datei wählen.');
       return;
     }
     if(node.tenant && !recipientId){
-      statusEl.textContent = 'Mieterakten bitte direkt einem Mieter freigeben.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Mieterakten bitte direkt einem Mieter freigeben.');
       return;
     }
 
-    statusEl.textContent = 'Dokument wird abgelegt …';
-    statusEl.classList.add('show');
+    showFormStatus(statusEl, 'Dokument wird abgelegt …');
+    setActionButtonLoading(submitBtn, true, 'Legt ab …');
+    var path = null;
+    try {
+      var fileId = crypto.randomUUID();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      var folder = await ensureObjectDocumentFolder(property, unit, node.key);
+      path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
+      var upRes = await client.storage.from('document-vault').upload(path, file);
+      if(upRes.error){ showFormStatus(statusEl, 'Fehler beim Hochladen: ' + upRes.error.message); return; }
 
-    var fileId = crypto.randomUUID();
-    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    var folder = await ensureObjectDocumentFolder(property, unit, node.key);
-    var path = 'documents/' + folder.id + '/' + fileId + '-' + safeName;
-    var upRes = await client.storage.from('document-vault').upload(path, file);
-    if(upRes.error){
-      statusEl.textContent = 'Fehler beim Hochladen: ' + upRes.error.message;
-      return;
-    }
-
-    var insertPayload = {
-      id: fileId,
-      folder_id: folder.id,
-      property_id: property.id,
-      unit_id: unit ? unit.id : null,
-      title: title,
-      file_path: path,
-      mime_type: file.type || null,
-      size_bytes: file.size,
-      created_by: profile.id
-    };
-    if(supportsArchiveCategory) insertPayload.archive_category = node.key;
-
-    var insRes = await client.from('document_files').insert(insertPayload);
-    if(insRes.error){
-      await client.storage.from('document-vault').remove([path]);
-      statusEl.textContent = 'Fehler beim Speichern: ' + insRes.error.message;
-      return;
-    }
-
-    if(recipientId){
-      var shareRes = await client.from('document_shares').upsert({
-        file_id: fileId,
-        profile_id: recipientId,
-        needs_confirmation: false,
+      var insertPayload = {
+        id: fileId,
+        folder_id: folder.id,
+        property_id: property.id,
+        unit_id: unit ? unit.id : null,
+        title: title,
+        file_path: path,
+        mime_type: file.type || null,
+        size_bytes: file.size,
         created_by: profile.id
-      }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
-      if(shareRes.error){
-        statusEl.textContent = 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
+      };
+      if(supportsArchiveCategory) insertPayload.archive_category = node.key;
+
+      var insRes = await client.from('document_files').insert(insertPayload);
+      if(insRes.error){
+        await client.storage.from('document-vault').remove([path]);
+        showFormStatus(statusEl, 'Fehler beim Speichern: ' + insRes.error.message);
         return;
       }
-      try {
-        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-      } catch(err) {}
-    }
 
-    titleInput.value = node.label;
-    fileInput.value = '';
-    statusEl.textContent = recipientId ? 'Dokument abgelegt und freigegeben.' : 'Dokument abgelegt.';
-    await loadAll();
-    renderAllColumns();
+      if(recipientId){
+        var shareRes = await client.from('document_shares').upsert({
+          file_id: fileId,
+          profile_id: recipientId,
+          needs_confirmation: false,
+          created_by: profile.id
+        }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+        if(shareRes.error){
+          showFormStatus(statusEl, 'Dokument abgelegt, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
+          return;
+        }
+        try {
+          await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+        } catch(err) {}
+      }
+
+      titleInput.value = node.label;
+      fileInput.value = '';
+      showFormStatus(statusEl, recipientId ? 'Dokument abgelegt und freigegeben.' : 'Dokument abgelegt.');
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
+    }
   }
 
   async function attachExistingArchiveDocument(e){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
     var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
     var node = archiveNodeByKey(property, unit, selectedDetailId);
@@ -2710,92 +2713,107 @@
     var fileId = document.getElementById('archiveExistingDoc').value;
     var recipientId = document.getElementById('archiveExistingRecipient').value;
     if(!property || !node || !fileId){
-      statusEl.textContent = 'Bitte ein bestehendes Dokument wählen.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte ein bestehendes Dokument wählen.');
       return;
     }
     if(node.tenant && !recipientId){
-      statusEl.textContent = 'Mieterakten bitte direkt einem Mieter freigeben.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Mieterakten bitte direkt einem Mieter freigeben.');
       return;
     }
-    statusEl.textContent = 'Dokument wird verknüpft …';
-    statusEl.classList.add('show');
-    var updatePayload = {
-      folder_id: (await ensureObjectDocumentFolder(property, unit, node.key)).id,
-      property_id: property.id,
-      unit_id: unit ? unit.id : null
-    };
-    if(supportsArchiveCategory) updatePayload.archive_category = node.key;
-    var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
-    if(updateRes.error){
-      statusEl.textContent = 'Fehler: ' + updateRes.error.message;
-      return;
-    }
-    if(recipientId){
-      var shareRes = await addDocumentShare(fileId, recipientId);
-      if(shareRes.error){
-        statusEl.textContent = 'Dokument verknüpft, aber Freigabe fehlgeschlagen: ' + shareRes.error.message;
-        return;
+    showFormStatus(statusEl, 'Dokument wird verknüpft …');
+    setActionButtonLoading(submitBtn, true, 'Verknüpft …');
+    try {
+      var updatePayload = {
+        folder_id: (await ensureObjectDocumentFolder(property, unit, node.key)).id,
+        property_id: property.id,
+        unit_id: unit ? unit.id : null
+      };
+      if(supportsArchiveCategory) updatePayload.archive_category = node.key;
+      var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
+      if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
+      if(recipientId){
+        var shareRes = await addDocumentShare(fileId, recipientId);
+        if(shareRes.error){
+          showFormStatus(statusEl, 'Dokument verknüpft, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
+          return;
+        }
+        try {
+          await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
+        } catch(err) {}
       }
-      try {
-        await client.functions.invoke('send-document-share', { body: { fileIds: [fileId], profileIds: [recipientId] } });
-      } catch(err) {}
+      showFormStatus(statusEl, recipientId ? 'Dokument verknüpft und freigegeben.' : 'Dokument verknüpft.');
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
     }
-    statusEl.textContent = recipientId ? 'Dokument verknüpft und freigegeben.' : 'Dokument verknüpft.';
-    await loadAll();
-    renderAllColumns();
   }
 
   async function saveApplianceRecord(e){
     e.preventDefault();
+    var submitBtn = e.currentTarget.querySelector('button[type="submit"]');
     var property = allProperties.filter(function(p){ return p.id === selectedPropertyId; })[0];
     var unit = selectedUnitId ? allUnits.filter(function(u){ return u.id === selectedUnitId; })[0] : null;
     var statusEl = document.getElementById('applianceStatus');
     var label = document.getElementById('applianceLabel').value.trim();
     if(!property || !label){
-      statusEl.textContent = 'Bitte Bezeichnung angeben.';
-      statusEl.classList.add('show');
+      showFormStatus(statusEl, 'Bitte Bezeichnung angeben.');
       return;
     }
-    var res = await client.from('property_appliances').insert({
-      property_id: property.id,
-      unit_id: unit ? unit.id : null,
-      category: document.getElementById('applianceCategory').value,
-      label: label,
-      manufacturer: document.getElementById('applianceManufacturer').value.trim() || null,
-      model: document.getElementById('applianceModel').value.trim() || null,
-      serial_number: document.getElementById('applianceSerial').value.trim() || null,
-      installed_at: document.getElementById('applianceInstalled').value || null,
-      maintenance_at: document.getElementById('applianceMaintenance').value || null,
-      notes: document.getElementById('applianceNotes').value.trim() || null
-    });
-    statusEl.textContent = res.error ? ('Fehler: ' + res.error.message) : 'Gerät gespeichert.';
-    statusEl.classList.add('show');
-    if(!res.error){
-      selectedDetailType = null;
-      selectedDetailId = null;
-      await loadAll();
-      renderAllColumns();
+    setActionButtonLoading(submitBtn, true, 'Speichert …');
+    try {
+      var res = await client.from('property_appliances').insert({
+        property_id: property.id,
+        unit_id: unit ? unit.id : null,
+        category: document.getElementById('applianceCategory').value,
+        label: label,
+        manufacturer: document.getElementById('applianceManufacturer').value.trim() || null,
+        model: document.getElementById('applianceModel').value.trim() || null,
+        serial_number: document.getElementById('applianceSerial').value.trim() || null,
+        installed_at: document.getElementById('applianceInstalled').value || null,
+        maintenance_at: document.getElementById('applianceMaintenance').value || null,
+        notes: document.getElementById('applianceNotes').value.trim() || null
+      });
+      showFormStatus(statusEl, res.error ? ('Fehler: ' + res.error.message) : 'Gerät gespeichert.');
+      if(!res.error){
+        selectedDetailType = null;
+        selectedDetailId = null;
+        await loadAll();
+        renderAllColumns();
+      }
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+    } finally {
+      setActionButtonLoading(submitBtn, false);
     }
   }
 
   async function deleteApplianceRecord(id){
     if(!window.confirm('Gerät archivieren? Es bleibt im Verlauf erhalten.')) return;
     if(!window.confirm('Zweite Bestätigung: Gerät jetzt wirklich archivieren?')) return;
-    var res = await client.from('property_appliances').update({
-      archived_at: new Date().toISOString(),
-      archived_by: profile.id,
-      archived_reason: 'Gerät archiviert'
-    }).eq('id', id);
-    if(res.error){
-      window.alert('Fehler beim Archivieren: ' + res.error.message);
-      return;
+    var button = document.querySelector('[data-delete-appliance="'+id+'"]');
+    setActionButtonLoading(button, true, 'Archiviert …');
+    try {
+      var res = await client.from('property_appliances').update({
+        archived_at: new Date().toISOString(),
+        archived_by: profile.id,
+        archived_reason: 'Gerät archiviert'
+      }).eq('id', id);
+      if(res.error){
+        window.alert('Fehler beim Archivieren: ' + res.error.message);
+        setActionButtonLoading(button, false);
+        return;
+      }
+      selectedDetailType = null;
+      selectedDetailId = null;
+      await loadAll();
+      renderAllColumns();
+    } catch(err) {
+      window.alert('Unerwarteter Fehler: ' + err.message);
+      setActionButtonLoading(button, false);
     }
-    selectedDetailType = null;
-    selectedDetailId = null;
-    await loadAll();
-    renderAllColumns();
   }
 
   async function saveUnitListingDetails(e, unitId){
