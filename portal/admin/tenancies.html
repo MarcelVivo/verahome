@@ -155,12 +155,14 @@
 (function(){
   "use strict";
   var client;
+  var profile;
   var STATUS_LABEL = { upcoming: 'Bevorstehend', active: 'Aktiv', ended: 'Beendet' };
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     VeraDashboard.renderSidebar('admin-tenancies', ctx.profile);
     client = VeraPortal.getClient();
+    profile = ctx.profile;
     init();
   });
 

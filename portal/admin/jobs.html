@@ -327,7 +327,7 @@
     try {
       var res = await client.from('job_assignments').update({
         archived_at: new Date().toISOString(),
-        archived_by: profile.id,
+        archived_by: adminProfileId,
         archived_reason: 'Auftrag archiviert'
       }).eq('id', editingJobId);
       if(res.error){

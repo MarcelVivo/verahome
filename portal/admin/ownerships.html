@@ -127,11 +127,13 @@
 (function(){
   "use strict";
   var client;
+  var profile;
 
   VeraPortal.requireAdmin().then(function(ctx){
     if(!ctx) return;
     VeraDashboard.renderSidebar('admin-ownerships', ctx.profile);
     client = VeraPortal.getClient();
+    profile = ctx.profile;
     init();
   });
 
