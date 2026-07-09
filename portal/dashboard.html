@@ -65,6 +65,17 @@
         </div>
 
         <div id="dashAdminPanels" style="display:none;">
+          <div class="dash-card dash-module" data-dashboard-module="data_quality">
+            <div class="dash-card-head">
+              <div>
+                <h2>Datenqualität & Pflichtaufgaben</h2>
+                <p class="dash-lead">Fehlende Zuordnungen, Dokumente und Geräte auf einen Blick.</p>
+              </div>
+              <a class="dash-btn-sm" href="/portal/admin/properties.html">Objekte öffnen</a>
+            </div>
+            <div class="dash-quality-grid" id="dataQualityGrid"></div>
+          </div>
+
           <div class="dash-card dash-module" data-dashboard-module="overdue_invoices">
             <div class="dash-card-head"><h2>Überfällige Rechnungen</h2><button type="button" class="dash-btn-sm" id="exportOverdueBtn">CSV exportieren</button></div>
             <div class="dash-table-wrap"><table class="dash-table" id="overdueInvoicesTable"></table></div>
@@ -206,10 +217,30 @@
         var openTickets = await client.from('admin_tickets').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
         var openRapporte = await client.from('hauswart_reports').select('*', { count:'exact', head:true }).in('status', ['offen','in_bearbeitung']);
 
-        var unitsRes = await client.from('units').select('id, label, properties(label)').is('archived_at', null);
+        var unitsRes = await client.from('units').select('id, label, property_id, unit_type, properties(label)').is('archived_at', null);
         var activeTenanciesRes = await client.from('tenancies').select('unit_id').eq('status','active').is('archived_at', null);
         var occupiedUnitIds = new Set((activeTenanciesRes.data||[]).map(function(t){ return t.unit_id; }));
         var vacantUnits = (unitsRes.data||[]).filter(function(u){ return !occupiedUnitIds.has(u.id); });
+
+        var propertiesRes = await client.from('properties').select('id, label').is('archived_at', null).order('label');
+        var ownershipsRes = await client.from('ownerships').select('id, property_id, unit_id').is('archived_at', null);
+        var permissionsRes = await client.from('property_permissions').select('id, property_id, permission');
+        var documentFilesRes = await client.from('document_files').select('id, property_id, unit_id, archive_category').is('archived_at', null);
+        var appliancesRes = { data: [] };
+        try {
+          appliancesRes = await client.from('property_appliances').select('id, property_id, unit_id').is('archived_at', null);
+        } catch(applianceErr) {
+          appliancesRes = { data: [] };
+        }
+        var dataQualityIssues = buildDataQualityIssues({
+          properties: propertiesRes.data || [],
+          units: unitsRes.data || [],
+          tenancies: activeTenanciesRes.data || [],
+          ownerships: ownershipsRes.data || [],
+          permissions: permissionsRes.data || [],
+          documents: documentFilesRes.data || [],
+          appliances: appliancesRes.data || []
+        });
 
         var in60 = new Date(Date.now() + 60*86400000).toISOString().slice(0,10);
         var expiringRes = await client.from('tenancies')
@@ -226,10 +257,12 @@
           { num: openMeldungen.count || 0, label: 'Offene Meldungen', href: '/portal/meldungen.html' },
           { num: openTickets.count || 0, label: 'Offene Tickets', href: '/portal/admin/tickets.html' },
           { num: openRapporte.count || 0, label: 'Offene Rapporte', href: '/portal/rapporte.html' },
+          { num: dataQualityIssues.length, label: 'Pflichtaufgaben', danger: dataQualityIssues.length > 0, href: '#dataQualityGrid' },
           { num: vacantUnits.length, label: 'Leerstehende Einheiten', href: '/portal/admin/properties.html' }
         ];
 
         document.getElementById('dashAdminPanels').style.display = 'block';
+        renderDataQualityIssues(dataQualityIssues);
         renderOverdueInvoices(overdueInvoices);
         renderExpiringTenancies(expiringTenancies);
         renderVacantUnits(vacantUnits);
@@ -264,6 +297,7 @@
   function dashboardModuleDefaults(){
     var adminModules = [
       { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Aktuelle Übersicht der wichtigsten Portal-Zahlen.' },
+      { key:'data_quality', type:'system', visible:true, title:'Datenqualität & Pflichtaufgaben', text:'Fehlende Zuordnungen, Dokumente und Geräte zentral kontrollieren.' },
       { key:'overdue_invoices', type:'system', visible:true, title:'Überfällige Rechnungen', text:'Offene Rechnungen mit überschrittenem Fälligkeitsdatum.' },
       { key:'expiring_tenancies', type:'system', visible:true, title:'Mietverträge laufen bald aus', text:'Aktive Mietverträge, die demnächst enden.' },
       { key:'vacant_units', type:'system', visible:true, title:'Leerstehende Einheiten', text:'Einheiten ohne aktive Mietverhältnisse.' },
@@ -405,6 +439,85 @@
     });
 
     refreshMfaStatus();
+  }
+
+  function hasPropertyOwner(propertyId, ownerships){
+    return ownerships.some(function(row){ return row.property_id === propertyId && !row.unit_id; });
+  }
+
+  function hasPropertyHauswart(propertyId, permissions){
+    return permissions.some(function(row){ return row.property_id === propertyId && row.permission === 'hauswart'; });
+  }
+
+  function propertyHasDocument(propertyId, documents){
+    return documents.some(function(row){ return row.property_id === propertyId && !row.unit_id; });
+  }
+
+  function propertyHasAppliance(propertyId, appliances){
+    return appliances.some(function(row){ return row.property_id === propertyId && !row.unit_id; });
+  }
+
+  function buildDataQualityIssues(data){
+    var issues = [];
+    var unitsByProperty = {};
+    data.units.forEach(function(unit){
+      if(!unitsByProperty[unit.property_id]) unitsByProperty[unit.property_id] = [];
+      unitsByProperty[unit.property_id].push(unit);
+    });
+    var occupiedUnits = new Set(data.tenancies.map(function(row){ return row.unit_id; }));
+    data.properties.forEach(function(property){
+      var query = encodeURIComponent(property.label || '');
+      if(!(unitsByProperty[property.id] || []).length){
+        issues.push({ level:'high', title:'Keine Einheiten erfasst', scope:property.label, hint:'Wohnungen, Parkplätze oder Gewerbeflächen fehlen.', href:'/portal/admin/properties.html?q='+query });
+      }
+      if(!hasPropertyOwner(property.id, data.ownerships)){
+        issues.push({ level:'medium', title:'Eigentümer fehlt', scope:property.label, hint:'Liegenschaft hat keinen Eigentümer auf Gebäude-Ebene.', href:'/portal/admin/ownerships.html?q='+query });
+      }
+      if(!hasPropertyHauswart(property.id, data.permissions)){
+        issues.push({ level:'medium', title:'Hauswart fehlt', scope:property.label, hint:'Unterhalt und Zuständigkeit sind nicht zugewiesen.', href:'/portal/admin/properties.html?q='+query });
+      }
+      if(!propertyHasDocument(property.id, data.documents)){
+        issues.push({ level:'medium', title:'Fixe Unterlagen fehlen', scope:property.label, hint:'Grundbuchauszug, Reglemente, Pläne oder SiNa prüfen.', href:'/portal/documents.html?q='+query });
+      }
+      if(!propertyHasAppliance(property.id, data.appliances)){
+        issues.push({ level:'low', title:'Technische Anlagen fehlen', scope:property.label, hint:'Lift, Heizung, Waschmaschine oder Tumbler erfassen.', href:'/portal/admin/properties.html?q='+query });
+      }
+    });
+    data.units.forEach(function(unit){
+      var unitQuery = encodeURIComponent(unit.label || '');
+      var propertyLabel = unit.properties ? unit.properties.label : '';
+      var scope = [propertyLabel, unit.label].filter(Boolean).join(' – ');
+      if(!occupiedUnits.has(unit.id) && !['garage','tiefgaragenplatz','aussenparkplatz','parkplatz'].includes(unit.unit_type)){
+        issues.push({ level:'high', title:'Kein aktiver Mieter', scope:scope, hint:'Einheit hat kein aktives Mietverhältnis.', href:'/portal/admin/tenancies.html?q='+unitQuery });
+      }
+      if(!data.documents.some(function(row){ return row.unit_id === unit.id; })){
+        issues.push({ level:'medium', title:'Einheitsdokumente fehlen', scope:scope, hint:'Vertrag, Kaution, Korrespondenz oder Merkblätter prüfen.', href:'/portal/documents.html?q='+unitQuery });
+      }
+      if(!data.appliances.some(function(row){ return row.unit_id === unit.id; }) && !['garage','tiefgaragenplatz','aussenparkplatz','parkplatz'].includes(unit.unit_type)){
+        issues.push({ level:'low', title:'Geräte fehlen', scope:scope, hint:'Kochfeld, Backofen, Kühlschrank oder Geschirrspüler erfassen.', href:'/portal/admin/properties.html?q='+unitQuery });
+      }
+    });
+    return issues.sort(function(a, b){
+      var order = { high:0, medium:1, low:2 };
+      return (order[a.level] || 9) - (order[b.level] || 9) || a.scope.localeCompare(b.scope);
+    }).slice(0, 18);
+  }
+
+  function renderDataQualityIssues(issues){
+    var grid = document.getElementById('dataQualityGrid');
+    if(!grid) return;
+    if(!issues.length){
+      grid.innerHTML = '<div class="dash-quality-empty"><strong>Alles sauber.</strong><span>Keine fehlenden Pflichtdaten gefunden.</span></div>';
+      return;
+    }
+    grid.innerHTML = issues.map(function(issue){
+      return '<a class="dash-quality-item '+issue.level+'" href="'+issue.href+'">' +
+        '<span class="dash-quality-priority">'+(issue.level === 'high' ? 'Wichtig' : issue.level === 'medium' ? 'Prüfen' : 'Optional')+'</span>' +
+        '<strong>'+VeraDashboard.escapeHtml(issue.title)+'</strong>' +
+        '<span>'+VeraDashboard.escapeHtml(issue.scope || '–')+'</span>' +
+        '<small>'+VeraDashboard.escapeHtml(issue.hint)+'</small>' +
+      '</a>';
+    }).join('');
   }
 
   function renderOverdueInvoices(rows){
