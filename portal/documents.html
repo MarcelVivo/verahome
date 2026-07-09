@@ -91,7 +91,7 @@
           </div>
           <div class="filemgr-subbar">
             <p class="doc-meta" id="filemgrLocationLabel">Alle Dokumente</p>
-            <p class="doc-meta">Doppelklick öffnet Ordner. Dateien/Ordner können per Drag & Drop verschoben werden.</p>
+            <p class="doc-meta">Ein Klick öffnet Ordner. Dateien/Ordner können per Drag & Drop verschoben werden.</p>
           </div>
           <p class="form-status" id="fmStatus"></p>
           <div class="filemgr-dropzone" id="filemgrDropzone">
@@ -1100,19 +1100,14 @@
         var id = btn.getAttribute('data-id');
         if(type === 'folder'){
           var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
-          fmSelected = { type:'folder', item: folder };
+          if(folder){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); }
+          return;
         } else {
           var file = fmFiles.filter(function(f){ return f.id === id; })[0];
           fmSelected = { type:'file', item: file };
         }
         fmRenderColumns();
         fmRenderDetail();
-      });
-      btn.addEventListener('dblclick', function(){
-        if(btn.getAttribute('data-type') !== 'folder') return;
-        var id = btn.getAttribute('data-id');
-        var folder = fmFolders.filter(function(f){ return f.id === id; })[0];
-        if(folder){ fmPath.push(folder); fmSelected = null; fmLoadCurrentFolder(); }
       });
       btn.addEventListener('dragstart', function(e){
         fmDragged = { type: btn.getAttribute('data-type'), id: btn.getAttribute('data-id') };
