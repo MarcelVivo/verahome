@@ -273,6 +273,11 @@
           await loadJobs();
           return;
         }
+        if(apptRes && apptRes.mailNotice){
+          statusEl.textContent = 'Auftrag und Termin gespeichert. ' + apptRes.mailNotice;
+          statusEl.classList.add('show');
+          window.alert(statusEl.textContent);
+        }
       }
       await loadJobs();
       closeJobModal();
@@ -304,8 +309,12 @@
     var participantRes = await client.from('appointment_participants').insert({ appointment_id: apptRes.data.id, profile_id: jobPayload.profile_id });
     if(participantRes.error) return participantRes;
     try{
-      await client.functions.invoke('send-appointment-invite', { body: { appointmentId: apptRes.data.id } });
-    }catch(e){}
+      var mailRes = await client.functions.invoke('send-appointment-invite', { body: { appointmentId: apptRes.data.id } });
+      if(mailRes.error) apptRes.mailNotice = 'Termin-Einladung konnte nicht per E-Mail versendet werden: ' + mailRes.error.message;
+      else if(mailRes.data && mailRes.data.skipped) apptRes.mailNotice = 'E-Mail-Aus/Testmodus aktiv: Termin-Einladung wurde nicht per E-Mail versendet.';
+    }catch(e){
+      apptRes.mailNotice = 'Termin-Einladung konnte nicht per E-Mail versendet werden: ' + (e.message || e);
+    }
     return apptRes;
   }
 

@@ -170,12 +170,18 @@
 		          }
 	        }
 
-	        try { await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } }); }
-	        catch(err) { /* Ticket steht, Mail-Fehler blockiert nichts */ }
+	        var mailNotice = '';
+	        try {
+	          var mailRes = await client.functions.invoke('send-ticket-notification', { body: { ticketId: ticketId } });
+	          if(mailRes.error) mailNotice = ' Benachrichtigung konnte nicht versendet werden: ' + mailRes.error.message;
+	          else if(mailRes.data && mailRes.data.skipped) mailNotice = ' E-Mail-Aus/Testmodus aktiv: Es wurde keine Benachrichtigung versendet.';
+	        } catch(err) {
+	          mailNotice = ' Benachrichtigung konnte nicht versendet werden: ' + (err.message || err);
+	        }
 
 	        statusEl.textContent = photoErrors.length
-	          ? 'Ticket wurde übermittelt. Einige Fotos konnten nicht gespeichert werden: ' + photoErrors.join(', ')
-	          : 'Ticket wurde übermittelt.';
+	          ? 'Ticket wurde übermittelt. Einige Fotos konnten nicht gespeichert werden: ' + photoErrors.join(', ') + mailNotice
+	          : 'Ticket wurde übermittelt.' + mailNotice;
 	        document.getElementById('newTicketForm').reset();
 	        loadTickets();
 		      } catch(err) {
