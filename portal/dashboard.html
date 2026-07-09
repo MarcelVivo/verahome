@@ -226,6 +226,21 @@
         var ownershipsRes = await client.from('ownerships').select('id, property_id, unit_id').is('archived_at', null);
         var permissionsRes = await client.from('property_permissions').select('id, property_id, permission');
         var documentFilesRes = await client.from('document_files').select('id, property_id, unit_id, archive_category').is('archived_at', null);
+        var documentSharesRes = await client.from('document_shares').select('file_id');
+        var contactsRes = { data: [] };
+        try {
+          contactsRes = await client.from('profiles')
+            .select('id, first_name, last_name, email, status, portal_registered_at')
+            .neq('category','admin').is('archived_at', null);
+        } catch(contactErr) {
+          try {
+            contactsRes = await client.from('profiles')
+              .select('id, first_name, last_name, email, status')
+              .neq('category','admin').is('archived_at', null);
+          } catch(fallbackContactErr) {
+            contactsRes = { data: [] };
+          }
+        }
         var appliancesRes = { data: [] };
         try {
           appliancesRes = await client.from('property_appliances').select('id, property_id, unit_id').is('archived_at', null);
@@ -239,7 +254,9 @@
           ownerships: ownershipsRes.data || [],
           permissions: permissionsRes.data || [],
           documents: documentFilesRes.data || [],
-          appliances: appliancesRes.data || []
+          documentShares: documentSharesRes.data || [],
+          appliances: appliancesRes.data || [],
+          contacts: contactsRes.data || []
         });
 
         var in60 = new Date(Date.now() + 60*86400000).toISOString().slice(0,10);
@@ -459,6 +476,7 @@
 
   function buildDataQualityIssues(data){
     var issues = [];
+    var sharedFileIds = new Set((data.documentShares || []).map(function(row){ return row.file_id; }));
     var unitsByProperty = {};
     data.units.forEach(function(unit){
       if(!unitsByProperty[unit.property_id]) unitsByProperty[unit.property_id] = [];
@@ -481,6 +499,40 @@
       }
       if(!propertyHasAppliance(property.id, data.appliances)){
         issues.push({ level:'low', title:'Technische Anlagen fehlen', scope:property.label, hint:'Lift, Heizung, Waschmaschine oder Tumbler erfassen.', href:'/portal/admin/properties.html?q='+query });
+      }
+    });
+    (data.contacts || []).forEach(function(contact){
+      var hasRegistrationColumn = Object.prototype.hasOwnProperty.call(contact, 'portal_registered_at');
+      var registered = hasRegistrationColumn ? !!contact.portal_registered_at : contact.status === 'active';
+      if(!registered){
+        var name = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.email || 'Kontakt';
+        issues.push({
+          level:'high',
+          title:'Registrierung ausstehend',
+          scope:name,
+          hint:'Einladungslink erneut senden oder Status prüfen.',
+          href:'/portal/admin/users.html?q='+encodeURIComponent(contact.email || name)
+        });
+      }
+    });
+    (data.documents || []).forEach(function(doc){
+      if(!doc.property_id && !doc.unit_id && doc.archive_category !== 'admin'){
+        issues.push({
+          level:'medium',
+          title:'Dokument nicht zugeordnet',
+          scope:doc.archive_category || 'Ohne Objekt/Einheit',
+          hint:'Dokument einer Liegenschaft, Einheit, Kontakt oder Admin-Ablage zuordnen.',
+          href:'/portal/documents.html'
+        });
+      }
+      if(doc.archive_category === 'unit_mieter' && !sharedFileIds.has(doc.id)){
+        issues.push({
+          level:'high',
+          title:'Mieterakte ohne Freigabe',
+          scope:'Dokument ' + doc.id.slice(0, 8),
+          hint:'Mieterdokument direkt dem berechtigten Kontakt freigeben.',
+          href:'/portal/documents.html'
+        });
       }
     });
     data.units.forEach(function(unit){
