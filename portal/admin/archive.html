@@ -186,6 +186,15 @@
       order: "label",
       label: function(r){ return r.label || r.category || "Gerät"; },
       meta: function(r){ return [r.manufacturer, r.model, r.category].filter(Boolean).join(" · "); }
+    },
+    {
+      key: "appointments",
+      table: "appointments",
+      title: "Interne Termine",
+      select: "id, title, starts_at, ends_at, archived_at, archived_reason",
+      order: "starts_at",
+      label: function(r){ return r.title || "Termin"; },
+      meta: function(r){ return [VeraDashboard.formatDateTime(r.starts_at), VeraDashboard.formatDateTime(r.ends_at)].filter(Boolean).join(" – "); }
     }
   ];
 

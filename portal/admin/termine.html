@@ -521,9 +521,10 @@
       .or('name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern);
     var apptsByTextRes = await client.from('appointments')
       .select('id, title, note, starts_at')
+      .is('archived_at', null)
       .or('title.ilike.' + pattern + ',note.ilike.' + pattern);
     var apptsByParticipantRes = await client.from('appointment_participants')
-      .select('appointment_id, profile_id, profiles!inner(first_name, last_name, company_name, category), appointments!inner(id, title, note, starts_at)')
+      .select('appointment_id, profile_id, profiles!inner(first_name, last_name, company_name, category), appointments!inner(id, title, note, starts_at, archived_at)')
       .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',company_name.ilike.' + pattern, { foreignTable: 'profiles' });
 
     var results = [];
@@ -537,7 +538,7 @@
     });
     (apptsByParticipantRes.data || []).forEach(function(row){
       var a = row.appointments;
-      if(!a || seenApptIds[a.id]) return;
+      if(!a || a.archived_at || seenApptIds[a.id]) return;
       seenApptIds[a.id] = true;
       var p = calProfileById(row.profile_id) || row.profiles;
       results.push({ type: 'appointment', id: a.id, starts_at: a.starts_at, title: a.title, meta: p ? calProfileDisplayName(p) : '' });
@@ -632,6 +633,7 @@
         .lt('starts_at', rangeEnd.toISOString())
         .order('starts_at'),
       client.from('appointments').select('*, properties(label, city), appointment_participants(profile_id, status, profiles(first_name, last_name, company_name, category))')
+        .is('archived_at', null)
         .gte('starts_at', rangeStart.toISOString())
         .lt('starts_at', rangeEnd.toISOString())
         .order('starts_at')
@@ -716,7 +718,7 @@
       '<div class="cal-event-detail-actions">' +
         (b.status === 'angefragt' ? '<button type="button" class="cal-confirm-btn" data-confirm-id="' + b.id + '">Bestätigen</button>' : '') +
         '<button type="button" class="cal-reschedule-btn" data-reschedule-id="' + b.id + '">Verschieben</button>' +
-        '<button type="button" class="cal-delete-btn" data-delete-id="' + b.id + '">Löschen</button>' +
+        '<button type="button" class="cal-delete-btn" data-delete-id="' + b.id + '">Stornieren</button>' +
         '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml('Termin: ' + b.name) + '" data-ics-start="' + b.starts_at + '" data-ics-end="' + b.ends_at + '" data-ics-location="' + VeraDashboard.escapeHtml(propertyLabel) + '">In Kalender speichern</button>' +
       '</div>';
   }
@@ -757,7 +759,7 @@
       (a.note ? '<p><strong>Notiz:</strong> ' + VeraDashboard.escapeHtml(a.note) + '</p>' : '') +
       '<div class="cal-event-detail-actions">' +
         '<button type="button" class="cal-edit-appt-btn" data-edit-appt-id="' + a.id + '">Bearbeiten</button>' +
-        '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + a.id + '">Löschen</button>' +
+        '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + a.id + '">Archivieren</button>' +
         '<button type="button" class="cal-ics-btn" data-ics-title="' + VeraDashboard.escapeHtml(a.title) + '" data-ics-start="' + a.starts_at + '" data-ics-end="' + a.ends_at + '" data-ics-location="' + (propertyLabel || '') + '" data-ics-desc="' + VeraDashboard.escapeHtml(a.note || '') + '">In Kalender speichern</button>' +
       '</div>';
   }
@@ -857,7 +859,7 @@
         (isEdit ? '<input type="hidden" id="na_appointment_id" value="' + appointment.id + '">' : '') +
         '<div class="cal-new-appt-actions">' +
           '<button type="submit" class="cal-save-appt-btn">' + (isEdit ? 'Änderungen speichern' : 'Termin speichern') + '</button>' +
-          (isEdit ? '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + appointment.id + '">Löschen</button>' : '') +
+          (isEdit ? '<button type="button" class="cal-delete-appt-btn" data-delete-appt-id="' + appointment.id + '">Archivieren</button>' : '') +
           (isEdit ? '<button type="button" class="cal-cancel-appt-edit-btn">Abbrechen</button>' : '<button type="button" class="cal-cancel-appt-btn">Abbrechen</button>') +
         '</div>' +
         '<p class="cal-new-appt-status" id="naStatus"></p>' +
@@ -1099,21 +1101,28 @@
       loadBookings();
     } else if(deleteBtn){
       var did = deleteBtn.getAttribute('data-delete-id');
-      if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Anders als bei "Verschieben" wird niemand per E-Mail benachrichtigt.')) return;
-      if(!window.confirm('Letzte Bestätigung: Termin jetzt endgültig löschen?')) return;
+      if(!window.confirm('Diese öffentliche Terminbuchung stornieren? Der Termin wird dadurch wieder frei.')) return;
       deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Wird gelöscht …';
-      await client.from('bookings').delete().eq('id', did);
+      deleteBtn.textContent = 'Wird storniert …';
+      await client.from('bookings').update({ status: 'storniert' }).eq('id', did);
       calHidePopover();
       loadCalWeek();
       loadBookings();
     } else if(deleteApptBtn){
       var daid = deleteApptBtn.getAttribute('data-delete-appt-id');
-      if(!window.confirm('Diesen Termin wirklich unwiderruflich löschen? Teilnehmer werden NICHT per E-Mail benachrichtigt.')) return;
-      if(!window.confirm('Letzte Bestätigung: Termin jetzt endgültig löschen?')) return;
+      if(!window.confirm('Diesen internen Termin archivieren? Teilnehmer werden NICHT per E-Mail benachrichtigt.')) return;
       deleteApptBtn.disabled = true;
-      deleteApptBtn.textContent = 'Wird gelöscht …';
-      await client.from('appointments').delete().eq('id', daid);
+      deleteApptBtn.textContent = 'Wird archiviert …';
+      var archiveRes = await client.rpc('archive_appointment', {
+        p_appointment_id: daid,
+        p_reason: 'Termin archiviert'
+      });
+      if(archiveRes.error){
+        window.alert('Termin konnte nicht archiviert werden: ' + archiveRes.error.message);
+        deleteApptBtn.disabled = false;
+        deleteApptBtn.textContent = 'Archivieren';
+        return;
+      }
       calHidePopover();
       loadCalWeek();
     } else if(editApptBtn){

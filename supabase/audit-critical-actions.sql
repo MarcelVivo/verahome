@@ -116,3 +116,8 @@ drop trigger if exists trg_audit_invoices on public.invoices;
 create trigger trg_audit_invoices
   after insert or update or delete on public.invoices
   for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_appointments on public.appointments;
+create trigger trg_audit_appointments
+  after insert or update or delete on public.appointments
+  for each row execute function public.audit_table_change();

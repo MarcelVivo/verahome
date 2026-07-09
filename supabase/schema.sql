@@ -3494,6 +3494,9 @@ create table public.appointments (
   created_at         timestamptz not null default now(),
   check (ends_at > starts_at)
 );
+alter table public.appointments add column if not exists archived_at timestamptz;
+alter table public.appointments add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.appointments add column if not exists archived_reason text;
 alter table public.appointments enable row level security;
 alter table public.appointments force row level security;
 
@@ -3569,7 +3572,10 @@ begin
         )
         and not exists (
           select 1 from public.appointments a
-          where a.admin_participates and a.starts_at < slot_end and a.ends_at > slot_start
+          where a.admin_participates
+            and a.archived_at is null
+            and a.starts_at < slot_end
+            and a.ends_at > slot_start
         )
       then
         return next slot_start;
@@ -3638,7 +3644,10 @@ begin
 
   if exists (
     select 1 from public.appointments a
-    where a.admin_participates and a.starts_at < slot_end and a.ends_at > p_starts_at
+    where a.admin_participates
+      and a.archived_at is null
+      and a.starts_at < slot_end
+      and a.ends_at > p_starts_at
   ) then
     raise exception 'Dieser Zeitpunkt ist bereits belegt.';
   end if;
@@ -5097,6 +5106,11 @@ drop trigger if exists trg_audit_invoices on public.invoices;
 create trigger trg_audit_invoices
   after insert or update or delete on public.invoices
   for each row execute function public.audit_table_change();
+
+drop trigger if exists trg_audit_appointments on public.appointments;
+create trigger trg_audit_appointments
+  after insert or update or delete on public.appointments
+  for each row execute function public.audit_table_change();
 -- =====================================================================
 -- Vera Portal Soft-Delete — wichtige Geschäftsdaten werden archiviert
 -- statt endgültig gelöscht. Wiederholbar ausführbar.
@@ -5142,6 +5156,10 @@ alter table public.property_appliances add column if not exists archived_at time
 alter table public.property_appliances add column if not exists archived_by uuid references public.profiles(id) on delete set null;
 alter table public.property_appliances add column if not exists archived_reason text;
 
+alter table public.appointments add column if not exists archived_at timestamptz;
+alter table public.appointments add column if not exists archived_by uuid references public.profiles(id) on delete set null;
+alter table public.appointments add column if not exists archived_reason text;
+
 create or replace function public.protect_profile_columns()
 returns trigger
 language plpgsql
@@ -5175,6 +5193,7 @@ create index if not exists document_folders_archived_at_idx on public.document_f
 create index if not exists document_files_archived_at_idx on public.document_files(archived_at);
 create index if not exists invoices_archived_at_idx on public.invoices(archived_at);
 create index if not exists property_appliances_archived_at_idx on public.property_appliances(archived_at);
+create index if not exists appointments_archived_at_idx on public.appointments(archived_at);
 
 create or replace function public.archive_document_folder(p_folder_id uuid, p_reason text default null)
 returns void
@@ -5231,6 +5250,26 @@ begin
       archived_by = auth.uid(),
       archived_reason = coalesce(p_reason, 'Dokument archiviert')
   where id = p_file_id
+    and archived_at is null;
+end;
+$$;
+
+create or replace function public.archive_appointment(p_appointment_id uuid, p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Nicht erlaubt.';
+  end if;
+
+  update public.appointments
+  set archived_at = now(),
+      archived_by = auth.uid(),
+      archived_reason = coalesce(p_reason, 'Termin archiviert')
+  where id = p_appointment_id
     and archived_at is null;
 end;
 $$;
