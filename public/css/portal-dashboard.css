@@ -884,6 +884,32 @@
 .audit-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
 .audit-table td strong{display:block;color:var(--color-navy);}
 .audit-table td small{display:block;color:var(--color-gray-text);font-size:.72rem;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.audit-detail-modal{max-width:820px;}
+.audit-detail-summary{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 16px;
+}
+.audit-detail-summary div{
+  padding:10px 12px;border:1px solid var(--color-blue-light);border-radius:10px;background:var(--color-bg);
+}
+.audit-detail-summary span{
+  display:block;margin-bottom:3px;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--color-gray-text);
+}
+.audit-detail-summary strong{display:block;color:var(--color-navy);font-size:.86rem;word-break:break-word;}
+.audit-detail-changes{
+  margin-bottom:14px;padding:12px;border:1px solid var(--color-blue-light);border-radius:10px;background:#fff;
+}
+.audit-detail-changes .doc-meta{margin-top:4px;word-break:break-word;}
+.audit-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.audit-detail-block{
+  min-width:0;border:1px solid var(--color-blue-light);border-radius:10px;background:var(--color-bg);overflow:hidden;
+}
+.audit-detail-block > strong{
+  display:block;padding:10px 12px;border-bottom:1px solid var(--color-blue-light);color:var(--color-navy);font-size:.82rem;
+}
+.audit-detail-block pre{
+  margin:0;max-height:320px;overflow:auto;padding:12px;font-size:.76rem;line-height:1.45;color:var(--color-gray-text);
+  white-space:pre-wrap;word-break:break-word;
+}
 
 @media (max-width:900px){
   .archive-control-card,.audit-control-card{padding:22px 18px;}
@@ -895,6 +921,7 @@
   .archive-section{padding:22px 18px;}
   .archive-section-head h2{font-size:1rem;}
   .audit-summary{gap:8px;}
+  .audit-detail-grid{grid-template-columns:1fr;}
 }
 
 @media (max-width:640px){
@@ -930,6 +957,8 @@
     color:var(--color-gray-text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;
   }
   .audit-table td small{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+  .audit-detail-summary{grid-template-columns:1fr;}
+  .audit-detail-block pre{max-height:260px;font-size:.72rem;}
 }
 
 /* Termine — Wochenübersicht (Admin) */

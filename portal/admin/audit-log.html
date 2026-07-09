@@ -79,6 +79,14 @@
   </div>
 </main>
 
+<div class="share-modal-backdrop" id="auditDetailBackdrop" hidden>
+  <div class="share-modal audit-detail-modal" role="dialog" aria-modal="true" aria-labelledby="auditDetailTitle">
+    <button type="button" class="obj-modal-close" id="auditDetailClose" aria-label="Schliessen">×</button>
+    <h3 id="auditDetailTitle">Protokoll-Details</h3>
+    <div class="modal-scroll-body" id="auditDetailBody"></div>
+  </div>
+</div>
+
 <footer>
   <div class="container">
     <div class="footer-grid">
@@ -149,6 +157,10 @@
     document.getElementById("auditSearch").addEventListener("input", renderAudit);
     document.getElementById("auditAreaFilter").addEventListener("change", renderAudit);
     document.getElementById("auditActionFilter").addEventListener("change", renderAudit);
+    document.getElementById("auditDetailClose").addEventListener("click", closeAuditDetail);
+    document.getElementById("auditDetailBackdrop").addEventListener("click", function(evt){
+      if(evt.target.id === "auditDetailBackdrop") closeAuditDetail();
+    });
     loadAudit();
   });
 
@@ -232,6 +244,18 @@
     return record.title || record.label || record.name || record.invoice_number || record.email || row.entity_id || "–";
   }
 
+  function prettyJson(value){
+    return JSON.stringify(value || {}, null, 2);
+  }
+
+  function recordHtml(title, value){
+    var json = prettyJson(value);
+    return '<div class="audit-detail-block">' +
+      '<strong>'+VeraDashboard.escapeHtml(title)+'</strong>' +
+      '<pre>'+VeraDashboard.escapeHtml(json)+'</pre>' +
+    '</div>';
+  }
+
   function renderAreaOptions(){
     var areas = {};
     auditRows.forEach(function(row){ areas[row.entity_table || ""] = true; });
@@ -275,7 +299,7 @@
       return;
     }
     table.innerHTML =
-      '<tr><th>Zeit</th><th>Bereich</th><th>Aktion</th><th>Eintrag</th><th>Geändert von</th><th>Felder</th></tr>' +
+      '<tr><th>Zeit</th><th>Bereich</th><th>Aktion</th><th>Eintrag</th><th>Geändert von</th><th>Felder</th><th></th></tr>' +
       rows.map(function(row){
         return '<tr>' +
           '<td data-label="Zeit">'+VeraDashboard.escapeHtml(VeraDashboard.formatDateTime(row.created_at))+'</td>' +
@@ -284,8 +308,43 @@
           '<td data-label="Eintrag"><strong>'+VeraDashboard.escapeHtml(entityTitle(row))+'</strong><small>'+VeraDashboard.escapeHtml(row.entity_id || "")+'</small></td>' +
           '<td data-label="Geändert von">'+VeraDashboard.escapeHtml(actorLabel(row))+'</td>' +
           '<td data-label="Felder">'+VeraDashboard.escapeHtml(changedColumns(row))+'</td>' +
+          '<td data-label="Details"><button type="button" class="dash-btn-sm audit-detail-btn" data-audit-id="'+VeraDashboard.escapeHtml(row.id)+'">Details</button></td>' +
         '</tr>';
       }).join("");
+    table.querySelectorAll(".audit-detail-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openAuditDetail(btn.getAttribute("data-audit-id"));
+      });
+    });
+  }
+
+  function openAuditDetail(id){
+    var row = auditRows.filter(function(item){ return item.id === id; })[0];
+    if(!row) return;
+    var metadata = row.metadata || {};
+    document.getElementById("auditDetailBody").innerHTML =
+      '<div class="audit-detail-summary">' +
+        '<div><span>Zeit</span><strong>'+VeraDashboard.escapeHtml(VeraDashboard.formatDateTime(row.created_at))+'</strong></div>' +
+        '<div><span>Bereich</span><strong>'+VeraDashboard.escapeHtml(tableLabel(row.entity_table))+'</strong></div>' +
+        '<div><span>Aktion</span><strong>'+VeraDashboard.escapeHtml(actionLabel(row))+'</strong></div>' +
+        '<div><span>Admin/System</span><strong>'+VeraDashboard.escapeHtml(actorLabel(row))+'</strong></div>' +
+        '<div><span>Eintrag</span><strong>'+VeraDashboard.escapeHtml(entityTitle(row))+'</strong></div>' +
+        '<div><span>ID</span><strong>'+VeraDashboard.escapeHtml(row.entity_id || row.id || "–")+'</strong></div>' +
+      '</div>' +
+      '<div class="audit-detail-changes">' +
+        '<span class="obj-modal-section-label">Geänderte Felder</span>' +
+        '<p class="doc-meta">'+VeraDashboard.escapeHtml(changedColumns(row))+'</p>' +
+      '</div>' +
+      '<div class="audit-detail-grid">' +
+        recordHtml("Vorher", metadata.old_record) +
+        recordHtml("Nachher", metadata.new_record) +
+      '</div>' +
+      recordHtml("Metadaten", metadata);
+    document.getElementById("auditDetailBackdrop").hidden = false;
+  }
+
+  function closeAuditDetail(){
+    document.getElementById("auditDetailBackdrop").hidden = true;
   }
 })();
 </script>
