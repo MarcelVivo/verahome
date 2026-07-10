@@ -1668,6 +1668,9 @@
     try {
       var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } });
       if(mailRes.error) return { failed:true, skipped:false, message: mailRes.error.message };
+      if(mailRes.data && Array.isArray(mailRes.data.failed) && mailRes.data.failed.length) {
+        return { failed:true, skipped:false, message: 'Nicht alle Empfänger konnten per E-Mail benachrichtigt werden.' };
+      }
       if(mailRes.data && mailRes.data.skipped) return { failed:false, skipped:true, message:'' };
     } catch(err) {
       return { failed:true, skipped:false, message: err.message || String(err) };

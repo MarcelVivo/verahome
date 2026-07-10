@@ -960,6 +960,10 @@
         showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + ', aber E-Mail konnte nicht versendet werden: ' + mailRes.error.message);
         return;
       }
+      if(mailRes.data && Array.isArray(mailRes.data.failed) && mailRes.data.failed.length){
+        showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + ', aber nicht alle E-Mail-Benachrichtigungen konnten versendet werden.');
+        return;
+      }
       if(mailRes.data && mailRes.data.skipped){
         showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + '. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.');
         return;

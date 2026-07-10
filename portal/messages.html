@@ -480,6 +480,7 @@
       try {
         var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: [recipientId] } });
         if(mailRes.error) mailNotice = ' Freigabe steht, aber E-Mail konnte nicht versendet werden: ' + mailRes.error.message;
+        else if(mailRes.data && Array.isArray(mailRes.data.failed) && mailRes.data.failed.length) mailNotice = ' Freigabe steht, aber die E-Mail-Benachrichtigung konnte nicht an alle Empfänger versendet werden.';
         else if(mailRes.data && mailRes.data.skipped) mailNotice = ' E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.';
       } catch(err) {
         mailNotice = ' Freigabe steht, aber E-Mail konnte nicht versendet werden: ' + (err.message || err);

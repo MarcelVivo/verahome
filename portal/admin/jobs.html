@@ -311,6 +311,7 @@
     try{
       var mailRes = await client.functions.invoke('send-appointment-invite', { body: { appointmentId: apptRes.data.id } });
       if(mailRes.error) apptRes.mailNotice = 'Termin-Einladung konnte nicht per E-Mail versendet werden: ' + mailRes.error.message;
+      else if(mailRes.data && Array.isArray(mailRes.data.failed) && mailRes.data.failed.length) apptRes.mailNotice = 'Termin-Einladung wurde erstellt, aber nicht alle E-Mails konnten versendet werden.';
       else if(mailRes.data && mailRes.data.skipped) apptRes.mailNotice = 'E-Mail-Aus/Testmodus aktiv: Termin-Einladung wurde nicht per E-Mail versendet.';
     }catch(e){
       apptRes.mailNotice = 'Termin-Einladung konnte nicht per E-Mail versendet werden: ' + (e.message || e);

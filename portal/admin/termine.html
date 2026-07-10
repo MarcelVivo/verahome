@@ -191,6 +191,12 @@
         else window.alert(failedMsg);
         return { ok:false, skipped:false };
       }
+      if(res && res.data && Array.isArray(res.data.failed) && res.data.failed.length){
+        var partialMsg = label + ' wurde gespeichert, aber nicht alle E-Mails konnten versendet werden.';
+        if(statusEl) showFormStatus(statusEl, partialMsg);
+        else window.alert(partialMsg);
+        return { ok:false, skipped:false };
+      }
       if(res && res.data && res.data.skipped){
         var skippedMsg = label + ' wurde nicht per E-Mail versendet, weil E-Mail-Aus/Testmodus aktiv ist.';
         if(statusEl) showFormStatus(statusEl, skippedMsg);
