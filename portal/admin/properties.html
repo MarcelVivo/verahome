@@ -644,6 +644,8 @@
       var nextAction = e.target.closest('[data-next-action]');
       var openTreeDoc = e.target.closest('[data-open-tree-doc]');
       var deleteAppliance = e.target.closest('[data-delete-appliance]');
+      var sendForSignature = e.target.closest('[data-send-for-signature]');
+      var refreshSignature = e.target.closest('[data-refresh-signature]');
       if(selectProp){
         selectedPropertyId = selectProp.getAttribute('data-select-property');
         selectedUnitId = null;
@@ -671,6 +673,8 @@
       else if(nextAction) handleNextAction(nextAction.getAttribute('data-next-action'));
       else if(openTreeDoc) openDocumentVaultFile(openTreeDoc.getAttribute('data-open-tree-doc'));
       else if(deleteAppliance) deleteApplianceRecord(deleteAppliance.getAttribute('data-delete-appliance'));
+      else if(sendForSignature) sendDocumentForSignature(sendForSignature.getAttribute('data-send-for-signature'));
+      else if(refreshSignature) refreshDocumentSignatureStatus(refreshSignature.getAttribute('data-refresh-signature'), selectedDetailId);
       else if(openProp) openPropertyModal(openProp.getAttribute('data-open-property'));
       else if(openUnit) openUnitModal(openUnit.getAttribute('data-open-unit'));
       else if(quickUnitType) openCreateModal(quickUnitType.getAttribute('data-quick-unit-type'), quickUnitType.getAttribute('data-property-id'));
@@ -1141,6 +1145,7 @@
     var columnsEl = document.getElementById('objColumns');
     columnsEl.innerHTML = hierarchyHtml();
     wireHierarchyControls();
+    if(selectedDetailType === 'document' && selectedDetailId) loadDocumentSignatureSection(selectedDetailId);
   }
 
   function hierarchyHtml(){
@@ -1624,7 +1629,146 @@
         '<button type="button" class="btn btn-primary" data-open-tree-doc="'+doc.file_path+'">Öffnen</button>' +
         '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(doc.id)+'">Im Dokumentenmanager bearbeiten</a>' +
       '</div>' +
+      '<div id="docSignatureSection" class="obj-signature-section" style="margin-top:16px;">Lädt Unterschrift-Status …</div>' +
     '</div>';
+  }
+
+  /* Schweizer E-Signatur (DeepSign). "Zur Unterschrift senden" bietet nur
+     eine Auswahl bereits im System bekannter Personen (aktiver Mieter/
+     Eigentümer der zugehörigen Einheit/Liegenschaft, ggf. der direkt am
+     Dokument hinterlegte Kontakt) plus ein Freitext-E-Mail-Feld für alle
+     anderen Fälle (z.B. die unterschreibende Admin-Person selbst, die als
+     Admin-Kategorie nicht im normalen Personen-Picker auftaucht). Nur
+     PDF-Dokumente unterstützt -- gleiche Einschränkung wie DeepSigns
+     eigene Upload-Endpoint-Doku. */
+  function suggestedSigneesForDocument(doc){
+    var candidates = [];
+    if(doc.contact_profile_id) candidates.push(doc.contact_profile_id);
+    if(doc.unit_id){
+      allTenancies.filter(function(t){ return t.unit_id === doc.unit_id; }).forEach(function(t){ candidates.push(t.tenant_profile_id); });
+      allOwnerships.filter(function(o){ return o.unit_id === doc.unit_id; }).forEach(function(o){ candidates.push(o.owner_profile_id); });
+    }
+    if(doc.property_id){
+      allOwnerships.filter(function(o){ return o.property_id === doc.property_id && !o.unit_id; }).forEach(function(o){ candidates.push(o.owner_profile_id); });
+    }
+    var seen = {};
+    return candidates.filter(function(id){
+      if(!id || seen[id]) return false;
+      seen[id] = true;
+      return true;
+    }).map(function(id){
+      return allProfilesForPicker.filter(function(p){ return p.id === id; })[0];
+    }).filter(Boolean);
+  }
+
+  function documentSignaturePickerHtml(doc){
+    if(doc.mime_type && doc.mime_type !== 'application/pdf'){
+      return '<p class="doc-meta">Nur PDF-Dokumente können zur Unterschrift gesendet werden.</p>';
+    }
+    var suggested = suggestedSigneesForDocument(doc);
+    var checkboxesHtml = suggested.length
+      ? suggested.map(function(p){
+          return '<label class="checkbox-row"><input type="checkbox" class="sig-signee-checkbox" value="'+p.id+'" data-email="'+VeraDashboard.escapeHtml(p.email||'')+'" checked> <span>'+VeraDashboard.escapeHtml(p.last_name+' '+p.first_name)+' ('+VeraDashboard.escapeHtml(p.email||'keine E-Mail hinterlegt')+')</span></label>';
+        }).join('')
+      : '<p class="doc-meta">Keine verknüpfte Person gefunden — bitte E-Mail-Adresse(n) unten eintragen.</p>';
+    return '<div class="obj-signature-picker">' +
+      '<h3 style="margin-top:0;">Zur Unterschrift senden (DeepSign)</h3>' +
+      checkboxesHtml +
+      '<input type="text" class="sig-extra-email" placeholder="Weitere E-Mail-Adresse (z.B. eigene Unterschrift), mit Komma trennen" style="margin-top:8px;">' +
+      '<select class="sig-mode-select" style="margin-top:8px;">' +
+        '<option value="advanced" selected>Fortgeschrittene Signatur (FES) — für die meisten Dokumente ausreichend</option>' +
+        '<option value="qualified">Qualifizierte Signatur (QES) — rechtlich der Unterschrift gleichgestellt</option>' +
+      '</select>' +
+      '<button type="button" class="dash-btn-sm" data-send-for-signature="'+doc.id+'" style="margin-top:8px;">Zur Unterschrift senden</button>' +
+      '<p class="form-status" id="sigSendStatus-'+doc.id+'"></p>' +
+    '</div>';
+  }
+
+  var SIGNATURE_STATUS_LABEL = { draft: 'Wird vorbereitet', in_progress: 'Unterschrift ausstehend', signed: 'Unterschrieben', rejected: 'Abgelehnt', withdrawn: 'Zurückgezogen', error: 'Fehler' };
+
+  function documentSignatureStatusHtml(request){
+    var signeesHtml = (request.document_signature_signees || []).map(function(s){
+      return '<li>'+VeraDashboard.escapeHtml(s.email)+' — '+(s.status === 'signed' ? 'unterschrieben' : s.status === 'rejected' ? 'abgelehnt' : 'ausstehend')+'</li>';
+    }).join('');
+    return '<div class="obj-signature-status">' +
+      '<h3 style="margin-top:0;">Unterschrift-Status</h3>' +
+      '<p class="doc-meta">'+(SIGNATURE_STATUS_LABEL[request.status] || request.status)+(request.error_message ? ' — ' + VeraDashboard.escapeHtml(request.error_message) : '')+'</p>' +
+      (signeesHtml ? '<ul class="doc-meta">'+signeesHtml+'</ul>' : '') +
+      (request.status === 'in_progress' || request.status === 'draft'
+        ? '<button type="button" class="dash-btn-sm" data-refresh-signature="'+request.id+'">Status aktualisieren</button>'
+        : '') +
+      '<p class="form-status" id="sigRefreshStatus-'+request.id+'"></p>' +
+    '</div>';
+  }
+
+  async function loadDocumentSignatureSection(fileId){
+    var holder = document.getElementById('docSignatureSection');
+    if(!holder) return;
+    var doc = allDocumentFiles.filter(function(d){ return d.id === fileId; })[0];
+    if(!doc) return;
+    try {
+      var reqRes = await client.from('document_signature_requests')
+        .select('*, document_signature_signees(*)')
+        .eq('file_id', fileId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if(reqRes.error){ holder.innerHTML = '<p class="doc-meta">Unterschrift-Status konnte nicht geladen werden.</p>'; return; }
+      var request = (reqRes.data || [])[0];
+      holder.innerHTML = request ? documentSignatureStatusHtml(request) : documentSignaturePickerHtml(doc);
+    } catch(err) {
+      holder.innerHTML = '<p class="doc-meta">Unterschrift-Status konnte nicht geladen werden.</p>';
+    }
+  }
+
+  async function sendDocumentForSignature(fileId){
+    var picker = document.querySelector('.obj-signature-picker');
+    if(!picker) return;
+    var button = picker.querySelector('[data-send-for-signature]');
+    var statusEl = document.getElementById('sigSendStatus-'+fileId);
+    var signees = Array.prototype.slice.call(picker.querySelectorAll('.sig-signee-checkbox:checked')).map(function(c){
+      return { profile_id: c.value, email: c.getAttribute('data-email') };
+    }).filter(function(s){ return s.email; });
+    var extra = (picker.querySelector('.sig-extra-email').value || '').split(',').map(function(e){ return e.trim(); }).filter(Boolean);
+    extra.forEach(function(email){ signees.push({ profile_id: null, email: email }); });
+    if(!signees.length){
+      showFormStatus(statusEl, 'Bitte mindestens eine E-Mail-Adresse auswählen oder eintragen.');
+      return;
+    }
+    var mode = picker.querySelector('.sig-mode-select').value;
+    setActionButtonLoading(button, true, 'Wird gesendet …');
+    showFormStatus(statusEl, '');
+    try {
+      var res = await client.functions.invoke('deepsign-create-request', {
+        body: { file_id: fileId, signees: signees, signature_mode: mode }
+      });
+      if(res.error || (res.data && res.data.error)){
+        showFormStatus(statusEl, 'Fehler: ' + (res.data && res.data.error ? res.data.error : res.error.message));
+        setActionButtonLoading(button, false);
+        return;
+      }
+      await loadDocumentSignatureSection(fileId);
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      setActionButtonLoading(button, false);
+    }
+  }
+
+  async function refreshDocumentSignatureStatus(requestId, fileId){
+    var button = document.querySelector('[data-refresh-signature="'+requestId+'"]');
+    var statusEl = document.getElementById('sigRefreshStatus-'+requestId);
+    if(button) setActionButtonLoading(button, true, 'Wird geprüft …');
+    try {
+      var res = await client.functions.invoke('deepsign-refresh-status', { body: { request_id: requestId } });
+      if(res.error || (res.data && res.data.error)){
+        showFormStatus(statusEl, 'Fehler: ' + (res.data && res.data.error ? res.data.error : res.error.message));
+        if(button) setActionButtonLoading(button, false);
+        return;
+      }
+      await loadDocumentSignatureSection(fileId);
+    } catch(err) {
+      showFormStatus(statusEl, 'Unerwarteter Fehler: ' + err.message);
+      if(button) setActionButtonLoading(button, false);
+    }
   }
 
   function applianceDetailHtml(){
