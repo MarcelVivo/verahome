@@ -118,7 +118,7 @@
         </div>
 
         <div class="dash-card dash-module" data-dashboard-module="my_unit">
-          <h2>Meine Einheit</h2>
+          <h2>Meine Zuordnungen</h2>
           <div id="dashMyUnitsList"></div>
         </div>
 
@@ -306,7 +306,13 @@
           .select('id, end_date, properties(label, street, zip, city), units(label, floor, rooms, living_area_m2, unit_type, properties(label, street, zip, city))')
           .eq('owner_profile_id', profile.id).is('archived_at', null);
         var myOwnerships = (myOwnershipsRes.data || []).filter(function(o){ return !o.end_date || o.end_date >= myUnitTodayStr; });
-        renderMyUnits(myTenanciesRes.data || [], myOwnerships);
+        var myHauswartPropsRes = await client.from('property_permissions')
+          .select('id, properties(label, street, zip, city)')
+          .eq('profile_id', profile.id).eq('permission','hauswart');
+        var myJobsRes = await client.from('job_assignments')
+          .select('id, title, status, properties(label), units(label)')
+          .eq('profile_id', profile.id).in('status', ['open','in_progress']).is('archived_at', null);
+        renderMyUnits(myTenanciesRes.data || [], myOwnerships, myHauswartPropsRes.data || [], myJobsRes.data || []);
       }
 
       document.getElementById('dashStats').innerHTML = stats.map(function(s){
@@ -327,16 +333,20 @@
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
 
-  /* "Meine Einheit"-Karte: fasst pro aktivem Mietverhältnis/Eigentümerschaft
-     die Objektdaten zusammen (Wohnung, Zimmer, m², Adresse). Eine Person
-     kann mehrere Zeilen haben (z.B. Mieter UND Eigentümer, oder mehrere
-     Einheiten) -- absichtlich als Liste statt Einzelwert. Property-scope
+  var MY_JOB_STATUS_LABEL = { open: 'Offen', in_progress: 'In Bearbeitung' };
+
+  /* "Meine Zuordnungen"-Karte: fasst alles zusammen, was einer Person
+     konkret zugeteilt ist -- Mietverhältnis, Eigentümerschaft, als
+     Hauswart betreute Liegenschaften, offene Auftragszuweisungen
+     (Handwerker/Partner). Eine Person kann mehrere Zeilen gleichzeitig
+     haben (z.B. Mieter UND Eigentümer, oder mehrere Liegenschaften) --
+     absichtlich als Liste statt Einzelwert. Property-scope
      Eigentümerschaften (unit_id null) zeigen nur die Liegenschaft ohne
-     Wohnungsdetails. Bleibt für Rollen ohne Mietverhältnis/Eigentümerschaft
-     (Hauswart/Handwerker/Firma/Ämter) mit einem Hinweistext sichtbar, statt
-     die Karte auszublenden -- deren Sichtbarkeit steuert bereits das
+     Wohnungsdetails. Bleibt für Rollen ohne jegliche Zuordnung (Firma/
+     Ämter ohne Auftrag) mit einem Hinweistext sichtbar, statt die Karte
+     auszublenden -- deren Sichtbarkeit steuert bereits das
      Dashboard-Modul-System (portal_dashboard_modules) auf Adminseite.*/
-  function renderMyUnits(tenancies, ownerships){
+  function renderMyUnits(tenancies, ownerships, hauswartProps, jobs){
     var rows = [];
     tenancies.forEach(function(t){
       if(t.units) rows.push({ roleLabel: 'Mieter', unit: t.units, property: t.units.properties });
@@ -345,13 +355,21 @@
       if(o.units) rows.push({ roleLabel: 'Eigentümer', unit: o.units, property: o.units.properties });
       else if(o.properties) rows.push({ roleLabel: 'Eigentümer', unit: null, property: o.properties });
     });
+    (hauswartProps || []).forEach(function(p){
+      if(p.properties) rows.push({ roleLabel: 'Hauswart', unit: null, property: p.properties });
+    });
     var listEl = document.getElementById('dashMyUnitsList');
     if(!listEl) return;
-    if(!rows.length){
-      listEl.innerHTML = '<p class="dash-empty">Keine Einheit zugeordnet.</p>';
+    var jobRowsHtml = (jobs || []).map(function(j){
+      var location = j.units ? j.units.label : (j.properties ? j.properties.label : null);
+      var valueText = 'Auftrag · ' + (MY_JOB_STATUS_LABEL[j.status] || j.status) + (location ? ' · ' + location : '');
+      return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(j.title)+'</span><span class="value">'+VeraDashboard.escapeHtml(valueText)+'</span></div>';
+    }).join('');
+    if(!rows.length && !jobRowsHtml){
+      listEl.innerHTML = '<p class="dash-empty">Keine Zuordnung hinterlegt.</p>';
       return;
     }
-    listEl.innerHTML = rows.map(function(r){
+    var rowsHtml = rows.map(function(r){
       var addressParts = r.property ? [r.property.street, [r.property.zip, r.property.city].filter(Boolean).join(' ')].filter(Boolean) : [];
       var metaParts = [r.roleLabel];
       if(r.unit){
@@ -363,6 +381,7 @@
       var valueText = metaParts.join(' · ') + (addressParts.length ? ' — ' + addressParts.join(', ') : '');
       return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(title)+'</span><span class="value">'+VeraDashboard.escapeHtml(valueText)+'</span></div>';
     }).join('');
+    listEl.innerHTML = rowsHtml + jobRowsHtml;
   }
 
   function dashboardModuleDefaults(){
@@ -378,7 +397,7 @@
     var userModules = [
       { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Ihre wichtigsten Portal-Informationen.' },
       { key:'account', type:'system', visible:true, title:'Mein Konto', text:'Profil, Rollen und E-Mail-Adresse.' },
-      { key:'my_unit', type:'system', visible:true, title:'Meine Einheit', text:'Adresse, Zimmer und Fläche Ihrer Wohnung bzw. Ihres Eigentums.' },
+      { key:'my_unit', type:'system', visible:true, title:'Meine Zuordnungen', text:'Wohnung, Eigentum, betreute Liegenschaften und offene Aufträge auf einen Blick.' },
       { key:'security', type:'system', visible:true, title:'Sicherheit', text:'Zwei-Faktor-Authentifizierung verwalten.' }
     ];
     return profile.category === 'admin' ? adminModules : userModules;
