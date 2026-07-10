@@ -117,6 +117,11 @@
           </div>
         </div>
 
+        <div class="dash-card dash-module" data-dashboard-module="my_unit">
+          <h2>Meine Einheit</h2>
+          <div id="dashMyUnitsList"></div>
+        </div>
+
         <div class="dash-card dash-module" data-dashboard-module="security">
           <h2>Sicherheit</h2>
           <div class="status-row">
@@ -292,6 +297,16 @@
           { num: (nextEvent.data && nextEvent.data[0]) ? VeraDashboard.formatDate(nextEvent.data[0].starts_at) : '–', label: 'Nächster Termin', href: '/portal/my-appointments.html' },
           { num: unreadMsgs.count || 0, label: 'Ungelesene Nachrichten', href: '/portal/messages.html' }
         ];
+
+        var myUnitTodayStr = new Date().toISOString().slice(0,10);
+        var myTenanciesRes = await client.from('tenancies')
+          .select('id, units(label, floor, rooms, living_area_m2, unit_type, properties(label, street, zip, city))')
+          .eq('tenant_profile_id', profile.id).eq('status','active').is('archived_at', null);
+        var myOwnershipsRes = await client.from('ownerships')
+          .select('id, end_date, properties(label, street, zip, city), units(label, floor, rooms, living_area_m2, unit_type, properties(label, street, zip, city))')
+          .eq('owner_profile_id', profile.id).is('archived_at', null);
+        var myOwnerships = (myOwnershipsRes.data || []).filter(function(o){ return !o.end_date || o.end_date >= myUnitTodayStr; });
+        renderMyUnits(myTenanciesRes.data || [], myOwnerships);
       }
 
       document.getElementById('dashStats').innerHTML = stats.map(function(s){
@@ -312,6 +327,44 @@
 
   function fmtCHF(n){ return 'CHF ' + Number(n||0).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
 
+  /* "Meine Einheit"-Karte: fasst pro aktivem Mietverhältnis/Eigentümerschaft
+     die Objektdaten zusammen (Wohnung, Zimmer, m², Adresse). Eine Person
+     kann mehrere Zeilen haben (z.B. Mieter UND Eigentümer, oder mehrere
+     Einheiten) -- absichtlich als Liste statt Einzelwert. Property-scope
+     Eigentümerschaften (unit_id null) zeigen nur die Liegenschaft ohne
+     Wohnungsdetails. Bleibt für Rollen ohne Mietverhältnis/Eigentümerschaft
+     (Hauswart/Handwerker/Firma/Ämter) mit einem Hinweistext sichtbar, statt
+     die Karte auszublenden -- deren Sichtbarkeit steuert bereits das
+     Dashboard-Modul-System (portal_dashboard_modules) auf Adminseite.*/
+  function renderMyUnits(tenancies, ownerships){
+    var rows = [];
+    tenancies.forEach(function(t){
+      if(t.units) rows.push({ roleLabel: 'Mieter', unit: t.units, property: t.units.properties });
+    });
+    ownerships.forEach(function(o){
+      if(o.units) rows.push({ roleLabel: 'Eigentümer', unit: o.units, property: o.units.properties });
+      else if(o.properties) rows.push({ roleLabel: 'Eigentümer', unit: null, property: o.properties });
+    });
+    var listEl = document.getElementById('dashMyUnitsList');
+    if(!listEl) return;
+    if(!rows.length){
+      listEl.innerHTML = '<p class="dash-empty">Keine Einheit zugeordnet.</p>';
+      return;
+    }
+    listEl.innerHTML = rows.map(function(r){
+      var addressParts = r.property ? [r.property.street, [r.property.zip, r.property.city].filter(Boolean).join(' ')].filter(Boolean) : [];
+      var metaParts = [r.roleLabel];
+      if(r.unit){
+        if(r.unit.floor) metaParts.push(r.unit.floor);
+        if(r.unit.rooms) metaParts.push(r.unit.rooms + ' Zimmer');
+        if(r.unit.living_area_m2) metaParts.push(r.unit.living_area_m2 + ' m²');
+      }
+      var title = r.unit ? r.unit.label : (r.property ? r.property.label : 'Objekt');
+      var valueText = metaParts.join(' · ') + (addressParts.length ? ' — ' + addressParts.join(', ') : '');
+      return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(title)+'</span><span class="value">'+VeraDashboard.escapeHtml(valueText)+'</span></div>';
+    }).join('');
+  }
+
   function dashboardModuleDefaults(){
     var adminModules = [
       { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Aktuelle Übersicht der wichtigsten Portal-Zahlen.' },
@@ -325,6 +378,7 @@
     var userModules = [
       { key:'stats', type:'system', visible:true, title:'Kennzahlen', text:'Ihre wichtigsten Portal-Informationen.' },
       { key:'account', type:'system', visible:true, title:'Mein Konto', text:'Profil, Rollen und E-Mail-Adresse.' },
+      { key:'my_unit', type:'system', visible:true, title:'Meine Einheit', text:'Adresse, Zimmer und Fläche Ihrer Wohnung bzw. Ihres Eigentums.' },
       { key:'security', type:'system', visible:true, title:'Sicherheit', text:'Zwei-Faktor-Authentifizierung verwalten.' }
     ];
     return profile.category === 'admin' ? adminModules : userModules;
