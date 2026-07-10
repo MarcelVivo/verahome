@@ -612,6 +612,7 @@
 
     if(insRes.error){
       statusEl.textContent = 'Fehler: ' + insRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }
@@ -624,6 +625,7 @@
     if(itemsRes.error){
       await client.from('invoices').delete().eq('id', invoiceId);
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }
@@ -716,6 +718,7 @@
 
     if(updRes.error){
       statusEl.textContent = 'Fehler: ' + updRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }
@@ -726,6 +729,7 @@
       .order('sort_order');
     if(oldItemsRes.error){
       statusEl.textContent = 'Bestehende Positionen konnten nicht gesichert werden: ' + oldItemsRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }
@@ -734,6 +738,7 @@
     var delRes = await client.from('invoice_line_items').delete().eq('invoice_id', invoiceId);
     if(delRes.error){
       statusEl.textContent = 'Fehler beim Aktualisieren der Positionen: ' + delRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }
@@ -748,6 +753,7 @@
         );
       }
       statusEl.textContent = 'Fehler beim Speichern der Positionen: ' + itemsRes.error.message;
+      statusEl.classList.add('show');
       setInvoiceSaving(false);
       return;
     }

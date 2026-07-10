@@ -916,6 +916,7 @@
       setTimeout(fmCloseFolderCreateModal, 500);
     } catch(err) {
       statusEl.textContent = 'Ordner konnte nicht erstellt werden: ' + (err.message || err);
+      statusEl.classList.add('show');
       fmSetButtonLoading(submitBtn, false);
     }
   }
@@ -1067,6 +1068,7 @@
       setTimeout(fmCloseUploadScopeModal, 600);
     } catch(err) {
       statusEl.textContent = 'Fehler: ' + (err.message || err);
+      statusEl.classList.add('show');
       fmSetButtonLoading(submitBtn, false);
     }
   }
@@ -1646,6 +1648,7 @@
       setTimeout(fmCloseShareModal, 900);
     } catch(err) {
       statusEl.textContent = 'Teilen fehlgeschlagen: ' + (err.message || err);
+      statusEl.classList.add('show');
       fmSetButtonLoading(confirmBtn, false);
     }
   }
@@ -1848,6 +1851,7 @@
       setTimeout(function(){ fmCloseAssignModal(); fmSelected = null; fmLoadCurrentFolder(); }, 900);
     } catch(err) {
       statusEl.textContent = 'Zuweisung fehlgeschlagen: ' + (err.message || err);
+      statusEl.classList.add('show');
       fmSetButtonLoading(confirmBtn, false);
     }
   }

@@ -203,6 +203,7 @@
 
       if(insRes.error){
         statusEl.textContent = 'Fehler: ' + insRes.error.message;
+        statusEl.classList.add('show');
         if(submitBtn){
           submitBtn.disabled = false;
           submitBtn.textContent = 'Meldung absenden';

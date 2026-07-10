@@ -339,6 +339,7 @@
         var res = await client.functions.invoke('admin-create-user', { body: payload });
         if(res.error || (res.data && res.data.error)){
           statusEl.textContent = 'Fehler: ' + (await edgeFunctionErrorMessage(res));
+          statusEl.classList.add('show');
           return;
         }
         statusEl.textContent = res.data && res.data.skipped

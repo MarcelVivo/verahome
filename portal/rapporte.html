@@ -188,6 +188,7 @@
 
       if(insRes.error){
         statusEl.textContent = 'Fehler: ' + insRes.error.message;
+        statusEl.classList.add('show');
         return;
       }
 
