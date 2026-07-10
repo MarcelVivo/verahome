@@ -8,6 +8,7 @@ Ziel: Vera Portal fachlich, technisch, datenschutzbezogen und mobil auf produkti
 - [x] Alle lokalen HTML-Inline-Skripte und JS-Dateien syntaktisch geprüft.
 - [x] Interne `href`-/`src`-Referenzen geprüft; keine fehlenden lokalen Ziele gefunden.
 - [x] Mobile/Capacitor-Webassets mit `npm run mobile:prepare` erfolgreich erzeugt.
+- [x] Capacitor Doctor mit `npm run cap:doctor` ausgeführt; iOS-Konfiguration meldet Erfolg.
 - [x] Supabase-/RLS-Dateien gegen Portal-Tabellen/RPCs inventarisiert.
 
 ## Kritische Prozessbereiche
