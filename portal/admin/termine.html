@@ -1025,6 +1025,23 @@
   var calPopover = document.getElementById('calDetailPopover');
   var calPinnedKey = null;
   var calLastTargetEl = null;
+  var calHideTimer = null;
+
+  function calCancelScheduledHide(){
+    if(calHideTimer){
+      clearTimeout(calHideTimer);
+      calHideTimer = null;
+    }
+  }
+
+  function calScheduleHidePopover(){
+    if(calPinnedKey) return;
+    calCancelScheduledHide();
+    calHideTimer = setTimeout(function(){
+      calHideTimer = null;
+      if(!calPinnedKey) calHidePopover();
+    }, 260);
+  }
 
   function calBottomReserve(){
     // Auf Mobile liegt die untere Nav-Leiste fix über allem -- das
@@ -1062,6 +1079,7 @@
     if(titleEl && calCanAutoFocus()) titleEl.focus();
   }
   function calShowPopover(targetEl, html){
+    calCancelScheduledHide();
     calPopover.innerHTML = html;
     calPopover.classList.add('show');
     calPositionPopover(targetEl);
@@ -1149,6 +1167,7 @@
     calFocusApptTitle();
   }
   function calHidePopover(){
+    calCancelScheduledHide();
     calPopover.classList.remove('show');
     calPinnedKey = null;
   }
@@ -1314,6 +1333,11 @@
       calFocusApptTitle();
     }
   });
+  calPopover.addEventListener('mouseenter', calCancelScheduledHide);
+  calPopover.addEventListener('mouseleave', function(e){
+    if(calLastTargetEl && calLastTargetEl.contains(e.relatedTarget)) return;
+    calScheduleHidePopover();
+  });
   window.addEventListener('resize', calKeepPopoverUsable);
   calPopover.addEventListener('submit', async function(e){
     if(e.target.id !== 'calNewApptForm') return;
@@ -1439,11 +1463,13 @@
       }
       el.addEventListener('mouseenter', function(){
         if(calPinnedKey) return;
+        calCancelScheduledHide();
         calShowPopover(el, detailHtml());
       });
-      el.addEventListener('mouseleave', function(){
+      el.addEventListener('mouseleave', function(e){
         if(calPinnedKey) return;
-        calHidePopover();
+        if(calPopover.contains(e.relatedTarget)) return;
+        calScheduleHidePopover();
       });
       el.addEventListener('click', function(){
         if(calPinnedKey === key){ calHidePopover(); return; }
