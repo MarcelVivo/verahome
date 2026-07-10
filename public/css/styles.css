@@ -441,7 +441,12 @@ body:has(#dashSidebar) footer{display:none;}
     linear-gradient(135deg, rgba(13,36,64,.88) 0%, rgba(26,58,92,.82) 55%, rgba(13,36,64,.9) 100%),
     url('/public/images/HeaderBilder/Portal.png');
   background-size:cover,cover;
-  background-position:center,center;
+  /* Portal.png ist deutlich hochformatiger als die Sektion: oben der
+     Laptop-Mockup, unten ein Holztisch. "center" schneidet je nach
+     exakt berechneter Sektionshöhe (browserabhängige Rundung) mal den
+     Laptop, mal den Tisch an -- "20%" haelt den Laptop verlaesslich im
+     sichtbaren Bereich, unabhaengig von kleinen Hoehenunterschieden. */
+  background-position:center,center 20%;
   background-repeat:no-repeat,no-repeat;
   background-color:var(--color-navy);
 }
