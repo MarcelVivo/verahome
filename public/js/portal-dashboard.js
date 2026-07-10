@@ -79,6 +79,18 @@ window.VeraDashboard = (function () {
     });
   }
 
+  /* Gleicher Google-Maps-Embed wie im "Lage"-Bereich der öffentlichen
+     Objekt-Seite (objekt.html) und im Kontakt-Bereich der Startseite --
+     braucht keinen API-Key (output=embed), daher überall im Portal
+     wiederverwendbar, wo eine Adresse angezeigt wird. Ohne Adresse kein
+     Markup, damit keine leere Karten-Box entsteht. */
+  function mapEmbedHtml(address, title) {
+    if (!address) return "";
+    return '<div class="map-embed"><iframe src="https://maps.google.com/maps?q=' +
+      encodeURIComponent(address) + '&output=embed" width="100%" height="200" loading="lazy" title="Lageplan ' +
+      escapeHtml(title || address) + '"></iframe></div>';
+  }
+
   /* Case-insensitive substring match across several raw field values —
      shared by every list page's search box so each one doesn't
      reimplement the same join/lowercase/includes. Null/undefined
@@ -772,6 +784,7 @@ window.VeraDashboard = (function () {
     init: init,
     renderSidebar: renderSidebar,
     escapeHtml: escapeHtml,
+    mapEmbedHtml: mapEmbedHtml,
     matchesSearch: matchesSearch,
     formatDate: formatDate,
     formatDateTime: formatDateTime,

@@ -1423,6 +1423,7 @@
       '<span class="obj-step-label">Gebäude / Liegenschaft</span>' +
       '<h2>'+VeraDashboard.escapeHtml(property.label)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'Keine Adresse')+'</p>' +
+      VeraDashboard.mapEmbedHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', '), property.label) +
       '<div class="obj-detail-stats">'+(stats || '<span>Noch keine Einheiten</span>')+'</div>' +
       objectDossierHtml(property, null) +
       nextStepsHtml(property, null) +
@@ -1445,6 +1446,7 @@
       '<span class="obj-step-label">Objekt / Einheit</span>' +
       '<h2>'+VeraDashboard.escapeHtml(unit.label)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml((property ? property.label + ' · ' : '') + (UNIT_TYPE_SINGULAR[type] || 'Einheit'))+'</p>' +
+      (property ? VeraDashboard.mapEmbedHtml([property.street, [property.zip, property.city].filter(Boolean).join(' ')].filter(Boolean).join(', '), unit.label) : '') +
       '<div class="obj-detail-stats">' +
         (unit.rooms ? '<span>'+VeraDashboard.escapeHtml(unit.rooms)+' Zimmer</span>' : '') +
         (unit.living_area_m2 ? '<span>'+VeraDashboard.escapeHtml(unit.living_area_m2)+' m²</span>' : '') +

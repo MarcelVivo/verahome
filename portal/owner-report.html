@@ -56,6 +56,11 @@
       <h1>Objekt-Ertrag</h1>
       <p class="dash-lead">Mieteinnahmen und Kosten Ihrer Objekte, nach Jahr.</p>
 
+      <div class="dash-card" id="reportPropertiesCard" style="display:none;">
+        <h2>Meine Objekte</h2>
+        <div id="reportPropertiesList"></div>
+      </div>
+
       <div class="dash-card">
         <div class="dash-card-head">
           <select id="reportYear" aria-label="Jahr"></select>
@@ -133,8 +138,10 @@
     lastRows = res.data || [];
     if(!lastRows.length){
       table.innerHTML = '<tr><td class="dash-empty">Keine Objekte für dieses Jahr gefunden.</td></tr>';
+      document.getElementById('reportPropertiesCard').style.display = 'none';
       return;
     }
+    renderReportProperties(lastRows);
     var totalIncome = 0, totalCosts = 0;
     table.innerHTML = '<tr><th>Objekt</th><th>Einheit</th><th>Einnahmen</th><th>Kosten</th><th>Netto</th></tr>' +
       lastRows.map(function(r){
@@ -150,6 +157,27 @@
         '</tr>';
       }).join('') +
       '<tr><td><strong>Total</strong></td><td></td><td><strong>'+fmtCHF(totalIncome)+'</strong></td><td><strong>'+fmtCHF(totalCosts)+'</strong></td><td><strong>'+fmtCHF(totalIncome-totalCosts)+'</strong></td></tr>';
+  }
+
+  /* Karten je Objekt statt je Tabellenzeile -- lastRows hat eine Zeile
+     pro Objekt/Einheit-Kombination (Ertrag/Kosten), aber die Karte
+     macht nur einmal pro Objekt Sinn. Nach property_id dedupliziert. */
+  function renderReportProperties(rows){
+    var seen = {};
+    var properties = rows.filter(function(r){
+      if(!r.property_id || seen[r.property_id]) return false;
+      seen[r.property_id] = true;
+      return true;
+    });
+    var card = document.getElementById('reportPropertiesCard');
+    if(!properties.length){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    document.getElementById('reportPropertiesList').innerHTML = properties.map(function(r){
+      var address = [r.street, [r.zip, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(r.property_label||'–')+'</span>' +
+        '<span class="value">'+VeraDashboard.escapeHtml(address || 'Keine Adresse hinterlegt')+'</span></div>' +
+        VeraDashboard.mapEmbedHtml(address, r.property_label);
+    }).join('');
   }
 
   function exportReport(){

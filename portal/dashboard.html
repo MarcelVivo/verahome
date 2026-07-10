@@ -379,7 +379,8 @@
       }
       var title = r.unit ? r.unit.label : (r.property ? r.property.label : 'Objekt');
       var valueText = metaParts.join(' · ') + (addressParts.length ? ' — ' + addressParts.join(', ') : '');
-      return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(title)+'</span><span class="value">'+VeraDashboard.escapeHtml(valueText)+'</span></div>';
+      return '<div class="status-row"><span class="label">'+VeraDashboard.escapeHtml(title)+'</span><span class="value">'+VeraDashboard.escapeHtml(valueText)+'</span></div>' +
+        VeraDashboard.mapEmbedHtml(addressParts.join(', '), title);
     }).join('');
     listEl.innerHTML = rowsHtml + jobRowsHtml;
   }
