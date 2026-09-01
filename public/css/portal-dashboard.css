@@ -15,10 +15,6 @@
 .dash-sidebar-header{padding:0 28px 24px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:18px;position:relative;}
 .dash-sidebar-name{color:var(--color-white);font-family:var(--font-heading);font-size:1.15rem;margin-bottom:10px;}
 .dash-sidebar .status-badge{margin:0;font-size:.72rem;padding:4px 12px;}
-.dash-sidebar-close{
-  display:none;position:absolute;top:0;right:24px;width:32px;height:32px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.8);font-size:.9rem;
-}
 .dash-nav{display:flex;flex-direction:column;}
 .dash-nav-link{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1315,29 +1311,36 @@
 .admin-quickbar-tickets svg{width:20px;height:20px;}
 .admin-quickbar-badge{position:absolute;top:-4px;right:-4px;margin:0;}
 
-/* Untere Navigationsleiste auf Mobile -- eine einzige seitwärts
-   scrollbare Reihe mit ALLEN Nav-Punkten + Ausloggen ganz am Ende
-   (siehe renderBottomTabBar in portal-dashboard.js). Kein "Mehr"-Sheet
-   mehr: #dashSidebar wird bei ≤900px komplett ausgeblendet (Desktop-
-   only), diese Leiste hier ist auf Mobile die alleinige Navigation. */
-.dash-tabbar{
-  display:none;position:fixed;left:0;right:0;bottom:0;z-index:2100;
-  background:var(--color-navy-deep);border-top:1px solid rgba(255,255,255,.12);
-  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-  box-shadow:0 -2px 12px rgba(20,30,45,.2);
-  align-items:stretch;overflow-x:auto;gap:4px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
-  scrollbar-width:none;
+/* Mobiles Hamburger-Menü (nur sichtbar ≤900px) -- ersetzt die
+   vorherige untere Tab-Leiste. Icon-Button sitzt in der schlanken
+   Portal-Kopfzeile (.nav-inner--portal, siehe portal.css) und öffnet
+   ein von rechts einschiebendes Drawer mit derselben Nav-Liste wie die
+   Desktop-Sidebar (siehe renderMobileMenu() in portal-dashboard.js).
+   Gleiche Slide-in-Mechanik/Scroll-Lock wie das Marketing-Menü
+   (.nav-links in styles.css). */
+#dashMenuToggle{display:none;}
+@media (max-width:900px){
+  #dashMenuToggle{
+    display:flex;position:absolute;right:20px;top:50%;transform:translateY(-50%);
+    width:44px;height:44px;align-items:center;justify-content:center;touch-action:manipulation;
+  }
 }
-.dash-tabbar::-webkit-scrollbar{display:none;}
-.dash-tab{
-  position:relative;flex:0 0 auto;display:flex;align-items:center;
-  padding:0 16px;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:600;
-  background:none;border:none;min-height:44px;white-space:nowrap;border-radius:8px;
-  touch-action:manipulation;
+.dash-mobile-menu-overlay{
+  position:fixed;inset:0;z-index:2200;background:rgba(4,14,26,.5);
+  opacity:0;pointer-events:none;transition:opacity .28s var(--ease);
 }
-.dash-tab.active{color:var(--color-gold);background:rgba(255,255,255,.06);}
-.dash-tab-logout{color:var(--color-gold);border-left:1px solid rgba(255,255,255,.18);margin-left:4px;padding-left:20px;}
-.dash-tab .dash-nav-badge{position:relative;margin-left:6px;}
+.dash-mobile-menu-overlay.open{opacity:1;pointer-events:auto;}
+.dash-mobile-menu{
+  position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(320px,86vw);z-index:2300;
+  background:var(--color-navy-deep);display:flex;flex-direction:column;
+  padding:calc(24px + env(safe-area-inset-top)) 0 calc(24px + env(safe-area-inset-bottom));
+  transform:translateX(100%);transition:transform .28s var(--ease);
+  overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);
+}
+.dash-mobile-menu.open{transform:translateX(0);}
+.dash-mobile-menu .dash-nav{flex:1;}
+.dash-mobile-menu-header{padding:0 28px 20px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;}
+.dash-mobile-menu-name{display:block;color:var(--color-white);font-family:var(--font-heading);font-size:1.1rem;margin-bottom:8px;}
 
 @media (max-width:1100px){
   .cal-week-nav{
@@ -1368,21 +1371,19 @@
   .admin-quickbar-results{left:0;right:0;width:100%;max-height:min(55vh,420px);}
   .admin-quickbar-result-item{min-height:44px;}
   /* .dash-layout wechselt hier von row- auf column-flex (Sidebar
-     wird ausgeblendet, Navigation läuft über .dash-tabbar). In einem
-     column-flex-Container ist die Breite die Cross-Achse, auf der
-     "flex:1;min-width:0" (fuer die Haupt-/Zeilen-Ausrichtung gedacht)
-     NICHT vor Ueberlauf schuetzt -- ein breit-erzwungenes Kind (z.B.
-     das Kalender-Grid) stretcht dann .dash-content ueber die
-     Viewport-Breite hinaus, obendrein von body{overflow-x:hidden}
+     wird ausgeblendet, Navigation läuft über das Hamburger-Menü). In
+     einem column-flex-Container ist die Breite die Cross-Achse, auf
+     der "flex:1;min-width:0" (fuer die Haupt-/Zeilen-Ausrichtung
+     gedacht) NICHT vor Ueberlauf schuetzt -- ein breit-erzwungenes
+     Kind (z.B. das Kalender-Grid) stretcht dann .dash-content ueber
+     die Viewport-Breite hinaus, obendrein von body{overflow-x:hidden}
      unsichtbar abgeschnitten. Ergebnis: die .cal-grid-wrap-Scrollbox
      ueberlief nie wirklich sich selbst, sondern nur unsichtbar den
      Viewport -- Taps auf Stunden-Felder jenseits des sichtbaren
      Randes gingen dadurch ins Leere. */
   .dash-layout{flex-direction:column;padding-top:var(--nav-height);}
   .dash-content{max-width:100%;}
-  .dash-tabbar{display:flex;}
   .dash-sidebar{display:none;}
-  .dash-content{padding:32px 20px calc(76px + env(safe-area-inset-bottom));}
   body:has(#dashTopActions) .dash-content{padding-top:96px;}
   body:has(#dashAdminQuickbar) .dash-content{padding-top:178px;}
   /* Popover darf nie hinter der fixen unteren Nav-Leiste enden --
@@ -1505,7 +1506,6 @@
   body:has(#dashAdminQuickbar) .dash-content{padding-top:214px;}
   .dash-content{padding-left:12px;padding-right:12px;}
   .dash-card{padding:18px 14px;}
-  .dash-tab{min-height:48px;padding:0 14px;font-size:.82rem;}
   .filemgr-folder-grid{grid-template-columns:1fr;}
   .cal-day-col{min-width:calc(100vw - 82px);}
   .cal-time-col{width:52px;}
@@ -1535,7 +1535,7 @@
 }
 
 @media (max-width:900px){
-  :root{--portal-bottom-nav-height:72px;}
+  :root{--portal-bottom-nav-height:0px;}
   html{scroll-padding-bottom:calc(var(--portal-bottom-nav-height) + env(safe-area-inset-bottom));}
   body{overscroll-behavior-y:none;}
   .dash-layout{min-height:100dvh;}
@@ -1575,8 +1575,6 @@
   .dash-top-actions > .dash-email-mode-top{
     max-width:100%;
   }
-  .dash-tabbar{min-height:var(--portal-bottom-nav-height);padding-top:9px;padding-bottom:calc(9px + env(safe-area-inset-bottom));}
-  .dash-tab{min-height:48px;padding:0 16px;}
   .dash-content h1{font-size:1.55rem;line-height:1.15;}
   .dash-content > .dash-lead{margin-bottom:20px;}
   .dash-card{border-radius:16px;}
@@ -1632,7 +1630,7 @@
 }
 
 @media (max-width:720px){
-  :root{--portal-bottom-nav-height:76px;}
+  :root{--portal-bottom-nav-height:0px;}
   .dash-content{padding-left:14px;padding-right:14px;}
   .dash-stat-row{grid-template-columns:1fr 1fr;gap:10px;}
   .dash-stat{padding:16px 14px;border-radius:14px;}
@@ -1713,13 +1711,6 @@
   .dash-email-mode-switch strong{font-size:.72rem;}
   .dash-email-mode-track{width:34px;flex-basis:34px;}
   .dash-email-mode-switch input:checked + .dash-email-mode-track::after{transform:translateX(12px);}
-  .dash-tab{padding:0 13px;font-size:.8rem;}
-  .dash-tabbar{gap:3px;}
-  .dash-tabbar{
-    overflow-x:auto;justify-content:flex-start;scroll-snap-type:x proximity;
-    -webkit-overflow-scrolling:touch;
-  }
-  .dash-tab{flex:0 0 auto;scroll-snap-align:center;}
   .dash-table{min-width:620px;}
   .filemgr-column{flex-basis:88vw;min-width:88vw;}
   .filemgr-preview-column{min-width:88vw;flex-basis:88vw;}

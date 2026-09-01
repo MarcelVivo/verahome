@@ -501,50 +501,83 @@ window.VeraDashboard = (function () {
     '<path d="M13 6v12" stroke-dasharray="2 2"/>' +
     "</svg>";
 
-  /* Untere Navigationsleiste auf Mobile (nur sichtbar ≤900px, siehe
-     portal-dashboard.css) -- eine einzige seitwärts scrollbare Reihe
-     mit ALLEN Nav-Punkten (tägliches Geschäft + Verwaltung + Services)
-     plus Ausloggen ganz am Ende. Kein separates "Mehr"-Sheet mehr --
-     das verdeckte auf echten Geräten den letzten Eintrag (Ausloggen)
-     hinter dieser Leiste, und ein Sheet extra zu öffnen war ohnehin
-     ein Umweg. Einfache Text-Pills wie frueher der horizontale
-     Sidebar-Streifen, keine Icons -- bei bis zu 14 Eintraegen (Admin)
-     waere ein Icon-Satz ohnehin kaum noch unterscheidbar. */
-  function renderBottomTabBar(activeKey, profile, roles) {
-    roles = roles || [profile.category];
-    var currentKey = navActiveKey(activeKey);
-    var existing = document.getElementById("dashTabbar");
-    if (existing) existing.remove();
+  /* Hamburger-Menü auf Mobile (nur sichtbar ≤900px, siehe
+     portal-dashboard.css) -- ersetzt die vorherige untere Tab-Leiste.
+     Icon-Button in der schlanken Portal-Kopfzeile (#navbar
+     .nav-inner--portal) öffnet ein von rechts einschiebendes Drawer
+     mit derselben Nav-Liste wie die Desktop-Sidebar (linksHtml wird
+     von renderSidebar() übergeben, nicht zweimal aufgebaut) plus
+     Logout am Ende. Gleiche Slide-in-Mechanik und Scroll-Lock-Klasse
+     wie das Marketing-Menü (siehe .nav-links in styles.css /
+     public/js/nav.js), nur mit Portal-Inhalt. */
+  function renderMobileMenu(activeKey, profile, roles, linksHtml) {
+    var header = document.querySelector("#navbar .nav-inner--portal");
+    if (!header) return;
 
-    var items = NAV_GROUPS[0].items.filter(function (item) {
-      return navItemVisibleForProfile(item, profile, roles);
+    var existingToggle = document.getElementById("dashMenuToggle");
+    if (existingToggle) existingToggle.remove();
+    var existingOverlay = document.getElementById("dashMobileMenuOverlay");
+    if (existingOverlay) existingOverlay.remove();
+    var existingMenu = document.getElementById("dashMobileMenu");
+    if (existingMenu) existingMenu.remove();
+
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.id = "dashMenuToggle";
+    toggle.className = "nav-toggle";
+    toggle.setAttribute("aria-label", "Menü öffnen");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = "<span></span><span></span><span></span>";
+    header.appendChild(toggle);
+
+    var overlay = document.createElement("div");
+    overlay.id = "dashMobileMenuOverlay";
+    overlay.className = "dash-mobile-menu-overlay";
+
+    var roleLabel = roles.map(categoryLabel).join(", ");
+    var menu = document.createElement("nav");
+    menu.id = "dashMobileMenu";
+    menu.className = "dash-mobile-menu";
+    menu.setAttribute("aria-label", "Hauptnavigation");
+    menu.innerHTML =
+      '<div class="dash-mobile-menu-header">' +
+      '<span class="dash-mobile-menu-name">' + escapeHtml(profile.first_name) + "</span>" +
+      '<span class="status-badge ' + profile.status + '">' + escapeHtml(roleLabel) + "</span>" +
+      "</div>" +
+      '<div class="dash-nav">' + linksHtml + "</div>" +
+      '<button type="button" class="dash-logout-btn" id="dashMobileMenuLogout">Ausloggen</button>';
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(menu);
+
+    function setOpen(open) {
+      toggle.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", open);
+      overlay.classList.toggle("open", open);
+      menu.classList.toggle("open", open);
+      document.body.classList.toggle("nav-menu-open", open);
+      if (open) {
+        var firstLink = menu.querySelector(".dash-nav-link");
+        if (firstLink) firstLink.focus();
+      } else {
+        toggle.focus();
+      }
+    }
+
+    toggle.addEventListener("click", function () {
+      setOpen(!menu.classList.contains("open"));
     });
-    if (profile.category === "admin" && !ADMIN_NAV_GROUP.hiddenFromMainNav) {
-      items = items.concat(ADMIN_NAV_GROUP.items);
-    }
-    if (!SERVICES_NAV_GROUP.hiddenFromMainNav) {
-      items = items.concat(SERVICES_NAV_GROUP.items.filter(function (item) {
-        return navItemVisibleForProfile(item, profile, roles);
-      }));
-    }
+    overlay.addEventListener("click", function () {
+      setOpen(false);
+    });
+    menu.addEventListener("click", function (e) {
+      if (e.target.closest("a")) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && menu.classList.contains("open")) setOpen(false);
+    });
 
-    var bar = document.createElement("nav");
-    bar.id = "dashTabbar";
-    bar.className = "dash-tabbar";
-    bar.setAttribute("aria-label", "Hauptnavigation");
-    bar.innerHTML = items.map(function (item) {
-      var badge = BADGE_SECTIONS.indexOf(item.key) > -1
-        ? '<span class="dash-nav-badge" data-badge-for="' + item.key + '" hidden></span>'
-        : "";
-      return '<a class="dash-tab' + (item.key === currentKey ? " active" : "") + '" data-nav-key="' + item.key + '" href="' + item.href + '">' +
-        "<span>" + escapeHtml(item.label) + "</span>" + badge +
-      "</a>";
-    }).join("") +
-      '<button type="button" class="dash-tab dash-tab-logout" id="dashTabLogout">Ausloggen</button>';
-
-    document.body.appendChild(bar);
-
-    document.getElementById("dashTabLogout").addEventListener("click", function () {
+    document.getElementById("dashMobileMenuLogout").addEventListener("click", function () {
       VeraPortal.signOut().then(function () {
         window.location.href = "/portal/login.html";
       });
@@ -622,7 +655,7 @@ window.VeraDashboard = (function () {
 
     refreshBadges(activeKey);
     renderAdminQuickbar(profile);
-    renderBottomTabBar(activeKey, profile, roles);
+    renderMobileMenu(activeKey, profile, roles, linksHtml);
     renderTopLogoutButton();
     if (profile.category === "admin") renderAdminPortalEditorButton(profile);
     loadAndApplyPortalUiSettings();
