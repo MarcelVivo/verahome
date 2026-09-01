@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0D2440">
+<title>Offline | Vera Home</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+<style>
+  :root{color-scheme:light dark;}
+  html,body{height:100%;margin:0;}
+  body{
+    display:flex;align-items:center;justify-content:center;min-height:100dvh;
+    padding:32px calc(24px + env(safe-area-inset-right)) 24px calc(24px + env(safe-area-inset-left));
+    background:#0D2440;color:#F7F5F0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+    text-align:center;
+  }
+  .offline-card{max-width:360px;}
+  .offline-icon{width:56px;height:56px;margin:0 auto 20px;opacity:.9;}
+  h1{font-size:1.3rem;margin:0 0 10px;}
+  p{font-size:.95rem;line-height:1.5;opacity:.8;margin:0 0 24px;}
+  button{
+    appearance:none;border:none;border-radius:999px;padding:12px 28px;
+    background:#F7F5F0;color:#0D2440;font-size:.95rem;font-weight:600;
+    cursor:pointer;
+  }
+  button:active{opacity:.85;}
+</style>
+</head>
+<body>
+  <div class="offline-card">
+    <img class="offline-icon" src="/public/images/logo/logo-white.svg" alt="">
+    <h1>Keine Verbindung</h1>
+    <p>Diese Seite ist gerade nicht erreichbar. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.</p>
+    <button type="button" onclick="window.location.reload()">Erneut versuchen</button>
+  </div>
+</body>
+</html>

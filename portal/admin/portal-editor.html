@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- PWA:head -->
+<meta name="theme-color" content="#0D2440">
+<link rel="manifest" href="/public/manifest-portal.webmanifest">
+<link rel="apple-touch-icon" href="/public/images/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vera Portal">
 <title>Portal bearbeiten | Vera Portal Admin – Vera Home Immobilien</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
@@ -13,23 +20,19 @@
 <link rel="stylesheet" href="/public/css/styles.css">
 <link rel="stylesheet" href="/public/css/portal.css">
 <link rel="stylesheet" href="/public/css/portal-dashboard.css">
+<script defer src="/public/js/pwa.js"></script>
 </head>
 <body>
 <a href="#main" class="skip-link">Zum Inhalt springen</a>
 <nav id="navbar">
-  <div class="nav-inner">
-    <a href="/index.html" class="nav-logo" aria-label="Vera Home Immobilien – Startseite">
+  <div class="nav-inner nav-inner--portal">
+    <a href="/portal/dashboard.html" class="nav-logo" aria-label="Vera Portal – Übersicht">
       <img class="nav-logo-icon" src="/public/images/logo/logo-gold.svg" alt="" width="34" height="34">
-      <span class="nav-logo-text"><strong class="nav-logo-brand">Vera Home</strong><span class="nav-logo-sub">Immobilien</span></span>
+      <span class="nav-logo-text">
+        <strong class="nav-logo-brand">Vera Home</strong>
+        <span class="nav-logo-sub">Portal</span>
+      </span>
     </a>
-    <button type="button" class="nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false"><span></span><span></span><span></span></button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="/index.html#leistungen">Leistungen</a></li>
-      <li><a href="/index.html#objekte">Objekte</a></li>
-      <li><a href="/portal/login.html" class="active">Vera Portal</a></li>
-      <li><a href="/index.html#ueber-mich">Über uns</a></li>
-      <li><a href="/index.html#kontakt">Kontakt</a></li>
-    </ul>
   </div>
 </nav>
 

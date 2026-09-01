@@ -1,4 +1,39 @@
 /* =============================================================
+   VERA PORTAL — schlanke App-Kopfzeile (ersetzt auf allen Portal-
+   Seiten die volle Marketing-Navbar, siehe #navbar in styles.css für
+   Höhe/Position -- hier nur der reduzierte Inhalt).
+============================================================= */
+.nav-inner--portal{justify-content:center;}
+
+/* =============================================================
+   VERA PORTAL — "Zum Home-Bildschirm hinzufügen"-Hinweis
+============================================================= */
+.pwa-install-banner{
+  position:fixed;left:12px;right:12px;top:calc(var(--nav-height) + 10px + env(safe-area-inset-top));
+  z-index:1050;display:flex;align-items:center;gap:10px;
+  background:var(--color-navy-deep);color:var(--color-white);
+  border:1px solid rgba(201,168,76,.35);border-radius:14px;
+  padding:12px 14px;box-shadow:0 10px 30px rgba(4,14,26,.35);
+  font-size:.86rem;line-height:1.35;
+  animation:pwaBannerIn .3s ease;
+}
+.pwa-install-banner-text{flex:1;}
+.pwa-install-banner-action{
+  flex-shrink:0;background:linear-gradient(135deg,var(--color-gold-light) 0%,var(--color-gold) 100%);
+  color:var(--color-navy-deep);font-weight:700;font-size:.82rem;border-radius:50px;padding:8px 14px;
+  white-space:nowrap;
+}
+.pwa-install-banner-dismiss{
+  flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.7);font-size:1.2rem;line-height:1;border-radius:50%;
+}
+.pwa-install-banner-dismiss:hover{color:var(--color-white);background:rgba(255,255,255,.1);}
+@keyframes pwaBannerIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+@media (max-width:480px){
+  .pwa-install-banner{font-size:.82rem;padding:10px 12px;}
+}
+
+/* =============================================================
    VERA PORTAL — auth pages (login / register / status / password)
 ============================================================= */
 .auth-hero{
