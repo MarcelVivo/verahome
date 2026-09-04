@@ -182,6 +182,19 @@ window.VeraDashboard = (function () {
     return !!profile && String(profile.email || "").toLowerCase() === PORTAL_OWNER_EMAIL;
   }
 
+  /* Eine einzige Quelle fuer die rollenabhaengige Terminroute. So zeigen
+     Dock, Dashboard und PWA-Shortcut stets in dasselbe Register: Admin
+     verwaltet alle Termine, Handwerker/Hauswart sehen ihren Einsatzplan,
+     alle uebrigen Rollen ihren persoenlichen Kalender. */
+  function appointmentHref(profile, roles) {
+    roles = roles || (profile ? [profile.category] : []);
+    if (profile && profile.category === "admin") return "/portal/admin/termine.html";
+    if (roles.indexOf("handwerker") > -1 || roles.indexOf("hauswart") > -1) {
+      return "/portal/my-appointments.html";
+    }
+    return "/portal/calendar.html";
+  }
+
   async function logDocumentAccess(bucket, path, action) {
     if (!bucket || !path || !window.VeraPortal) return;
     try {
@@ -198,11 +211,34 @@ window.VeraDashboard = (function () {
   }
 
   async function openSignedDocument(bucket, path, expiresIn) {
-    await logDocumentAccess(bucket, path, "open");
-    var res = await VeraPortal.getClient().storage.from(bucket).createSignedUrl(path, expiresIn || 60);
-    if (!res.error && res.data) window.open(res.data.signedUrl, "_blank");
-    else window.alert("Dokument konnte nicht geöffnet werden: " + (res.error ? res.error.message : "Keine signierte URL erhalten."));
-    return res;
+    /* iOS blockiert window.open(), sobald davor ein await lag, weil der
+       Aufruf dann nicht mehr zum urspruenglichen Tap gehoert. Das leere
+       Ziel wird deshalb synchron geoeffnet und nach Erhalt der
+       kurzlebigen URL weitergeleitet. Falls der Browser es dennoch
+       blockiert, navigieren wir verlaesslich im aktuellen Fenster. */
+    var targetWindow = null;
+    try {
+      targetWindow = window.open("", "_blank");
+      if (targetWindow) targetWindow.opener = null;
+    } catch (e) {
+      targetWindow = null;
+    }
+    try {
+      await logDocumentAccess(bucket, path, "open");
+      var res = await VeraPortal.getClient().storage.from(bucket).createSignedUrl(path, expiresIn || 60);
+      if (!res.error && res.data && res.data.signedUrl) {
+        if (targetWindow) targetWindow.location.replace(res.data.signedUrl);
+        else window.location.assign(res.data.signedUrl);
+      } else {
+        if (targetWindow) targetWindow.close();
+        window.alert("Dokument konnte nicht geöffnet werden: " + (res.error ? res.error.message : "Keine signierte URL erhalten."));
+      }
+      return res;
+    } catch (error) {
+      if (targetWindow) targetWindow.close();
+      window.alert("Dokument konnte nicht geöffnet werden: " + (error.message || error));
+      return { error: error };
+    }
   }
 
   function rolesOverlap(itemRoles, roles) {
@@ -521,10 +557,10 @@ window.VeraDashboard = (function () {
         ? { key: "owner-report", href: "/portal/owner-report.html", label: "Objekte" }
         : { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen", badge: "meldungen" };
     var appointmentItem = profile.category === "admin"
-      ? { key: "termine", href: "/portal/admin/termine.html", label: "Termine", badge: "termine" }
+      ? { key: "termine", href: appointmentHref(profile, roles), label: "Termine", badge: "termine" }
       : (hasRole("handwerker") || hasRole("hauswart"))
-        ? { key: "my-appointments", href: "/portal/my-appointments.html", label: "Termine", badge: "termine" }
-        : { key: "calendar", href: "/portal/calendar.html", label: "Termine", badge: "calendar" };
+        ? { key: "my-appointments", href: appointmentHref(profile, roles), label: "Termine", badge: "termine" }
+        : { key: "calendar", href: appointmentHref(profile, roles), label: "Termine", badge: "calendar" };
     var items = [
       { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht", icon: "dashboard" },
       Object.assign({ icon: "objects" }, objectItem),
@@ -880,6 +916,7 @@ window.VeraDashboard = (function () {
     categoryLabel: categoryLabel,
     canIssueInvoices: canIssueInvoices,
     canManagePortal: canManagePortal,
+    appointmentHref: appointmentHref,
     logDocumentAccess: logDocumentAccess,
     openSignedDocument: openSignedDocument,
     applyQueryParamSearch: applyQueryParamSearch,

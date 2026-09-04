@@ -181,6 +181,10 @@
     if(!ctx) return;
     profile = ctx.profile;
     client = VeraPortal.getClient();
+    if(new URLSearchParams(window.location.search).get('open') === 'appointments'){
+      window.location.replace(VeraDashboard.appointmentHref(profile, ctx.roles));
+      return;
+    }
     if(profile.category === 'admin'){
       VeraDashboard.renderAdminEmailModeSwitch(profile);
       VeraDashboard.renderAdminContentEditorButton(profile);
@@ -282,11 +286,26 @@
         renderVacantUnits(vacantUnits);
       } else {
         var myPendingDocs = await client.from('documents').select('*', { count:'exact', head:true }).eq('status','pending');
-        var nextEvent = await client.from('calendar_events').select('title,starts_at').gte('starts_at', new Date().toISOString()).order('starts_at').limit(1);
+        var nowIso = new Date().toISOString();
+        var dashboardRoles = ctx.roles || [profile.category];
+        var usesWorkCalendar = dashboardRoles.indexOf('handwerker') > -1 || dashboardRoles.indexOf('hauswart') > -1;
+        var nextCalendarPromise = usesWorkCalendar
+          ? Promise.resolve({ data: [] })
+          : client.from('calendar_events').select('title,starts_at').gte('starts_at', nowIso).order('starts_at').limit(1);
+        var nextAppointmentPromise = client.from('appointments')
+          .select('title,starts_at,appointment_participants!inner(profile_id)')
+          .eq('appointment_participants.profile_id', profile.id)
+          .is('archived_at', null).gte('starts_at', nowIso).order('starts_at').limit(1);
+        var nextResults = await Promise.all([nextCalendarPromise, nextAppointmentPromise]);
+        var nextEntries = (nextResults[0].data || []).concat(nextResults[1].data || []).sort(function(a,b){
+          return new Date(a.starts_at) - new Date(b.starts_at);
+        });
+        var nextEvent = nextEntries[0] || null;
         var unreadMsgs = await client.from('messages').select('*', { count:'exact', head:true }).eq('recipient_profile_id', profile.id).is('read_at', null);
+        var appointmentUrl = VeraDashboard.appointmentHref(profile, ctx.roles);
         stats = [
           { num: myPendingDocs.count || 0, label: 'Offene Dokumente', href: '/portal/documents.html' },
-          { num: (nextEvent.data && nextEvent.data[0]) ? VeraDashboard.formatDate(nextEvent.data[0].starts_at) : '–', label: 'Nächster Termin', href: '/portal/my-appointments.html' },
+          { num: nextEvent ? VeraDashboard.formatDate(nextEvent.starts_at) : '–', label: 'Nächster Termin', href: appointmentUrl },
           { num: unreadMsgs.count || 0, label: 'Ungelesene Nachrichten', href: '/portal/messages.html' }
         ];
 

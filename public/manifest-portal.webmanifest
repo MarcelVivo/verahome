@@ -21,7 +21,7 @@
   "shortcuts": [
     { "name": "Übersicht", "url": "/portal/dashboard.html" },
     { "name": "Dateien", "short_name": "Dateien", "url": "/portal/documents.html" },
-    { "name": "Termine", "short_name": "Termine", "url": "/portal/calendar.html" },
+    { "name": "Termine", "short_name": "Termine", "url": "/portal/dashboard.html?open=appointments" },
     { "name": "Nachrichten", "short_name": "Nachrichten", "url": "/portal/messages.html" }
   ]
 }

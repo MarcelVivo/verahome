@@ -112,7 +112,8 @@
   VeraDashboard.init('my-appointments').then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
-    if(['handwerker', 'hauswart'].indexOf(profile.category) === -1){
+    var roles = ctx.roles || [profile.category];
+    if(roles.indexOf('handwerker') === -1 && roles.indexOf('hauswart') === -1){
       window.location.href = '/portal/dashboard.html';
       return;
     }
