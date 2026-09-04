@@ -2047,8 +2047,8 @@ body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
   .dash-table-responsive-ready,
   .dash-table-responsive-ready tbody{display:block;width:100%;}
   .dash-table-responsive-ready thead,
-  .dash-table-responsive-ready tr:has(th){display:none;}
-  .dash-table-responsive-ready tr:not(:has(th)){
+  .dash-table-responsive-ready .dash-table-header-row{display:none;}
+  .dash-table-responsive-ready .dash-table-data-row{
     display:block;width:100%;margin:0 0 12px;padding:7px 12px;
     border:1px solid var(--color-blue-light);border-radius:14px;background:var(--color-white);
     box-shadow:0 5px 16px rgba(13,36,64,.05);

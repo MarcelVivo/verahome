@@ -731,8 +731,10 @@ window.VeraDashboard = (function () {
       var labels = Array.prototype.slice.call(headerRow.querySelectorAll("th")).map(function (cell) {
         return cell.textContent.trim();
       });
+      headerRow.classList.add("dash-table-header-row");
       table.querySelectorAll("tr").forEach(function (row) {
         if (row.querySelector("th")) return;
+        row.classList.add("dash-table-data-row");
         Array.prototype.slice.call(row.children).forEach(function (cell, index) {
           if (cell.tagName !== "TD" || cell.hasAttribute("data-label")) return;
           cell.setAttribute("data-label", labels[index] || "");
