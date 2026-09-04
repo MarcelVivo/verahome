@@ -174,8 +174,9 @@ window.VeraDashboard = (function () {
     return CATEGORY_LABELS[c] || c;
   }
 
-  function canIssueInvoices(profile) {
-    return INVOICE_ISSUER_CATEGORIES.indexOf(profile.category) > -1;
+  function canIssueInvoices(profile, roles) {
+    roles = roles || (profile ? [profile.category] : []);
+    return roles.some(function (role) { return INVOICE_ISSUER_CATEGORIES.indexOf(role) > -1; });
   }
 
   function canManagePortal(profile) {

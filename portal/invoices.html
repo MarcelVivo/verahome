@@ -165,7 +165,7 @@
 <script>
 (function(){
   "use strict";
-  var client, profile, adminId;
+  var client, profile, adminId, profileRoles = [];
 
   var CATEGORY_TEXT = {
     miete: 'Miete', nebenkosten: 'Nebenkosten', schaden_reparatur: 'Schaden-Reparatur',
@@ -182,10 +182,11 @@
   VeraDashboard.init('invoices').then(async function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
+    profileRoles = ctx.roles || [profile.category];
     client = VeraPortal.getClient();
 
     if(editInvoiceId){
-      if(!VeraDashboard.canIssueInvoices(profile)){ window.location.href = '/portal/invoices.html'; return; }
+      if(!VeraDashboard.canIssueInvoices(profile, profileRoles)){ window.location.href = '/portal/invoices.html'; return; }
       document.querySelectorAll('.dash-card').forEach(function(card){
         if(card.id !== 'issueCard') card.style.display = 'none';
       });
@@ -201,7 +202,7 @@
 
     await loadReceived();
 
-    if(VeraDashboard.canIssueInvoices(profile)){
+    if(VeraDashboard.canIssueInvoices(profile, profileRoles)){
       document.getElementById('issueCard').style.display = 'block';
       document.getElementById('issuedCard').style.display = 'block';
       document.getElementById('recurringDueCard').style.display = 'block';

@@ -121,7 +121,8 @@
   VeraDashboard.init('rapporte').then(function(ctx){
     if(!ctx) return;
     profile = ctx.profile;
-    if(profile.category !== 'admin' && profile.category !== 'hauswart'){
+    var roles = ctx.roles || [profile.category];
+    if(profile.category !== 'admin' && roles.indexOf('hauswart') === -1){
       window.location.href = '/portal/dashboard.html';
       return;
     }

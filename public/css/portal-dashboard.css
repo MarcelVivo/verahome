@@ -558,6 +558,7 @@
   display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;
 }
 .share-modal-backdrop[hidden]{display:none;}
+body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
 /* Modal-Box selbst wird nie höher als der Viewport (max-height) --
    nur der Inhalt (.modal-scroll-body) scrollt innen, damit der
    Schliessen-Button (Kind von .share-modal, nicht von
