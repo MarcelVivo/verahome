@@ -1,7 +1,7 @@
 /* Vera Home / Vera Portal – Service Worker
    Bump CACHE_VERSION on future large asset changes so old caches get
    discarded (see activate handler below). */
-const CACHE_VERSION = "vera-pwa-v5";
+const CACHE_VERSION = "vera-pwa-v6";
 const STATIC_CACHE = CACHE_VERSION + "-static";
 const PAGES_CACHE = CACHE_VERSION + "-pages";
 
@@ -14,6 +14,23 @@ const PRECACHE_URLS = [
   "/portal/my-appointments.html",
   "/portal/admin/termine.html",
   "/portal/admin/properties.html",
+  "/portal/admin/archive.html",
+  "/portal/admin/audit-log.html",
+  "/portal/admin/homepage-content.html",
+  "/portal/admin/jobs.html",
+  "/portal/admin/ownerships.html",
+  "/portal/admin/portal-editor.html",
+  "/portal/admin/tenancies.html",
+  "/portal/admin/tickets.html",
+  "/portal/admin/users.html",
+  "/portal/admin/utility-statements.html",
+  "/portal/invoice-detail.html",
+  "/portal/invoices.html",
+  "/portal/meldungen.html",
+  "/portal/messages.html",
+  "/portal/owner-report.html",
+  "/portal/rapporte.html",
+  "/portal/waschplan.html",
   "/public/manifest-portal.webmanifest",
   "/public/css/styles.css",
   "/public/css/portal.css",

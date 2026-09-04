@@ -1936,7 +1936,11 @@
   .cal-grid.is-agenda{display:block;width:100%;min-width:0!important;}
   .cal-agenda-primary{display:flex;margin-bottom:12px;}
   .cal-agenda-primary .btn{width:100%;}
-  .cal-agenda-day{margin-bottom:14px;}
+  /* .cal-agenda-day ist ein semantisches section-Element. Ohne ein
+     explizites padding gewinnt die globale Marketing-Regel
+     section{padding:...} aus styles.css und erzeugt auf jedem Tag einen
+     grossen Leerraum. Im Portal ist ein Tag eine kompakte Listenzeile. */
+  .cal-agenda-day{margin-bottom:14px;padding:0!important;overflow:visible;}
   .cal-agenda-day h3{
     position:sticky;top:calc(var(--nav-height) + 8px);z-index:4;
     margin:0 0 7px;padding:8px 10px;border-radius:10px;background:var(--color-bg);
@@ -1988,6 +1992,10 @@
   .msg-partner-list{display:flex;flex-direction:column;max-height:260px;overflow-x:hidden;overflow-y:auto;}
   .msg-partner-btn{flex:0 0 auto;width:100%;max-width:none;border-right:0;border-bottom:1px solid var(--color-blue-light);}
   .msg-attach-toolbar{display:flex;flex-wrap:wrap;overflow-x:hidden;}
+
+  /* Portal-Seiten haben eine eigene App-Navigation und benötigen den
+     langen Marketing-Footer auf kleinen Bildschirmen nicht. */
+  body:has(.dash-layout) > footer{display:none;}
 }
 
 @media (max-width:520px){
@@ -2006,4 +2014,26 @@
   .cal-jump-search{grid-column:1 / -1;grid-row:3;width:100%;}
   .calendar-create-head{align-items:stretch;flex-direction:column;}
   .calendar-create-toggle{width:100%;}
+}
+
+@media (max-width:640px){
+  /* Einheitliche Modal-Bedienung: Titel und Schliessen bleiben oben,
+     nur der jeweilige Inhalt scrollt. Native iOS-Selects erhalten eine
+     feste Hoehe ohne vertikales Padding, damit ihre Beschriftung nicht
+     abgeschnitten wird. */
+  .share-modal > h3{padding-right:48px;}
+  .share-modal select:not([multiple]){height:52px;min-height:52px;padding-top:0;padding-bottom:0;line-height:normal;}
+  .share-modal .obj-modal-close{width:44px;height:44px;}
+  #shareModalBackdrop .share-modal,
+  #assignModalBackdrop .share-modal{
+    overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  }
+  #shareModalBackdrop .share-modal-actions,
+  #assignModalBackdrop .share-modal-actions{
+    position:sticky;bottom:calc(-22px - env(safe-area-inset-bottom));z-index:3;
+    margin-left:-20px;margin-right:-20px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+    display:grid;grid-template-columns:1fr 1fr;background:var(--color-white);
+  }
+  #shareModalBackdrop .share-modal-actions > *,
+  #assignModalBackdrop .share-modal-actions > *{width:100%;min-height:48px;justify-content:center;}
 }
