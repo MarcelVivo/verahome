@@ -966,8 +966,76 @@
       '</form>';
   }
 
+  function calAgendaTime(item){
+    var start = new Date(item.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    var end = new Date(item.ends_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+    return start + '–' + end;
+  }
+
+  function renderCalAgenda(days){
+    var grid = document.getElementById('calGrid');
+    var todayStr = calDateStr(new Date());
+    var defaultDay = days.some(function(d){ return calDateStr(d) === todayStr; }) ? todayStr : calDateStr(days[0]);
+    var defaultHour = Math.min(Math.max(new Date().getHours() + 1, calHourStart), calHourEnd - 1);
+    grid.classList.add('is-agenda');
+    grid.innerHTML =
+      '<div class="cal-agenda-primary"><button type="button" class="btn btn-primary" id="calMobileNewBtn" data-date="'+defaultDay+'" data-hour="'+defaultHour+'">+ Neuer Termin</button></div>' +
+      days.map(function(d){
+        var dateStr = calDateStr(d);
+        var entries = [];
+        calBookings.filter(function(b){ return calDateStr(new Date(b.starts_at)) === dateStr; }).forEach(function(b){ entries.push({ type:'booking', item:b }); });
+        calBlocks.filter(function(k){ return calDateStr(new Date(k.starts_at)) === dateStr; }).forEach(function(k){ entries.push({ type:'block', item:k }); });
+        calAppointments.filter(function(a){ return calDateStr(new Date(a.starts_at)) === dateStr; }).forEach(function(a){ entries.push({ type:'appointment', item:a }); });
+        entries.sort(function(a,b){ return new Date(a.item.starts_at) - new Date(b.item.starts_at); });
+        var rows = entries.map(function(entry){
+          var item = entry.item;
+          var dataAttr, styleClass, title, meta;
+          if(entry.type === 'booking'){
+            dataAttr = 'data-booking-id="'+item.id+'"';
+            styleClass = item.status === 'angefragt' ? 'pending' : 'confirmed';
+            title = item.name;
+            meta = (item.properties ? item.properties.label : 'Allgemeines Anliegen') + ' · ' + (STATUS_LABEL[item.status] || item.status);
+          } else if(entry.type === 'block'){
+            dataAttr = 'data-block-id="'+item.id+'"';
+            styleClass = 'blocked';
+            title = 'Gesperrt';
+            meta = item.reason || 'Keine öffentliche Buchung möglich';
+          } else {
+            dataAttr = 'data-appointment-id="'+item.id+'"';
+            styleClass = item.admin_participates ? 'appt-mine' : 'appt-other';
+            title = item.title;
+            meta = item.properties ? item.properties.label : (item.admin_participates ? 'Eigener Termin' : 'Termin ohne eigene Teilnahme');
+          }
+          return '<button type="button" class="cal-event cal-agenda-event '+styleClass+'" '+dataAttr+'>' +
+            '<span class="cal-agenda-time">'+calAgendaTime(item)+'</span>' +
+            '<span class="cal-agenda-content"><strong>'+VeraDashboard.escapeHtml(title)+'</strong><span class="cal-agenda-meta">'+VeraDashboard.escapeHtml(meta)+'</span></span>' +
+            '<span class="cal-agenda-chevron" aria-hidden="true">›</span>' +
+          '</button>';
+        }).join('');
+        var heading = d.toLocaleDateString('de-CH', { weekday:'long', day:'numeric', month:'long' });
+        return '<section class="cal-agenda-day'+(dateStr === todayStr ? ' today' : '')+'"><h3>'+heading+'</h3>' +
+          (rows || '<p class="cal-agenda-empty">Keine Termine</p>') + '</section>';
+      }).join('');
+
+    attachCalHandlers(grid);
+    document.getElementById('calMobileNewBtn').addEventListener('click', function(e){
+      var btn = e.currentTarget;
+      var dateStr = btn.getAttribute('data-date');
+      var hour = parseInt(btn.getAttribute('data-hour'), 10);
+      calPinnedKey = 'mobile-new-' + dateStr + '-' + hour;
+      calShowPopover(btn, calNewApptFormHtml(dateStr, hour));
+      calWireApptForm();
+      calFocusApptTitle();
+    });
+  }
+
   function renderCalGrid(days){
     var grid = document.getElementById('calGrid');
+    if(window.matchMedia('(max-width:900px)').matches){
+      renderCalAgenda(days);
+      return;
+    }
+    grid.classList.remove('is-agenda');
     var todayStr = calDateStr(new Date());
     var hourCount = calHourEnd - calHourStart;
 
@@ -1039,7 +1107,7 @@
     // Auf Mobile liegt die untere Nav-Leiste fix über allem -- das
     // Popover darf nie darunter enden, sonst ist z.B. "Termin
     // speichern" unsichtbar/nicht antippbar.
-    var tabbar = document.getElementById('dashTabbar');
+    var tabbar = document.getElementById('dashMobileDock') || document.getElementById('dashTabbar');
     if(tabbar && getComputedStyle(tabbar).display !== 'none') return tabbar.offsetHeight + 8;
     return 8;
   }

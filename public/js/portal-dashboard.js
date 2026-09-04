@@ -365,8 +365,9 @@ window.VeraDashboard = (function () {
 
     async function tick() {
       try {
-        if (SEEN_TRACKED_SECTIONS.indexOf(activeKey) > -1) {
-          await VeraPortal.markSectionSeen(activeKey);
+        var seenKey = activeKey === "my-appointments" ? "termine" : activeKey;
+        if (SEEN_TRACKED_SECTIONS.indexOf(seenKey) > -1) {
+          await VeraPortal.markSectionSeen(seenKey);
         }
         var counts = await VeraPortal.getUnreadCounts();
         applyBadges(counts);
@@ -501,6 +502,59 @@ window.VeraDashboard = (function () {
     '<path d="M13 6v12" stroke-dasharray="2 2"/>' +
     "</svg>";
 
+  var MOBILE_DOCK_ICONS = {
+    dashboard: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/></svg>',
+    objects: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V7l8-4 8 4v14"/><path d="M8 10h2m4 0h2m-8 4h2m4 0h2M9 21v-4h6v4"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 10h18"/><path d="M8 14h3m2 0h3m-8 3h3"/></svg>',
+    documents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6m-6 4h6"/></svg>',
+    more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'
+  };
+
+  function renderMobileDock(activeKey, profile, roles, openMenu) {
+    var oldDock = document.getElementById("dashMobileDock");
+    if (oldDock) oldDock.remove();
+
+    var hasRole = function (role) { return roles.indexOf(role) > -1; };
+    var objectItem = profile.category === "admin"
+      ? { key: "admin-properties", href: "/portal/admin/properties.html", label: "Objekte" }
+      : hasRole("eigentuemer")
+        ? { key: "owner-report", href: "/portal/owner-report.html", label: "Objekte" }
+        : { key: "meldungen", href: "/portal/meldungen.html", label: "Anfragen", badge: "meldungen" };
+    var appointmentItem = profile.category === "admin"
+      ? { key: "termine", href: "/portal/admin/termine.html", label: "Termine", badge: "termine" }
+      : (hasRole("handwerker") || hasRole("hauswart"))
+        ? { key: "my-appointments", href: "/portal/my-appointments.html", label: "Termine", badge: "termine" }
+        : { key: "calendar", href: "/portal/calendar.html", label: "Termine", badge: "calendar" };
+    var items = [
+      { key: "dashboard", href: "/portal/dashboard.html", label: "Übersicht", icon: "dashboard" },
+      Object.assign({ icon: "objects" }, objectItem),
+      Object.assign({ icon: "calendar" }, appointmentItem),
+      { key: "documents", href: "/portal/documents.html", label: "Dateien", icon: "documents", badge: "documents" }
+    ];
+    var currentKey = navActiveKey(activeKey);
+    var hasPrimaryActive = items.some(function (item) { return navActiveKey(item.key) === currentKey; });
+
+    var dock = document.createElement("nav");
+    dock.id = "dashMobileDock";
+    dock.className = "dash-mobile-dock";
+    dock.setAttribute("aria-label", "Schnellnavigation");
+    dock.innerHTML = items.map(function (item) {
+      var active = navActiveKey(item.key) === currentKey;
+      return '<a class="dash-mobile-dock-item' + (active ? ' active' : '') + '" href="' + item.href + '"' +
+        (active ? ' aria-current="page"' : '') + '>' + MOBILE_DOCK_ICONS[item.icon] +
+        '<span>' + item.label + '</span>' +
+        (item.badge ? '<span class="dash-nav-badge dash-mobile-dock-badge" data-badge-for="' + item.badge + '" hidden></span>' : '') +
+      '</a>';
+    }).join("") +
+      '<button type="button" class="dash-mobile-dock-item' + (!hasPrimaryActive ? ' active' : '') + '" id="dashMobileMore" aria-label="Weitere Bereiche öffnen">' +
+        MOBILE_DOCK_ICONS.more + '<span>Mehr</span></button>';
+    document.body.appendChild(dock);
+
+    document.getElementById("dashMobileMore").addEventListener("click", function () {
+      openMenu(true);
+    });
+  }
+
   /* Hamburger-Menü auf Mobile (nur sichtbar ≤900px, siehe
      portal-dashboard.css) -- ersetzt die vorherige untere Tab-Leiste.
      Icon-Button in der schlanken Portal-Kopfzeile (#navbar
@@ -582,6 +636,8 @@ window.VeraDashboard = (function () {
         window.location.href = "/portal/login.html";
       });
     });
+
+    renderMobileDock(activeKey, profile, roles, setOpen);
   }
 
   function renderAdminQuickbar(profile) {

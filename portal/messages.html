@@ -152,7 +152,7 @@
         '<span class="msg-attachment-icon">📎</span>' +
         '<span class="msg-attachment-label">'+VeraDashboard.escapeHtml(m.attachment_label||'Datei')+'</span>' +
         (m.attachment_size_bytes ? '<span class="msg-attachment-meta">'+msgFmtSize(m.attachment_size_bytes)+'</span>' : '') +
-        '<a href="#" class="dash-btn-sm msg-open-link" data-bucket="message-attachments" data-path="'+m.attachment_path+'">Öffnen</a>' +
+        '<button type="button" class="dash-btn-sm msg-open-link" data-bucket="message-attachments" data-path="'+m.attachment_path+'">Öffnen</button>' +
       '</div>';
     }
     if(m.attachment_type === 'voice'){
@@ -175,7 +175,7 @@
     if(m.attachment_type === 'document_file' || m.attachment_type === 'document_folder'){
       var icon = m.attachment_type === 'document_file' ? '📄' : '📁';
       var openBtn = (m.attachment_type === 'document_file' && m.attachment_path)
-        ? '<a href="#" class="dash-btn-sm msg-open-link" data-bucket="document-vault" data-path="'+m.attachment_path+'">Öffnen</a>'
+        ? '<button type="button" class="dash-btn-sm msg-open-link" data-bucket="document-vault" data-path="'+m.attachment_path+'">Öffnen</button>'
         : '';
       return '<div class="msg-attachment msg-attachment-document">' +
         '<span class="msg-attachment-icon">'+icon+'</span>' +
@@ -189,8 +189,7 @@
 
   function wireMsgOpenLinks(container){
     container.querySelectorAll('.msg-open-link').forEach(function(a){
-      a.addEventListener('click', async function(e){
-        e.preventDefault();
+      a.addEventListener('click', async function(){
         await VeraDashboard.openSignedDocument(a.getAttribute('data-bucket'), a.getAttribute('data-path'), 60);
       });
     });

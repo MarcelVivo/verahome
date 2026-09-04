@@ -214,11 +214,10 @@
       return;
     }
     documentsEl.innerHTML = '<h2>Pläne & Unterlagen</h2><div class="property-doc-links">' + documents.map(function(doc){
-      return '<a href="#" data-path="'+escapeHtml(doc.file_path)+'">'+escapeHtml(doc.title)+'</a>';
+      return '<button type="button" class="property-doc-link" data-path="'+escapeHtml(doc.file_path)+'">'+escapeHtml(doc.title)+'</button>';
     }).join('') + '</div>';
-    documentsEl.querySelectorAll('a[data-path]').forEach(function(link){
-      link.addEventListener('click', function(e){
-        e.preventDefault();
+    documentsEl.querySelectorAll('button[data-path]').forEach(function(link){
+      link.addEventListener('click', function(){
         client.storage.from('property-documents').createSignedUrl(link.getAttribute('data-path'), 120).then(function(res){
           if(res.data && res.data.signedUrl) window.open(res.data.signedUrl, '_blank', 'noopener');
         });

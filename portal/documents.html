@@ -376,7 +376,7 @@
       return '<div class="doc-row">' +
         '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' +
         '<span class="doc-meta">'+(d.properties?VeraDashboard.escapeHtml(d.properties.label)+' · ':'')+VeraDashboard.escapeHtml(PROPERTY_DOC_CATEGORY_TEXT[d.category]||d.category)+' · '+VeraDashboard.formatDate(d.created_at)+'</span></div>' +
-        '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
+        '<button type="button" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</button>' +
       '</div>';
     }).join('');
     wireOpenLinks(list, 'property-documents');
@@ -388,8 +388,7 @@
 
   function wireOpenLinks(container, bucket){
     container.querySelectorAll('.doc-open-link').forEach(function(a){
-      a.addEventListener('click', function(e){
-        e.preventDefault();
+      a.addEventListener('click', function(){
         openSignedUrl(bucket, a.getAttribute('data-path'));
       });
     });
@@ -420,7 +419,7 @@
       return '<div class="doc-row">' +
         '<div class="doc-info"><strong>'+VeraDashboard.escapeHtml(d.title)+'</strong>' + badge +
         '<span class="doc-meta">'+(d.folder_path ? VeraDashboard.escapeHtml(d.folder_path)+' · ' : '')+VeraDashboard.formatDate(d.shared_at)+'</span></div>' +
-        '<div class="dash-btn-row"><a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' + action + '</div>' +
+        '<div class="dash-btn-row"><button type="button" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</button>' + action + '</div>' +
       '</div>';
     }).join('');
 
@@ -1413,6 +1412,7 @@
       document.getElementById('fmDetailAssignFolder').onclick = function(){ fmOpenAssignModal('folder', folder); };
       document.getElementById('fmDetailRenameFolder').onclick = function(){ fmRenameFolder(folder.id, folder.name); };
       document.getElementById('fmDetailDeleteFolder').onclick = function(){ fmDeleteFolder(folder.id, folder.name, this); };
+      fmRevealDetailOnMobile();
       return;
     }
     var file = fmSelected.item;
@@ -1434,6 +1434,14 @@
     document.getElementById('fmDetailAssignFile').onclick = function(){ fmOpenAssignModal('file', file); };
     document.getElementById('fmDetailRenameFile').onclick = function(){ fmRenameFile(file.id, file.title); };
     document.getElementById('fmDetailDeleteFile').onclick = function(){ fmDeleteFile(file.id, file.file_path, file.title, this); };
+    fmRevealDetailOnMobile();
+  }
+
+  function fmRevealDetailOnMobile(){
+    if(!window.matchMedia('(max-width:900px)').matches) return;
+    window.requestAnimationFrame(function(){
+      document.getElementById('filemgrDetail').scrollIntoView({ behavior:'smooth', block:'start' });
+    });
   }
 
   async function fmRenameFolder(id, currentName){

@@ -49,8 +49,11 @@
       <h1>Kalender</h1>
       <p class="dash-lead" id="calLead">Wird geladen …</p>
 
-      <div class="dash-card">
-        <h2>Neuer Termin</h2>
+      <div class="dash-card calendar-create-card" id="calendarCreateCard">
+        <div class="calendar-create-head">
+          <h2>Neuer Termin</h2>
+          <button type="button" class="dash-btn-sm calendar-create-toggle" id="calendarCreateToggle" aria-expanded="false" aria-controls="newEventForm">+ Termin eintragen</button>
+        </div>
         <form class="auth-form" id="newEventForm">
           <select id="ev_profile" style="display:none;"></select>
           <input id="ev_title" placeholder="Titel *" required>
@@ -170,6 +173,14 @@
     });
 
     loadEvents();
+  });
+
+  document.getElementById('calendarCreateToggle').addEventListener('click', function(){
+    var card = document.getElementById('calendarCreateCard');
+    var open = card.classList.toggle('open');
+    this.setAttribute('aria-expanded', String(open));
+    this.textContent = open ? 'Schliessen' : '+ Termin eintragen';
+    if(open) document.getElementById('ev_title').focus();
   });
 
   async function loadEvents(){

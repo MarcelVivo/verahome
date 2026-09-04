@@ -29,9 +29,12 @@
    unter der fixen Navbar hervor -- sowohl bei normalen In-Page-Klicks
    als auch beim direkten Landen mit #anker in der URL (z.B. von den
    Leistungs-Unterseiten via "Jetzt anfragen" -> /index.html#kontakt). */
-html{scroll-behavior:smooth;scroll-padding-top:var(--nav-height);font-size:16px;}
+html{
+  width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none;
+  scroll-behavior:smooth;scroll-padding-top:var(--nav-height);font-size:16px;
+}
 body{
-  position:relative;
+  position:relative;width:100%;max-width:100%;min-width:0;
   font-family:var(--font-body);
   color:var(--color-gray-text);
   background-color:var(--color-bg);
@@ -46,6 +49,14 @@ body{
   text-size-adjust:100%;
   -webkit-text-size-adjust:100%;
 }
+/* iOS Safari behandelt <html> als eigentlichen Scroll-Container. Nur
+   overflow-x am body verhindert dort deshalb nicht zuverlässig, dass
+   ein ausgeblendetes Off-Canvas-Element die Seite seitlich verschiebt. */
+@supports (overflow:clip){
+  html,body{overflow-x:clip;}
+}
+main,#navbar,#intro-track,#intro-overlay,section,footer{max-width:100%;}
+main,section,footer{overflow-x:clip;}
 img{max-width:100%;display:block;}
 a{color:inherit;text-decoration:none;cursor:url('/public/images/cursor-key.svg') 1 6, auto;}
 ul{list-style:none;}
@@ -53,7 +64,7 @@ button{font-family:inherit;cursor:url('/public/images/cursor-key.svg') 1 6, auto
 input,textarea,select{font-family:inherit;font-size:1rem;}
 h1,h2,h3,h4{font-family:var(--font-heading);color:var(--color-navy);font-weight:600;line-height:1.2;overflow-wrap:break-word;hyphens:auto;}
 :focus-visible{outline:2px solid var(--color-gold);outline-offset:3px;}
-.container{max-width:var(--max-width);margin:0 auto;padding:0 clamp(18px,4vw,24px);}
+.container{width:100%;min-width:0;max-width:var(--max-width);margin:0 auto;padding:0 clamp(18px,4vw,24px);}
 .eyebrow{
   display:inline-block;color:var(--color-gold);font-weight:600;font-size:.8rem;
   letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px;
@@ -176,20 +187,32 @@ section{position:relative;padding:110px 0;}
    Link an derselben Stelle (siehe public/js/pwa.js, das dieses Icon
    selbst in .nav-right einfuegt). */
 .nav-install-btn{
-  display:flex;background:none;border:none;padding:0;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;width:40px;height:44px;flex:0 0 40px;
+  background:none;border:none;padding:0;border-radius:50%;cursor:pointer;touch-action:manipulation;
   color:rgba(255,255,255,.85);transition:color .25s var(--ease),transform .25s var(--ease);
 }
 .nav-install-btn:hover{color:var(--color-gold);transform:translateY(-2px);}
+.nav-install-btn:active{background:rgba(255,255,255,.1);}
+.nav-install-btn.install-ready{color:var(--color-gold-light);}
 .nav-install-btn svg{width:20px;height:20px;}
-.pwa-install-tip{
-  position:fixed;left:12px;right:12px;top:calc(var(--nav-height) + 10px + env(safe-area-inset-top));
-  z-index:1050;background:var(--color-navy-deep);color:var(--color-white);
-  border:1px solid rgba(201,168,76,.35);border-radius:14px;
-  padding:12px 14px;box-shadow:0 10px 30px rgba(4,14,26,.35);
-  font-size:.86rem;line-height:1.35;
-  opacity:0;transform:translateY(-8px);transition:opacity .25s ease,transform .25s ease;
+.pwa-install-backdrop{
+  position:fixed;inset:0;z-index:2200;display:flex;align-items:flex-end;justify-content:center;
+  padding:20px max(14px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+  background:rgba(4,14,26,.6);opacity:0;transition:opacity .22s ease;
 }
-.pwa-install-tip.open{opacity:1;transform:translateY(0);}
+.pwa-install-backdrop.open{opacity:1;}
+.pwa-install-dialog{
+  width:min(100%,480px);background:var(--color-white);color:var(--color-gray-text);
+  border:1px solid rgba(201,168,76,.45);border-radius:18px;padding:24px 22px;
+  box-shadow:0 22px 60px rgba(4,14,26,.4);transform:translateY(18px);
+  transition:transform .22s ease;
+}
+.pwa-install-backdrop.open .pwa-install-dialog{transform:translateY(0);}
+.pwa-install-dialog h2{font-size:1.35rem;margin-bottom:8px;}
+.pwa-install-dialog p{font-size:.92rem;line-height:1.5;margin-bottom:14px;}
+.pwa-install-dialog ol{margin:0 0 20px;padding-left:22px;list-style:decimal;}
+.pwa-install-dialog li{padding-left:4px;margin-bottom:8px;font-size:.92rem;line-height:1.45;}
+.pwa-install-close{width:100%;}
 .nav-toggle{display:none;flex-direction:column;gap:5px;width:30px;z-index:1100;}
 .nav-toggle span{height:2px;width:100%;background:var(--color-white);border-radius:2px;transition:transform .3s,opacity .3s;}
 .nav-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
@@ -202,20 +225,27 @@ body.nav-menu-open{overflow:hidden;}
     position:fixed;top:0;left:auto;right:0;height:100vh;height:100dvh;width:min(360px,86vw);
     background:var(--color-navy-deep);flex-direction:column;justify-content:flex-start;
     align-items:stretch;padding:calc(84px + env(safe-area-inset-top)) 28px calc(28px + env(safe-area-inset-bottom));
-    gap:12px;transform:translateX(100%);overflow-y:auto;overscroll-behavior:contain;
-    box-shadow:-10px 0 40px rgba(0,0,0,.3);transition:transform .28s var(--ease);
+    gap:12px;max-width:100%;transform:none;clip-path:inset(0 0 0 100%);
+    visibility:hidden;pointer-events:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+    box-shadow:-10px 0 40px rgba(0,0,0,.3);
+    transition:clip-path .28s var(--ease),visibility 0s linear .28s;
   }
-  .nav-links.open{transform:translateX(0);}
+  .nav-links.open{
+    clip-path:inset(0);visibility:visible;pointer-events:auto;
+    transition:clip-path .28s var(--ease),visibility 0s;
+  }
   .nav-links a{display:flex;align-items:center;min-height:46px;font-size:1.06rem;width:100%;}
   .lang-switch{font-size:.78rem;margin-right:6px;}
   .nav-toggle{display:flex;align-items:center;justify-content:center;width:44px;height:44px;touch-action:manipulation;}
   .nav-portal-btn{padding:7px 12px;font-size:.8rem;}
 }
 @media (max-width:480px){
-  .nav-right{gap:12px;}
+  .nav-inner{padding-left:14px;padding-right:14px;}
+  .nav-right{gap:7px;}
   .nav-portal-btn span{display:none;}
   .nav-portal-btn{padding:8px;}
   .nav-portal-btn svg{width:16px;height:16px;}
+  .pwa-install-dialog{padding:22px 18px;}
 }
 
 @media (hover:none), (pointer:coarse){
@@ -406,7 +436,7 @@ body:has(#dashSidebar) footer{display:none;}
 }
 .leistungen-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
 .leistung-card{
-  background:var(--color-white);border-radius:var(--radius);padding:36px 30px;position:relative;
+  display:block;color:inherit;background:var(--color-white);border-radius:var(--radius);padding:36px 30px;position:relative;
   overflow:hidden;transition:transform .4s var(--ease),box-shadow .4s var(--ease);
   min-width:0;
 }
@@ -414,6 +444,9 @@ body:has(#dashSidebar) footer{display:none;}
   content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:var(--color-gold);
 }
 .leistung-card:hover{transform:translateY(-8px);box-shadow:var(--shadow-card-hover);}
+.leistung-card:focus-visible,.download-card:focus-visible,.objekt-card:focus-visible{
+  outline:3px solid var(--color-gold);outline-offset:4px;
+}
 .leistung-card .icon{width:44px;height:44px;margin-bottom:18px;color:var(--color-gold);}
 .leistung-card .icon svg{width:100%;height:100%;}
 .leistung-card h3{font-size:1.25rem;margin-bottom:12px;}
@@ -461,12 +494,13 @@ body:has(#dashSidebar) footer{display:none;}
 }
 .tools-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px;}
 .tool-card{
-  background:var(--color-white);border-radius:var(--radius);padding:38px 34px;
+  color:inherit;background:var(--color-white);border-radius:var(--radius);padding:38px 34px;
   border:1px solid var(--color-blue-light);transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s;
   display:flex;flex-direction:column;align-items:flex-start;gap:14px;
   min-width:0;
 }
 .tool-card:hover{transform:translateY(-8px);box-shadow:var(--shadow-card-hover);border-color:var(--color-gold);}
+.tool-card:focus-visible{outline:3px solid var(--color-gold);outline-offset:4px;}
 .tool-card .icon{width:46px;height:46px;color:var(--color-gold);}
 .tool-card .icon svg{width:100%;height:100%;}
 .tool-card h3{font-size:1.3rem;}
@@ -643,8 +677,11 @@ body:has(#dashSidebar) footer{display:none;}
 .property-feature-list li{position:relative;padding:14px 16px 14px 34px;background:var(--color-bg);border-radius:8px;color:var(--color-navy);}
 .property-feature-list li::before{content:'';position:absolute;left:16px;top:23px;width:7px;height:7px;border-radius:50%;background:var(--color-gold);}
 .property-doc-links{display:flex;gap:12px;flex-wrap:wrap;}
-.property-doc-links a{padding:10px 14px;border:1px solid var(--color-blue-light);border-radius:50px;color:var(--color-navy);font-weight:600;}
-.property-doc-links a:hover{border-color:var(--color-gold);color:var(--color-gold);}
+.property-doc-links button{
+  padding:10px 14px;border:1px solid var(--color-blue-light);border-radius:50px;
+  background:var(--color-white);color:var(--color-navy);font:inherit;font-weight:600;
+}
+.property-doc-links button:hover,.property-doc-links button:focus-visible{border-color:var(--color-gold);color:var(--color-gold);}
 .property-detail-aside{position:sticky;top:calc(var(--nav-height) + 24px);display:flex;flex-direction:column;gap:14px;}
 .property-facts{background:var(--color-bg);border:1px solid var(--color-blue-light);border-radius:var(--radius);padding:24px;}
 .property-fact{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-bottom:1px solid var(--color-blue-light);}
@@ -708,7 +745,7 @@ body:has(#dashSidebar) footer{display:none;}
 }
 .downloads-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
 .download-card{
-  background:var(--color-bg);border:1px solid var(--color-blue-light);border-radius:var(--radius);
+  display:block;color:inherit;background:var(--color-bg);border:1px solid var(--color-blue-light);border-radius:var(--radius);
   padding:30px 24px;text-align:center;transition:transform .35s var(--ease),box-shadow .35s var(--ease);
   min-width:0;
 }

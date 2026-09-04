@@ -644,23 +644,27 @@
         selectedDetailType = null;
         selectedDetailId = null;
         renderAllColumns();
+        scrollMobileObjectPane('.obj-pane-units');
       }
       else if(selectPropertyScope){
         selectedUnitId = null;
         selectedDetailType = null;
         selectedDetailId = null;
         renderAllColumns();
+        scrollMobileObjectPane('.obj-pane-relations');
       }
       else if(selectUnit){
         selectedUnitId = selectUnit.getAttribute('data-select-unit');
         selectedDetailType = null;
         selectedDetailId = null;
         renderAllColumns();
+        scrollMobileObjectPane('.obj-pane-relations');
       }
       else if(detailBtn){
         selectedDetailType = detailBtn.getAttribute('data-detail-type');
         selectedDetailId = detailBtn.getAttribute('data-detail-id');
         renderAllColumns();
+        scrollMobileObjectPane('.obj-pane-detail');
       }
       else if(nextAction) handleNextAction(nextAction.getAttribute('data-next-action'));
       else if(openTreeDoc) openDocumentVaultFile(openTreeDoc.getAttribute('data-open-tree-doc'));
@@ -1138,6 +1142,14 @@
     columnsEl.innerHTML = hierarchyHtml();
     wireHierarchyControls();
     if(selectedDetailType === 'document' && selectedDetailId) loadDocumentSignatureSection(selectedDetailId);
+  }
+
+  function scrollMobileObjectPane(selector){
+    if(!window.matchMedia('(max-width:720px)').matches) return;
+    window.requestAnimationFrame(function(){
+      var pane = document.querySelector(selector);
+      if(pane) pane.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
   }
 
   function hierarchyHtml(){
@@ -3678,7 +3690,7 @@
           '<td>'+VeraDashboard.escapeHtml(archiveLabelForKey(d.archive_category))+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(visLabel)+'</td>' +
           '<td><div class="dash-btn-row">' +
-            '<a href="#" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</a>' +
+            '<button type="button" class="dash-btn-sm doc-open-link" data-path="'+d.file_path+'">Öffnen</button>' +
             '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(d.id)+'">Dokumente</a>' +
             '<button type="button" class="dash-btn-sm edit-access-btn" data-id="'+d.id+'">Zugriff bearbeiten</button>' +
             '<button type="button" class="dash-btn-sm danger del-doc-btn" data-id="'+d.id+'" data-path="'+d.file_path+'">Archivieren</button>' +
@@ -3687,8 +3699,7 @@
       }).join('');
 
     table.querySelectorAll('.doc-open-link').forEach(function(a){
-      a.addEventListener('click', async function(e){
-        e.preventDefault();
+      a.addEventListener('click', async function(){
         await VeraDashboard.openSignedDocument('document-vault', a.getAttribute('data-path'), 60);
       });
     });

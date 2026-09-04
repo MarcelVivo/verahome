@@ -1334,10 +1334,14 @@
   position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(320px,86vw);z-index:2300;
   background:var(--color-navy-deep);display:flex;flex-direction:column;
   padding:calc(24px + env(safe-area-inset-top)) 0 calc(24px + env(safe-area-inset-bottom));
-  transform:translateX(100%);transition:transform .28s var(--ease);
-  overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);
+  max-width:100%;transform:none;clip-path:inset(0 0 0 100%);visibility:hidden;pointer-events:none;
+  transition:clip-path .28s var(--ease),visibility 0s linear .28s;
+  overflow-y:auto;overflow-x:hidden;box-shadow:-10px 0 40px rgba(0,0,0,.3);
 }
-.dash-mobile-menu.open{transform:translateX(0);}
+.dash-mobile-menu.open{
+  clip-path:inset(0);visibility:visible;pointer-events:auto;
+  transition:clip-path .28s var(--ease),visibility 0s;
+}
 .dash-mobile-menu .dash-nav{flex:1;}
 .dash-mobile-menu-header{padding:0 28px 20px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;}
 .dash-mobile-menu-name{display:block;color:var(--color-white);font-family:var(--font-heading);font-size:1.1rem;margin-bottom:8px;}
@@ -1800,4 +1804,190 @@
       bottom:calc(58px + env(safe-area-inset-bottom));
     }
   }
+}
+
+/* =============================================================
+   PWA APP-SHELL — klare, einspaltige Bedienung auf Telefon/Tablet
+   Diese finalen Regeln ersetzen breite Desktop-Arbeitsflächen durch
+   mobile Listen. Keine Portal-Seite darf den Viewport verbreitern.
+============================================================= */
+.dash-mobile-dock{display:none;}
+.calendar-create-head{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.calendar-create-head h2{margin-bottom:18px;}
+.calendar-create-toggle{display:none;}
+.pwa-connection-status{
+  position:fixed;left:50%;bottom:18px;z-index:2500;max-width:calc(100vw - 28px);
+  padding:9px 14px;border-radius:999px;background:#1F6A55;color:var(--color-white);
+  box-shadow:0 10px 28px rgba(4,14,26,.24);font-size:.78rem;font-weight:700;
+  opacity:0;visibility:hidden;transform:translate(-50%,8px);transition:opacity .2s,transform .2s,visibility .2s;
+}
+.pwa-connection-status.offline{background:#8A6300;}
+.pwa-connection-status.show{opacity:1;visibility:visible;transform:translate(-50%,0);}
+
+@media (max-width:900px){
+  :root{--portal-bottom-nav-height:74px;}
+  html,body{max-width:100%;overflow-x:hidden;}
+  .dash-layout,.dash-content,.dash-card,
+  .filemgr-shell,.filemgr-browser,.filemgr-columns,
+  .obj-columns-wrap,.obj-columns,.obj-hierarchy{min-width:0;max-width:100%;}
+
+  /* Die feste Werkzeugleiste war auf Mobile bis zu drei Zeilen hoch.
+     Nur die globale Admin-Suche bleibt sichtbar; alle übrigen
+     Einstellungen sind weiterhin im Menü bzw. auf Desktop erreichbar. */
+  .dash-top-actions{display:none;}
+  .dash-top-actions > *{display:none!important;}
+  body:has(#dashTopActions) .dash-content{padding-top:24px;}
+  body:has(#dashAdminQuickbar) .dash-top-actions{
+    display:block;position:fixed;top:var(--nav-height);left:0;right:0;
+    padding:8px 12px;background:rgba(247,249,251,.97);
+    border-bottom:1px solid var(--color-blue-light);box-shadow:0 6px 16px rgba(13,36,64,.08);
+  }
+  body:has(#dashAdminQuickbar) #dashAdminQuickbar{display:grid!important;}
+  body:has(#dashAdminQuickbar) .dash-content{padding-top:82px;}
+
+  .dash-content{
+    padding-left:14px;padding-right:14px;
+    padding-bottom:calc(var(--portal-bottom-nav-height) + 22px + env(safe-area-inset-bottom));
+  }
+  .dash-card{padding:18px 16px;margin-bottom:16px;border-radius:16px;}
+  .dash-content > h1{font-size:1.5rem;margin-bottom:5px;}
+  .dash-content > .dash-lead{font-size:.9rem;line-height:1.45;margin-bottom:18px;}
+  .dash-btn-sm,.btn,.auth-form button{min-height:46px;}
+
+  /* Primäre App-Navigation bleibt immer mit dem Daumen erreichbar. */
+  .dash-mobile-dock{
+    position:fixed;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+    left:0;right:0;bottom:0;z-index:2100;height:calc(var(--portal-bottom-nav-height) + env(safe-area-inset-bottom));
+    padding:6px 6px env(safe-area-inset-bottom);background:rgba(13,36,64,.98);
+    border-top:1px solid rgba(201,168,76,.42);box-shadow:0 -8px 28px rgba(4,14,26,.22);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  }
+  .dash-mobile-dock-item{
+    position:relative;display:flex;min-width:0;min-height:58px;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;padding:4px 2px;border-radius:12px;
+    color:rgba(255,255,255,.72);font:inherit;font-size:.66rem;font-weight:700;
+    line-height:1;background:none;touch-action:manipulation;
+  }
+  .dash-mobile-dock-item svg{
+    width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round;
+  }
+  .dash-mobile-dock-item.active{color:var(--color-gold-light);background:rgba(255,255,255,.08);}
+  .dash-mobile-dock-badge{
+    position:absolute;top:3px;left:calc(50% + 7px);min-width:18px;padding:3px 5px;
+    border:2px solid var(--color-navy-deep);font-size:.58rem;text-align:center;
+  }
+  .dash-mobile-menu{padding-bottom:calc(var(--portal-bottom-nav-height) + 18px + env(safe-area-inset-bottom));}
+  .pwa-connection-status{bottom:calc(var(--portal-bottom-nav-height) + 12px + env(safe-area-inset-bottom));}
+
+  /* Tabellen bleiben im Viewport und umbrechen statt die ganze Seite
+     oder einen versteckten horizontalen Scrollbereich zu erzeugen. */
+  .dash-table-wrap{max-width:100%;overflow-x:hidden;margin-left:0;margin-right:0;padding:0;}
+  .dash-table{width:100%;min-width:0!important;table-layout:fixed;}
+  .dash-table th,.dash-table td{
+    white-space:normal!important;overflow-wrap:anywhere;word-break:normal;
+    padding:10px 7px;font-size:.78rem;vertical-align:top;
+  }
+  .dash-table .dash-btn-sm{width:100%;padding-left:8px;padding-right:8px;white-space:normal;}
+
+  /* Dateien: Ordnerliste, Vorschau und Aktionen untereinander. */
+  .filemgr-browser{display:flex!important;flex-direction:column;grid-template-columns:none;gap:12px;}
+  .filemgr-columns{
+    order:1;display:flex;flex-direction:column;min-height:0;overflow:visible;
+    border:0;border-radius:0;background:transparent;
+  }
+  .filemgr-column,.filemgr-preview-column{
+    width:100%;min-width:0!important;max-width:100%;flex:0 0 auto;
+    border:1px solid var(--color-blue-light);border-radius:14px;padding:12px;background:var(--color-white);
+  }
+  .filemgr-preview-column{margin-top:12px;min-height:0;}
+  .filemgr-detail{order:2;width:100%;min-width:0;border:1px solid var(--color-blue-light);border-radius:14px;}
+  .filemgr-column-item{min-height:52px;touch-action:manipulation;}
+  .filemgr-file-title,.filemgr-column-item span:nth-child(2){white-space:normal;overflow-wrap:anywhere;}
+  .filemgr-subbar{display:none;}
+  .filemgr-toolbar,.filemgr-toolbar-left,.filemgr-toolbar-actions{display:grid;width:100%;grid-template-columns:1fr 1fr;gap:8px;}
+  .filemgr-breadcrumb{grid-column:1 / -1;order:3;min-width:0;overflow-wrap:anywhere;}
+  .filemgr-toolbar-actions .dash-btn-sm{width:100%;white-space:normal;padding-left:8px;padding-right:8px;}
+
+  /* Objekte: die vier Arbeitsschritte laufen vertikal. Ein Klick
+     scrollt per JS direkt zum jeweils nächsten Schritt. */
+  .obj-columns-wrap{overflow:visible!important;padding:0;}
+  .obj-columns{display:block;}
+  .obj-hierarchy{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px;overflow:visible!important;padding:0;}
+  .obj-hierarchy > *{width:100%;min-width:0;max-width:100%;flex:none;}
+  .obj-pane{min-height:0!important;max-height:none;padding:14px;border-radius:14px;scroll-margin-top:calc(var(--nav-height) + 76px);}
+  .obj-pane-list{max-height:none;overflow:visible;}
+  .obj-flow-guide{grid-template-columns:1fr 1fr;gap:8px;}
+  .obj-flow-guide div{padding:10px;}
+  .obj-flow-guide small{display:none;}
+  .obj-assignment-grid{grid-template-columns:1fr;}
+  .obj-unit-type-picker,.obj-unit-type-picker.compact{grid-template-columns:1fr 1fr;}
+  .obj-modal,.share-modal{width:100%;max-width:100%;max-height:100dvh;border-radius:18px 18px 0 0;}
+
+  /* Kalender: auf Mobile ist die Woche eine Agenda statt eines
+     seitlich verschiebbaren 7-Spalten-Rasters. */
+  .cal-grid-wrap{overflow:hidden;border:0;border-radius:0;}
+  .cal-grid.is-agenda{display:block;width:100%;min-width:0!important;}
+  .cal-agenda-primary{display:flex;margin-bottom:12px;}
+  .cal-agenda-primary .btn{width:100%;}
+  .cal-agenda-day{margin-bottom:14px;}
+  .cal-agenda-day h3{
+    position:sticky;top:calc(var(--nav-height) + 8px);z-index:4;
+    margin:0 0 7px;padding:8px 10px;border-radius:10px;background:var(--color-bg);
+    color:var(--color-navy);font-family:var(--font-body);font-size:.82rem;text-transform:capitalize;
+  }
+  .cal-agenda-day.today h3{background:rgba(201,168,76,.17);color:#765910;}
+  body:has(#dashAdminQuickbar) .cal-agenda-day h3{top:calc(var(--nav-height) + 62px);}
+  .cal-agenda-event.cal-event{
+    position:relative;inset:auto!important;display:grid;width:100%;height:auto!important;min-height:58px;
+    grid-template-columns:76px minmax(0,1fr) 18px;align-items:center;gap:9px;
+    margin-bottom:7px;padding:10px 11px;border-radius:12px;text-align:left;
+    font:inherit;font-size:.82rem;overflow:visible;touch-action:manipulation;
+  }
+  .cal-agenda-time{font-weight:800;font-variant-numeric:tabular-nums;}
+  .cal-agenda-content{min-width:0;}
+  .cal-agenda-content strong{display:block;overflow-wrap:anywhere;line-height:1.25;}
+  .cal-agenda-meta{display:block;margin-top:3px;font-size:.72rem;line-height:1.3;opacity:.78;overflow-wrap:anywhere;}
+  .cal-agenda-chevron{font-size:1.4rem;text-align:right;}
+  .cal-agenda-empty{margin:0;padding:10px 12px;color:var(--color-gray-text);font-size:.8rem;border-bottom:1px solid var(--color-blue-light);}
+  .cal-legend{font-size:.76rem;}
+  .cal-event-detail{
+    top:calc(var(--nav-height) + 8px)!important;bottom:calc(var(--portal-bottom-nav-height) + 10px + env(safe-area-inset-bottom))!important;
+    left:10px!important;right:10px!important;width:auto!important;max-height:none;border-radius:16px;padding:16px;
+  }
+  .cal-event-detail-actions{display:grid;grid-template-columns:1fr;gap:8px;}
+  .cal-event-detail-actions button{width:100%;min-height:46px;}
+
+  /* Persönliche Kalenderliste: zuerst Termine, neues Formular bei
+     Bedarf aufklappen. */
+  .calendar-create-head h2{margin:0;}
+  .calendar-create-toggle{display:inline-flex;align-items:center;justify-content:center;}
+  .calendar-create-card > .auth-form{display:none;margin-top:16px;}
+  .calendar-create-card.open > .auth-form{display:flex;}
+  .cal-event-row{display:grid;grid-template-columns:1fr;align-items:start;padding:14px;}
+  .cal-event-row .dash-btn-sm{width:100%;}
+  .cal-owner-label{display:inline-block;margin:4px 6px 0 0;}
+
+  /* Auch sekundäre Bereiche dürfen keine horizontalen Inseln bilden. */
+  .msg-partner-list{display:flex;flex-direction:column;max-height:260px;overflow-x:hidden;overflow-y:auto;}
+  .msg-partner-btn{flex:0 0 auto;width:100%;max-width:none;border-right:0;border-bottom:1px solid var(--color-blue-light);}
+  .msg-attach-toolbar{display:flex;flex-wrap:wrap;overflow-x:hidden;}
+}
+
+@media (max-width:520px){
+  .dash-content{padding-left:10px;padding-right:10px;}
+  .dash-card{padding:16px 12px;}
+  .dash-mobile-dock-item{font-size:.62rem;}
+  .obj-flow-guide{grid-template-columns:1fr;}
+  .obj-unit-type-picker,.obj-unit-type-picker.compact{grid-template-columns:1fr;}
+  .filemgr-toolbar,.filemgr-toolbar-left,.filemgr-toolbar-actions{grid-template-columns:1fr;}
+  .filemgr-breadcrumb{grid-column:1;}
+  .cal-week-nav{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;}
+  .cal-week-label{grid-column:1 / -1;grid-row:1;text-align:center;}
+  #calPrevWeek{grid-column:1;grid-row:2;}
+  #calTodayBtn{grid-column:2;grid-row:2;width:100%;}
+  #calNextWeek{grid-column:3;grid-row:2;}
+  .cal-jump-search{grid-column:1 / -1;grid-row:3;width:100%;}
+  .calendar-create-head{align-items:stretch;flex-direction:column;}
+  .calendar-create-toggle{width:100%;}
 }

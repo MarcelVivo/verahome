@@ -218,8 +218,40 @@
       '</div>';
   }
 
+  function renderCalAgenda(days){
+    var grid = document.getElementById('calGrid');
+    var todayStr = calDateStr(new Date());
+    grid.classList.add('is-agenda');
+    grid.innerHTML = days.map(function(d){
+      var dateStr = calDateStr(d);
+      var dayAppointments = calAppointments.filter(function(a){
+        return calDateStr(new Date(a.starts_at)) === dateStr;
+      });
+      var heading = d.toLocaleDateString('de-CH', { weekday:'long', day:'numeric', month:'long' });
+      var rows = dayAppointments.map(function(a){
+        var statusClass = myStatus(a) === 'bestaetigt' ? 'confirmed' : 'pending';
+        var start = new Date(a.starts_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+        var end = new Date(a.ends_at).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' });
+        var propertyLabel = a.properties ? '<span class="cal-agenda-meta">'+VeraDashboard.escapeHtml(a.properties.label)+'</span>' : '';
+        return '<button type="button" class="cal-event cal-agenda-event '+statusClass+'" data-appointment-id="'+a.id+'">' +
+          '<span class="cal-agenda-time">'+start+'–'+end+'</span>' +
+          '<span class="cal-agenda-content"><strong>'+VeraDashboard.escapeHtml(a.title)+'</strong>'+propertyLabel+'</span>' +
+          '<span class="cal-agenda-chevron" aria-hidden="true">›</span>' +
+        '</button>';
+      }).join('');
+      return '<section class="cal-agenda-day'+(dateStr === todayStr ? ' today' : '')+'">' +
+        '<h3>'+heading+'</h3>' + (rows || '<p class="cal-agenda-empty">Keine Termine</p>') + '</section>';
+    }).join('');
+    attachCalHandlers(grid);
+  }
+
   function renderCalGrid(days){
     var grid = document.getElementById('calGrid');
+    if(window.matchMedia('(max-width:900px)').matches){
+      renderCalAgenda(days);
+      return;
+    }
+    grid.classList.remove('is-agenda');
     var todayStr = calDateStr(new Date());
     var hourCount = calHourEnd - calHourStart;
 
@@ -257,7 +289,7 @@
   var calPinnedKey = null;
 
   function calBottomReserve(){
-    var tabbar = document.getElementById('dashTabbar');
+    var tabbar = document.getElementById('dashMobileDock') || document.getElementById('dashTabbar');
     if(tabbar && getComputedStyle(tabbar).display !== 'none') return tabbar.offsetHeight + 8;
     return 8;
   }
