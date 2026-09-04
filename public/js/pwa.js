@@ -1,10 +1,12 @@
-/* Registriert den Service Worker und zeigt im Portal ein dauerhaftes
-   Install-Icon oben links in der Kopfzeile (nur mobil, siehe
-   .pwa-install-icon in portal.css) statt eines wegklickbaren Banners --
-   immer verfügbar, aber nicht aufdringlich. Läuft innerhalb der
-   Capacitor-iOS-Hülle absichtlich nicht (dort gibt es keinen Browser-
-   Chrome zu "installieren" und ein SW im nativen WebView-Kontext bringt
-   nur Risiko ohne Nutzen). */
+/* Registriert den Service Worker und zeigt ein dauerhaftes Install-Icon
+   in der Navbar (Portal: oben links in der schlanken Kopfzeile, siehe
+   .pwa-install-icon in portal.css; öffentliche Website: im .nav-right-
+   Bereich neben Portal-Button/Sprachumschalter, siehe .nav-install-btn
+   in styles.css) statt eines wegklickbaren Banners -- immer verfügbar,
+   aber nicht aufdringlich. Läuft innerhalb der Capacitor-iOS-Hülle
+   absichtlich nicht (dort gibt es keinen Browser-Chrome zu
+   "installieren" und ein SW im nativen WebView-Kontext bringt nur
+   Risiko ohne Nutzen). */
 (function () {
   if (window.Capacitor) return;
 
@@ -14,15 +16,15 @@
     });
   }
 
-  var isPortal = location.pathname.indexOf("/portal/") === 0;
-  if (!isPortal) return;
-
   var isStandalone =
     window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   if (isStandalone) return;
 
-  var header = document.querySelector("#navbar .nav-inner--portal");
-  if (!header) return;
+  var isPortal = location.pathname.indexOf("/portal/") === 0;
+  var container = isPortal
+    ? document.querySelector("#navbar .nav-inner--portal")
+    : document.querySelector("#navbar .nav-right");
+  if (!container) return;
 
   var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   var deferredPrompt = null;
@@ -36,10 +38,20 @@
   var icon = document.createElement("button");
   icon.type = "button";
   icon.id = "pwaInstallIcon";
-  icon.className = "pwa-install-icon";
+  icon.className = isPortal ? "pwa-install-icon" : "nav-install-btn";
   icon.setAttribute("aria-label", "App installieren");
   icon.innerHTML = DOWNLOAD_ICON_SVG;
-  header.appendChild(icon);
+
+  if (isPortal) {
+    container.appendChild(icon);
+  } else {
+    /* Auf der Startseite direkt nach dem Portal-Button einreihen (Reihenfolge
+       Logo -> Portal-Button -> Download -> DE/EN -> Burger). Auf den
+       übrigen Seiten gibt es dort keinen Portal-Button/Sprachumschalter --
+       das Icon landet dann einfach als einziges Element im .nav-right. */
+    var portalBtn = container.querySelector(".nav-portal-btn");
+    container.insertBefore(icon, portalBtn ? portalBtn.nextSibling : container.firstChild);
+  }
 
   function showTip(text) {
     var existing = document.getElementById("pwaInstallTip");

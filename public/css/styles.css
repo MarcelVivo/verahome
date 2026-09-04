@@ -172,9 +172,24 @@ section{position:relative;padding:110px 0;}
 }
 .lang-switch button{color:rgba(255,255,255,.6);padding:4px 10px;border-radius:50px;transition:color .25s,background .25s;}
 .lang-switch button.active{color:var(--color-navy-deep);background:var(--color-gold);}
-.nav-social{display:flex;color:rgba(255,255,255,.85);transition:color .25s var(--ease),transform .25s var(--ease);}
-.nav-social:hover{color:var(--color-gold);transform:translateY(-2px);}
-.nav-social svg{width:20px;height:20px;}
+/* "Zum Home-Bildschirm hinzufügen" -- ersetzt den frueheren Instagram-
+   Link an derselben Stelle (siehe public/js/pwa.js, das dieses Icon
+   selbst in .nav-right einfuegt). */
+.nav-install-btn{
+  display:flex;background:none;border:none;padding:0;cursor:pointer;
+  color:rgba(255,255,255,.85);transition:color .25s var(--ease),transform .25s var(--ease);
+}
+.nav-install-btn:hover{color:var(--color-gold);transform:translateY(-2px);}
+.nav-install-btn svg{width:20px;height:20px;}
+.pwa-install-tip{
+  position:fixed;left:12px;right:12px;top:calc(var(--nav-height) + 10px + env(safe-area-inset-top));
+  z-index:1050;background:var(--color-navy-deep);color:var(--color-white);
+  border:1px solid rgba(201,168,76,.35);border-radius:14px;
+  padding:12px 14px;box-shadow:0 10px 30px rgba(4,14,26,.35);
+  font-size:.86rem;line-height:1.35;
+  opacity:0;transform:translateY(-8px);transition:opacity .25s ease,transform .25s ease;
+}
+.pwa-install-tip.open{opacity:1;transform:translateY(0);}
 .nav-toggle{display:none;flex-direction:column;gap:5px;width:30px;z-index:1100;}
 .nav-toggle span{height:2px;width:100%;background:var(--color-white);border-radius:2px;transition:transform .3s,opacity .3s;}
 .nav-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
