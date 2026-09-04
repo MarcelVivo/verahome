@@ -1349,8 +1349,14 @@ body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
   transition:clip-path .28s var(--ease),visibility 0s;
 }
 .dash-mobile-menu .dash-nav{flex:1;}
-.dash-mobile-menu-header{padding:0 28px 20px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;}
+.dash-mobile-menu-header{position:relative;padding:0 78px 20px 28px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;}
 .dash-mobile-menu-name{display:block;color:var(--color-white);font-family:var(--font-heading);font-size:1.1rem;margin-bottom:8px;}
+.dash-mobile-menu-close{
+  position:absolute;top:0;right:20px;display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border:1px solid rgba(255,255,255,.28);border-radius:50%;
+  color:var(--color-white);font-size:1.35rem;line-height:1;touch-action:manipulation;
+}
+.dash-mobile-menu-close:active{background:rgba(255,255,255,.1);}
 
 @media (max-width:1100px){
   .cal-week-nav{

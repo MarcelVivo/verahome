@@ -632,6 +632,7 @@ window.VeraDashboard = (function () {
     menu.setAttribute("aria-label", "Hauptnavigation");
     menu.innerHTML =
       '<div class="dash-mobile-menu-header">' +
+      '<button type="button" class="dash-mobile-menu-close" id="dashMobileMenuClose" aria-label="Menü schliessen">×</button>' +
       '<span class="dash-mobile-menu-name">' + escapeHtml(profile.first_name) + "</span>" +
       '<span class="status-badge ' + profile.status + '">' + escapeHtml(roleLabel) + "</span>" +
       "</div>" +
@@ -659,6 +660,9 @@ window.VeraDashboard = (function () {
       setOpen(!menu.classList.contains("open"));
     });
     overlay.addEventListener("click", function () {
+      setOpen(false);
+    });
+    document.getElementById("dashMobileMenuClose").addEventListener("click", function () {
       setOpen(false);
     });
     menu.addEventListener("click", function (e) {

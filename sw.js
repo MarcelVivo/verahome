@@ -1,7 +1,7 @@
 /* Vera Home / Vera Portal – Service Worker
    Bump CACHE_VERSION on future large asset changes so old caches get
    discarded (see activate handler below). */
-const CACHE_VERSION = "vera-pwa-v12";
+const CACHE_VERSION = "vera-pwa-v13";
 const STATIC_CACHE = CACHE_VERSION + "-static";
 const PAGES_CACHE = CACHE_VERSION + "-pages";
 
