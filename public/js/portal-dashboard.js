@@ -712,6 +712,48 @@ window.VeraDashboard = (function () {
     input.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
+  var responsiveTableObserver = null;
+  var responsiveTableFrame = null;
+
+  /* Tabellen sind auf dem Desktop am schnellsten erfassbar, auf einem
+     Telefon werden viele Spalten jedoch unlesbar schmal. Jede Datenzelle
+     erhaelt deshalb automatisch die passende Spaltenueberschrift als
+     data-label. CSS kann dieselben Zeilen anschliessend als kompakte,
+     beschriftete Karten darstellen. Der Observer erfasst auch Tabellen,
+     die eine Seite erst nach einem Supabase-Request rendert. */
+  function enhanceResponsiveTables(root) {
+    (root || document).querySelectorAll(".dash-table").forEach(function (table) {
+      var headerRow = Array.prototype.slice.call(table.querySelectorAll("tr")).find(function (row) {
+        return row.querySelector("th");
+      });
+      if (!headerRow) return;
+      var labels = Array.prototype.slice.call(headerRow.querySelectorAll("th")).map(function (cell) {
+        return cell.textContent.trim();
+      });
+      table.querySelectorAll("tr").forEach(function (row) {
+        if (row.querySelector("th")) return;
+        Array.prototype.slice.call(row.children).forEach(function (cell, index) {
+          if (cell.tagName !== "TD" || cell.hasAttribute("data-label")) return;
+          cell.setAttribute("data-label", labels[index] || "");
+        });
+      });
+      table.classList.add("dash-table-responsive-ready");
+    });
+  }
+
+  function initResponsiveTables() {
+    enhanceResponsiveTables(document);
+    if (responsiveTableObserver || !("MutationObserver" in window)) return;
+    responsiveTableObserver = new MutationObserver(function () {
+      if (responsiveTableFrame) return;
+      responsiveTableFrame = requestAnimationFrame(function () {
+        responsiveTableFrame = null;
+        enhanceResponsiveTables(document);
+      });
+    });
+    responsiveTableObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
   function renderSidebar(activeKey, profile, roles) {
     var el = document.getElementById("dashSidebar");
     if (!el) return;
@@ -751,6 +793,7 @@ window.VeraDashboard = (function () {
     renderTopLogoutButton();
     if (profile.category === "admin") renderAdminPortalEditorButton(profile);
     loadAndApplyPortalUiSettings();
+    initResponsiveTables();
   }
 
   /* Ausloggen zusätzlich oben rechtsbündig auf der Seite (Desktop) --

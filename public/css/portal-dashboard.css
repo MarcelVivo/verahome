@@ -2036,4 +2036,37 @@
   }
   #shareModalBackdrop .share-modal-actions > *,
   #assignModalBackdrop .share-modal-actions > *{width:100%;min-height:48px;justify-content:center;}
+
+  /* Mehrspaltige Desktop-Tabellen werden auf dem Telefon zu klaren
+     Datensaetzen. Die Beschriftungen stammen aus den jeweiligen th-
+     Zellen und werden von portal-dashboard.js als data-label gesetzt. */
+  .dash-table-responsive-ready,
+  .dash-table-responsive-ready tbody{display:block;width:100%;}
+  .dash-table-responsive-ready thead,
+  .dash-table-responsive-ready tr:has(th){display:none;}
+  .dash-table-responsive-ready tr:not(:has(th)){
+    display:block;width:100%;margin:0 0 12px;padding:7px 12px;
+    border:1px solid var(--color-blue-light);border-radius:14px;background:var(--color-white);
+    box-shadow:0 5px 16px rgba(13,36,64,.05);
+  }
+  .dash-table-responsive-ready td{
+    display:grid;grid-template-columns:minmax(96px,34%) minmax(0,1fr);gap:10px;
+    width:100%;padding:9px 0!important;border:0;border-bottom:1px solid rgba(214,228,240,.72);
+    text-align:left!important;font-size:.86rem!important;white-space:normal!important;overflow-wrap:anywhere;
+  }
+  .dash-table-responsive-ready td:last-child{border-bottom:0;}
+  .dash-table-responsive-ready td::before{
+    content:attr(data-label);color:var(--color-gray-text);opacity:.72;font-size:.72rem;font-weight:800;
+    letter-spacing:.02em;text-transform:uppercase;
+  }
+  .dash-table-responsive-ready td[data-label=""]{display:block;}
+  .dash-table-responsive-ready td[data-label=""]::before,
+  .dash-table-responsive-ready td[colspan]::before{display:none;}
+  .dash-table-responsive-ready td[colspan]{display:block;}
+  .dash-table-responsive-ready td .dash-btn-row{display:grid;grid-template-columns:1fr;gap:8px;width:100%;}
+  .dash-table-responsive-ready td .dash-btn-sm,
+  .dash-table-responsive-ready td .btn{width:100%;min-width:0;justify-content:center;}
+
+  .auth-form > *,form > *{max-width:100%;min-width:0;}
+  input[type="file"]{max-width:100%;}
 }
