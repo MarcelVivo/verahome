@@ -1909,6 +1909,7 @@ body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
   }
   .filemgr-preview-column{margin-top:12px;min-height:0;}
   .filemgr-detail{order:2;width:100%;min-width:0;border:1px solid var(--color-blue-light);border-radius:14px;}
+  .filemgr-detail-empty{min-height:140px;padding:18px 8px;}
   .filemgr-column-item{min-height:52px;touch-action:manipulation;}
   .filemgr-file-title,.filemgr-column-item span:nth-child(2){white-space:normal;overflow-wrap:anywhere;}
   .filemgr-subbar{display:none;}
@@ -1924,6 +1925,8 @@ body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
   .obj-hierarchy > *{width:100%;min-width:0;max-width:100%;flex:none;}
   .obj-pane{min-height:0!important;max-height:none;padding:14px;border-radius:14px;scroll-margin-top:calc(var(--nav-height) + 76px);}
   .obj-pane-list{max-height:none;overflow:visible;}
+  .obj-empty-state{min-height:140px;padding:18px 8px;}
+  .obj-add-btn{width:44px;height:44px;font-size:1.15rem;touch-action:manipulation;}
   .obj-flow-guide{grid-template-columns:1fr 1fr;gap:8px;}
   .obj-flow-guide div{padding:10px;}
   .obj-flow-guide small{display:none;}
@@ -2003,7 +2006,7 @@ body:has(.share-modal-backdrop:not([hidden])){overflow:hidden;}
   .dash-content{padding-left:10px;padding-right:10px;}
   .dash-card{padding:16px 12px;}
   .dash-mobile-dock-item{font-size:.62rem;}
-  .obj-flow-guide{grid-template-columns:1fr;}
+  .obj-flow-guide{grid-template-columns:1fr 1fr;}
   .obj-unit-type-picker,.obj-unit-type-picker.compact{grid-template-columns:1fr;}
   .filemgr-toolbar,.filemgr-toolbar-left,.filemgr-toolbar-actions{grid-template-columns:1fr;}
   .filemgr-breadcrumb{grid-column:1;}
