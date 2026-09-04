@@ -626,9 +626,15 @@ document.documentElement.style.scrollBehavior = 'auto';
            timing) — every ScrollTrigger further down the page was
            positioned based on the layout before this ran, so it needs a
            refresh now, and again shortly after once the property photos
-           themselves have actually finished loading in. */
+           themselves have actually finished loading in. A refresh can
+           undo an already-correct #anchor landing (see reanchorToHash()
+           further down), so re-assert it right after each one. */
         if(window.ScrollTrigger) ScrollTrigger.refresh();
-        setTimeout(function(){ if(window.ScrollTrigger) ScrollTrigger.refresh(); }, 600);
+        if(window.reanchorToHash) window.reanchorToHash();
+        setTimeout(function(){
+          if(window.ScrollTrigger) ScrollTrigger.refresh();
+          if(window.reanchorToHash) window.reanchorToHash();
+        }, 600);
       })
       .catch(function(){ /* dekorativ – Fehler hier dürfen nie auffallen */ });
   } catch(e) { /* dito */ }
@@ -874,7 +880,32 @@ var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matche
 window.addEventListener('load', function(){
   setTimeout(function(){ document.documentElement.style.scrollBehavior = ''; }, 100);
   if(window.ScrollTrigger) ScrollTrigger.refresh();
+  reanchorToHash();
 });
+
+/* Direkt-Landung mit #anker in der URL (z.B. von den Leistungs-
+   Unterseiten via "Jetzt anfragen" -> /index.html?betreff=...#kontakt):
+   mehrere voneinander unabhängige, asynchrone Ladevorgänge weiter unten
+   (Objekte-Kacheln, Homepage-Karten-Einstellungen) ändern die Seitenhöhe
+   NACH dem ersten korrekten Sprung zum Anker noch und lösen dabei je
+   einen eigenen ScrollTrigger.refresh() aus -- jeder davon kann den
+   bereits erfolgten Sprung wieder zunichtemachen ("zurück zum Hero").
+   Fix: statt eine feste Verzögerung zu erraten, wird nach JEDEM
+   bekannten refresh()-Aufruf (siehe reanchorToHash()-Aufrufe weiter
+   unten im Script) der Sprung zum Anker erneut durchgesetzt -- aber nur
+   solange der Nutzer die Seite noch nicht selbst manuell gescrollt hat. */
+var anchorTarget = window.location.hash ? document.querySelector(window.location.hash) : null;
+var userScrolledAway = false;
+if(anchorTarget){
+  ['wheel','touchmove','keydown'].forEach(function(evt){
+    window.addEventListener(evt, function(){ userScrolledAway = true; }, {passive:true});
+  });
+}
+function reanchorToHash(){
+  if(!anchorTarget || userScrolledAway) return;
+  anchorTarget.scrollIntoView({block:'start'});
+}
+window.reanchorToHash = reanchorToHash;
 
 /* ============================================================
    TRANSLATIONS
@@ -1092,7 +1123,12 @@ function applyHomepageServiceSettings(){
       badge.hidden = !item.badge;
     }
   });
-  if(window.ScrollTrigger) setTimeout(function(){ ScrollTrigger.refresh(); }, 80);
+  /* Kann #kontakt-Landungen zunichtemachen wie der Objekte-Refresh
+     weiter oben -- gleicher Fix, siehe reanchorToHash(). */
+  if(window.ScrollTrigger) setTimeout(function(){
+    ScrollTrigger.refresh();
+    if(window.reanchorToHash) window.reanchorToHash();
+  }, 80);
 }
 
 async function loadHomepageServiceSettings(){
