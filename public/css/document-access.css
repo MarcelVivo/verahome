@@ -1,0 +1,4 @@
+.document-access { margin: 16px 0; padding: 16px; border: 1px solid #d5e2ee; border-radius: 12px; overflow-wrap: anywhere; }
+.document-reader-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid #e7edf3; }
+.document-reader-row > span { flex: 1 1 180px; min-width: 0; }
+.document-reader-row button { min-height: 44px; white-space: normal; }

@@ -1,0 +1,36 @@
+# Dokumentzugriff – Änderung vom 5. September 2026
+
+## Stand
+
+Code und isolierte Tests sind vorbereitet. Die Live-Datenbank wurde **nicht** migriert: In dieser Sitzung fehlen Supabase-Management-/SQL-Zugang und authentifizierte Testkonten. Ein lesender RPC-Aufruf bestätigt: `can_access_document_scope` existiert live, `document_privacy_ready` fehlt (PGRST202). Das beweist keine konkrete Offenlegung; die aktiven Policy-Definitionen sind noch zu prüfen.
+
+Ein Git-Push veröffentlicht nur die Weboberfläche, keine Supabase-SQL-Migrationen oder Edge Functions. Solange der neue Servercheck fehlt, sperrt die aktualisierte Oberfläche neue Dokument-Uploads, Freigaben und Umzuordnungen. Bestehende Daten werden dadurch nicht gelöscht. **Diese UI-Sperre schützt bestehende Dateien nicht vor Zugriffen über alte Clients oder die API.** Dafür ist die Migration erforderlich.
+
+## Verhalten nach Aktivierung
+
+- Dokumentenablage (`document_files`): aktive, nicht archivierte Admins und ausdrücklich freigegebene aktive Kontakte. Gebäude, Wohnung, Kontakt, Ordner und Rollen erzeugen keine zusätzlichen Freigaben. `is_private_admin` bleibt eine Ablagezuordnung; vorhandene persönliche Freigaben bleiben auch beim Verschieben erhalten.
+- Neue Dateien erhalten zunächst keine persönlichen Freigaben. Bei gezieltem Upload in eine Mieterakte wird die ausdrücklich ausgewählte Person freigegeben. Der Dokumentenmanager hat einen separaten Schritt „Freigeben“.
+- Ein Mieterwechsel überträgt keine privaten Akten. Der bisherige Mieter behält seine ausdrücklich freigegebenen Unterlagen, bis Julia die Freigabe entzieht oder das Konto sperrt. Eine Sperre/Archivierung des Kontos verhindert auch Zugriffe mit noch gültiger Sitzung.
+- Alte `property_documents` mit `restricted` benötigen eine persönliche Freigabe, auch für Hauswarte. Alte `public`-Dokumente bleiben Hausinformationen für aktuelle Mieter/Eigentümer/Hauswarte der Liegenschaft. Beginn und Ende werden berücksichtigt. Diese Altbestände müssen inhaltlich geprüft werden; „public“ ist keine automatische Einstufung als harmlos.
+- Die drei Dokument-Buckets werden privat. Eine zusätzliche restriktive Storage-Policy verhindert, dass ältere großzügige SELECT-Policies die Regel umgehen. Öffentliche Inseratbilder bleiben unverändert.
+- „Wer kann dieses Dokument öffnen?“ listet die vom Server ermittelten Personen und gesperrte Freigaben auf. Einzelne Freigaben können entzogen werden. Administration bleibt derzeit global; eine Beschränkung einzelner Verwaltungsmitarbeiter auf ihre Mandate ist noch nicht implementiert.
+- E-Mails zu Freigaben enthalten nur einen Portal-Link, keine Dateianhänge, Dokumenttitel oder signierten Direktlinks. Externe E-Mail-Empfänger benötigen künftig einen Portal-Kontakt. Office-Dateien werden auf dem eigenen Gerät geöffnet; kein automatischer Microsoft-Viewer.
+
+## Aktivierung
+
+1. `supabase/document-privacy-audit.sql` im richtigen Projekt ausführen; insbesondere **alle** Policies, SECURITY-DEFINER-RPCs und private Bucket-Einstellungen prüfen. Vorher Backup/Snapshot nach dem vorhandenen Betriebsverfahren prüfen. Keine Testdaten mit realen Personen vermischen.
+2. `supabase/document-privacy.sql` als vollständige Transaktion ausführen. Sie löscht keine Dokumente, Verknüpfungen oder Freigaben. Bestehende Dateien ohne persönliche Freigaben werden für Nicht-Admins unsichtbar; Julia muss benötigte Freigaben gezielt vergeben. Doppelte Storage-Pfade aus dem Audit vor Abschluss prüfen: mehrere Datensätze dürfen nicht widersprüchliche Freigaben für dieselben Bytes darstellen.
+3. Beide Edge Functions `notify-document-share` und `send-document-share` mit dem gemeinsamen Modul `_shared/document-share.ts` deployen. Der alte Name bleibt für ältere Clients abgesichert. Nicht nur die neue Funktion veröffentlichen: Der bisherige Endpoint versendet sonst weiterhin Kopien. Das neue Frontend ruft ausschließlich den neuen Namen auf und meldet fehlende Benachrichtigung als Fehler.
+4. Audit erneut ausführen. Mit einer aktiven Admin-Sitzung muss `document_privacy_ready()` `true` zurückgeben. Dieser Rolloutcheck ersetzt kein Audit unbekannter zusätzlicher RPCs.
+5. Isolierte Live-Testkonten und eindeutig markierte Dateien verwenden: Mieter A, Nachbar, Nachmieter B, Eigentümer, Hauswart, Handwerker, gesperrtes Konto, Admin. Metadaten, Listen-RPC, direkte Storage-Downloads und Erstellen signierter Links prüfen. Vorher und nachher Freigabe entziehen, Konto sperren, Mieterwechsel durchführen. Es dürfen **keine echten E-Mails** ausgelöst werden. Nur eigene Testdaten anschließend entfernen.
+6. Erst nach erfolgreicher Prüfung echte vertrauliche Akten wieder neu freigeben. Bei Fehlern die betroffene Regel gezielt korrigieren; die alten großzügigen Scope-Regeln nicht als pauschales Rollback reaktivieren.
+
+## Tests und Grenzen
+
+`tests/document-privacy.test.cjs` führt die produktive Migration in echtem PostgreSQL via PGlite aus, inklusive Rollen, RLS, SECURITY DEFINER, Storage-Objektregeln, konkurrierend großzügigen Alt-Policies, Sperren, Entzug, Mieterwechsel und wiederholter Migration. Das ersetzt **keinen realen Supabase-Storage-HTTP-Test**.
+
+Temporäre Test-Abhängigkeiten: `@electric-sql/pglite` und `typescript@5.9.3`. Ausführung mit `PGLITE_MODULE=/pfad/node_modules/@electric-sql/pglite TYPESCRIPT_MODULE=/pfad/node_modules/typescript node --test tests/*.test.cjs`. Browserprüfung: `PLAYWRIGHT_MODULE=/pfad/playwright-core node tests/document-access-browser.cjs` (Chromium und WebKit).
+
+Signierte Links bleiben bis zu ihrer Ablaufzeit nutzbar. Neue UI-Links verwenden 60 Sekunden; früher ausgestellte Links können länger gelten. Bereits heruntergeladene oder per alter E-Mail versandte Kopien sind nicht rückholbar. Das bestehende Öffnungsprotokoll ist eine Best-Effort-Protokollierung und kein vollständiger Nachweis aller direkten Storage-Downloads. Andere Fachmodule (Rechnungen, Schadenmeldungen, Signaturaufträge, Nachrichten usw.) benötigen jeweils eigene weitere Berechtigungsprüfungen; diese Änderung ist keine Aussage über vollständige DSG-Konformität.
+
+Technische Grundlagen: [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html), [Supabase private Downloads und signierte URLs](https://supabase.com/docs/guides/storage/serving/downloads).

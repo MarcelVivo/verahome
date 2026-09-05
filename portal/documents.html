@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="/public/css/portal.css">
 <link rel="stylesheet" href="/public/css/portal-dashboard.css">
 <script defer src="/public/js/pwa.js"></script>
+  <link rel="stylesheet" href="/public/css/document-access.css">
 </head>
 <body>
 
@@ -145,9 +146,7 @@
               Neuer Ordnername
               <input id="uploadScopeNewFolderName" placeholder="z.B. Mietvertrag 2026">
             </label>
-            <label class="filemgr-confirm-label" id="uploadScopeShareWrap">
-              <input type="checkbox" id="uploadScopeShareResidents" checked> Zugehörige Mieter/Eigentümer automatisch freigeben
-            </label>
+            <p class="doc-meta">Neue Dateien sind zunächst nur für die Verwaltung sichtbar. Wählen Sie danach „Freigeben“ und die berechtigten Personen.</p>
             <div class="filemgr-path-preview" id="uploadScopePathPreview"></div>
             <p class="form-status" id="uploadScopeStatus"></p>
             <div class="share-modal-actions">
@@ -204,9 +203,7 @@
           <h3 id="shareModalTitle">Teilen</h3>
           <p class="doc-meta" id="shareModalHint"></p>
           <div class="prop-user-picker" id="shareModalPicker"></div>
-          <label class="auth-form-label">Zusätzliche E-Mail-Adressen
-            <textarea id="shareModalEmails" rows="3" placeholder="Eine oder mehrere E-Mail-Adressen, getrennt mit Komma oder Zeilenumbruch"></textarea>
-          </label>
+          <p class="doc-meta">Persönliche Freigabe für Portal-Kontakte. Die Benachrichtigung enthält einen Portal-Link; die Dateien bleiben im geschützten Portal.</p>
           <label class="filemgr-confirm-label">
             <input type="checkbox" id="shareModalNeedsConfirmation"> Bestätigung einfordern
           </label>
@@ -243,9 +240,7 @@
           <label class="auth-form-label">Ordner / Akte
             <select id="assignArchiveSelect"></select>
           </label>
-          <label class="filemgr-confirm-label" id="assignShareWrap">
-            <input type="checkbox" id="assignShareResidents" checked> Allen aktuellen Mietern und Eigentümern freigeben
-          </label>
+          <p class="doc-meta">Die Zuordnung ändert keine Freigaben. Leserechte verwalten Sie separat am Dokument.</p>
           <p class="form-status" id="assignModalStatus"></p>
           <div class="share-modal-actions">
             <button type="button" class="dash-btn-sm" id="assignModalCancel">Abbrechen</button>
@@ -283,6 +278,7 @@
 <script src="/public/js/supabase-config.js"></script>
 <script src="/public/js/portal-auth.js"></script>
 <script src="/public/js/portal-dashboard.js"></script>
+  <script src="/public/js/document-access.js"></script>
 <script src="/public/js/nav.js"></script>
 <script>
 (function(){
@@ -599,7 +595,7 @@
     document.getElementById('assignUnitSelect').addEventListener('change', fmRenderAssignArchive);
     document.getElementById('assignContactSelect').addEventListener('change', fmRenderAssignArchive);
 
-    var profilesPromise = client.from('profiles').select('id, first_name, last_name, company_name, category, email')
+    var profilesPromise = client.from('profiles').select('id, first_name, last_name, company_name, category, email, status')
       .neq('category', 'admin').is('archived_at', null).order('category').order('last_name')
       .then(function(res){ fmAllProfiles = res.data || []; });
     var propertiesPromise = client.from('properties').select('id, label, street, city, property_type').is('archived_at', null).order('label')
@@ -730,7 +726,6 @@
     var unitSelect = document.getElementById('uploadScopeUnit');
     var contactSelect = document.getElementById('uploadScopeContact');
     var archiveSelect = document.getElementById('uploadScopeArchive');
-    var shareWrap = document.getElementById('uploadScopeShareWrap');
     var newFolderWrap = document.getElementById('uploadScopeNewFolderWrap');
     var folderModeInput = document.querySelector('input[name="uploadScopeFolderMode"]:checked');
     var folderMode = folderModeInput ? folderModeInput.value : 'existing';
@@ -739,7 +734,6 @@
     document.getElementById('uploadScopePropertyWrap').hidden = !(type === 'property' || type === 'unit');
     document.getElementById('uploadScopeUnitWrap').hidden = type !== 'unit';
     document.getElementById('uploadScopeContactWrap').hidden = type !== 'contact';
-    shareWrap.hidden = !(type === 'property' || type === 'unit');
     newFolderWrap.hidden = folderMode !== 'new';
 
     var propertyId = propertySelect.value;
@@ -1075,12 +1069,6 @@
     fmSetButtonLoading(submitBtn, true, 'Wird abgelegt …');
     try {
       var uploadedIds = await fmUploadFileList(chosenFiles, scope);
-      if(scope.type === 'contact' && scope.contact_profile_id && uploadedIds.length){
-        await fmShareFileIdsWithProfiles(uploadedIds, [scope.contact_profile_id], false);
-      } else if(document.getElementById('uploadScopeShareResidents').checked && (scope.property_id || scope.unit_id)){
-        var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
-        if(residents.length && uploadedIds.length) await fmShareFileIdsWithProfiles(uploadedIds, residents, false);
-      }
       statusEl.textContent = 'Dokumente abgelegt.';
       setTimeout(fmCloseUploadScopeModal, 600);
     } catch(err) {
@@ -1154,6 +1142,7 @@
   async function fmMoveDraggedToFolder(targetFolderId){
     if(!fmDragged) return;
     try {
+      await VeraDocumentAccess.requireReady(client);
       var targetAssignment = await fmGetFolderAssignment(targetFolderId);
       var assignmentPayload = {
         property_id: targetAssignment.property_id || null,
@@ -1379,7 +1368,7 @@
     var stage = document.getElementById('filemgrPreviewStage');
     if(!stage) return;
     await VeraDashboard.logDocumentAccess('document-vault', file.file_path, 'preview');
-    var signed = await client.storage.from('document-vault').createSignedUrl(file.file_path, 600);
+    var signed = await client.storage.from('document-vault').createSignedUrl(file.file_path, 60);
     if(token !== fmPreviewToken || !document.getElementById('filemgrPreviewStage')) return;
     if(signed.error || !signed.data){
       stage.innerHTML = '<div class="filemgr-preview-fallback"><span>'+fmFileIcon(file.mime_type)+'</span><strong>Vorschau konnte nicht geladen werden.</strong></div>';
@@ -1396,7 +1385,8 @@
       return;
     }
     if(kind === 'office'){
-      stage.innerHTML = '<iframe class="filemgr-preview-frame" src="https://view.officeapps.live.com/op/embed.aspx?src='+encodeURIComponent(url)+'" title="Vorschau: '+VeraDashboard.escapeHtml(file.title)+'"></iframe>';
+      stage.innerHTML = '<p class="doc-meta">Office-Dokumente bitte herunterladen und auf Ihrem Gerät öffnen.</p><button type="button" class="dash-btn-sm" id="fmPreviewOfficeOpen">Datei öffnen</button>';
+      document.getElementById('fmPreviewOfficeOpen').onclick = function(){ openSignedUrl('document-vault', file.file_path); };
       return;
     }
     stage.innerHTML = '<div class="filemgr-preview-fallback"><span>'+fmFileIcon(file.mime_type)+'</span><strong>Für diesen Dateityp ist keine direkte Vorschau verfügbar.</strong><button type="button" class="dash-btn-sm" id="fmPreviewOpenFallback">Datei öffnen</button></div>';
@@ -1428,7 +1418,7 @@
         '<p class="doc-meta">Ordner · '+VeraDashboard.formatDate(folder.created_at)+'</p>' +
         '<div class="filemgr-detail-actions">' +
           '<button type="button" class="btn btn-primary" id="fmDetailOpenFolder">Öffnen</button>' +
-          '<button type="button" class="dash-btn-sm" id="fmDetailShareFolder">Senden</button>' +
+          '<button type="button" class="dash-btn-sm" id="fmDetailShareFolder">Freigeben</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailAssignFolder">Zuordnung bearbeiten</button>' +
           '<button type="button" class="dash-btn-sm" id="fmDetailRenameFolder">Umbenennen</button>' +
           '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFolder">Archivieren</button>' +
@@ -1448,13 +1438,15 @@
       '<div class="filemgr-detail-info"><strong>Zuweisung</strong><span>'+VeraDashboard.escapeHtml(fmPropertyLabel(file))+'</span></div>' +
       '<div class="filemgr-detail-info"><strong>Akte</strong><span>'+VeraDashboard.escapeHtml(fmArchiveLabel(file.archive_category))+'</span></div>' +
       '<div class="filemgr-detail-info"><strong>Erstellt</strong><span>'+VeraDashboard.formatDateTime(file.created_at)+'</span></div>' +
+      '<div class="document-access" id="fmDocumentAccess" aria-live="polite"></div>' +
       '<div class="filemgr-detail-actions">' +
         '<button type="button" class="btn btn-primary" id="fmDetailOpenFile">Öffnen</button>' +
-        '<button type="button" class="dash-btn-sm" id="fmDetailShareFile">Senden</button>' +
+        '<button type="button" class="dash-btn-sm" id="fmDetailShareFile">Freigeben</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailAssignFile">Zuordnung bearbeiten</button>' +
         '<button type="button" class="dash-btn-sm" id="fmDetailRenameFile">Umbenennen</button>' +
         '<button type="button" class="dash-btn-sm danger" id="fmDetailDeleteFile">Archivieren</button>' +
       '</div>';
+    VeraDocumentAccess.mount(document.getElementById('fmDocumentAccess'), client, file.id);
     document.getElementById('fmDetailOpenFile').onclick = function(){ openSignedUrl('document-vault', file.file_path); };
     document.getElementById('fmDetailShareFile').onclick = function(){ fmOpenShareModal('file', file.id, file.title); };
     document.getElementById('fmDetailAssignFile').onclick = function(){ fmOpenAssignModal('file', file); };
@@ -1566,6 +1558,7 @@
 
   async function fmUploadFileList(files, scope){
     if(!files.length) return [];
+    await VeraDocumentAccess.requireReady(client);
     scope = scope || fmCurrentUploadScope();
     var validation = fmValidateUploadScope(scope);
     if(validation) throw new Error(validation);
@@ -1628,14 +1621,13 @@
     fmShareTarget = { type: type, id: id, name: name };
     document.getElementById('shareModalTitle').textContent = 'Teilen: ' + name;
     document.getElementById('shareModalHint').textContent = type === 'folder'
-      ? 'Teilt alle Dateien in diesem Ordner (und Unterordnern) mit ausgewählten Nutzern.'
+      ? 'Gibt die jetzt vorhandenen Dateien inklusive Unterordnern frei. Später hinzugefügte Dateien werden nicht automatisch geteilt.'
       : 'Teilt diese Datei mit ausgewählten Nutzern.';
-    document.getElementById('shareModalPicker').innerHTML = fmAllProfiles.map(function(p){
+    document.getElementById('shareModalPicker').innerHTML = fmAllProfiles.filter(function(p){ return p.status === 'active'; }).map(function(p){
       return '<label><input type="checkbox" value="'+p.id+'"> '+VeraDashboard.escapeHtml(p.first_name+' '+p.last_name)+
         ' <span class="cal-participant-cat">('+VeraDashboard.categoryLabel(p.category)+')</span></label>';
     }).join('');
     document.getElementById('shareModalNeedsConfirmation').checked = false;
-    document.getElementById('shareModalEmails').value = '';
     document.getElementById('shareModalStatus').textContent = '';
     document.getElementById('shareModalBackdrop').hidden = false;
   }
@@ -1652,8 +1644,8 @@
     if(confirmBtn && confirmBtn.disabled) return;
     var statusEl = document.getElementById('shareModalStatus');
     var profileIds = Array.prototype.slice.call(document.querySelectorAll('#shareModalPicker input[type=checkbox]:checked')).map(function(cb){ return cb.value; });
-    var externalEmails = fmParseEmails(document.getElementById('shareModalEmails').value);
-    if(!profileIds.length && !externalEmails.length){ statusEl.textContent = 'Bitte mindestens einen Nutzer oder eine E-Mail-Adresse auswählen.'; return; }
+    var externalEmails = [];
+    if(!profileIds.length && !externalEmails.length){ statusEl.textContent = 'Bitte mindestens einen Portal-Kontakt auswählen.'; return; }
     statusEl.textContent = 'Wird geteilt …';
     fmSetButtonLoading(confirmBtn, true, 'Wird geteilt …');
     try {
@@ -1670,7 +1662,8 @@
         ? 'Geteilt, aber E-Mail konnte nicht versendet werden: ' + mailState.message
         : mailState.skipped
         ? 'Geteilt. E-Mail-Aus/Testmodus aktiv: Es wurde keine E-Mail versendet.'
-        : 'Geteilt und per E-Mail versendet.';
+        : 'Geteilt und per E-Mail angekündigt.';
+      if(fmSelected && fmSelected.type === 'file') fmRenderDetail();
       setTimeout(fmCloseShareModal, 900);
     } catch(err) {
       statusEl.textContent = 'Teilen fehlgeschlagen: ' + (err.message || err);
@@ -1686,6 +1679,7 @@
   }
 
   async function fmShareFileIdsWithProfiles(fileIds, profileIds, needsConfirmation, externalEmails){
+    await VeraDocumentAccess.requireReady(client);
     var rows = [];
     profileIds = profileIds || [];
     externalEmails = externalEmails || [];
@@ -1695,7 +1689,7 @@
       if(upsertRes.error) throw upsertRes.error;
     }
     try {
-      var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } });
+      var mailRes = await client.functions.invoke('notify-document-share', { body: { fileIds: fileIds, profileIds: profileIds, externalEmails: externalEmails } });
       if(mailRes.error) return { failed:true, skipped:false, message: mailRes.error.message };
       if(mailRes.data && Array.isArray(mailRes.data.failed) && mailRes.data.failed.length) {
         return { failed:true, skipped:false, message: 'Nicht alle Empfänger konnten per E-Mail benachrichtigt werden.' };
@@ -1739,7 +1733,6 @@
     document.getElementById('assignPropertyWrap').hidden = !(type === 'property' || type === 'unit');
     document.getElementById('assignUnitWrap').hidden = type !== 'unit';
     document.getElementById('assignContactWrap').hidden = type !== 'contact';
-    document.getElementById('assignShareWrap').hidden = !(type === 'property' || type === 'unit');
     fmRenderAssignUnits();
     fmRenderAssignArchive();
   }
@@ -1775,30 +1768,6 @@
     fmAssignTarget = null;
   }
 
-  async function fmResidentProfileIds(propertyId, unitId){
-    var ids = new Set();
-    if(unitId){
-      var tenancies = await client.from('tenancies').select('tenant_profile_id').eq('unit_id', unitId).eq('status', 'active').is('archived_at', null);
-      (tenancies.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
-      var ownerships = await client.from('ownerships').select('owner_profile_id').eq('unit_id', unitId).is('archived_at', null).or('end_date.is.null,end_date.gte.' + new Date().toISOString().slice(0,10));
-      (ownerships.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-      return Array.from(ids);
-    }
-    if(propertyId){
-      var units = await client.from('units').select('id').eq('property_id', propertyId).is('archived_at', null);
-      var unitIds = (units.data || []).map(function(u){ return u.id; });
-      if(unitIds.length){
-        var tRes = await client.from('tenancies').select('tenant_profile_id').in('unit_id', unitIds).eq('status', 'active').is('archived_at', null);
-        (tRes.data || []).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
-        var oPropRes = await client.from('ownerships').select('owner_profile_id').eq('property_id', propertyId).is('archived_at', null);
-        (oPropRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-        var oUnitRes = await client.from('ownerships').select('owner_profile_id').in('unit_id', unitIds).is('archived_at', null);
-        (oUnitRes.data || []).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-      }
-    }
-    return Array.from(ids);
-  }
-
   function fmAssignmentScopeFromModal(){
     var type = document.getElementById('assignScopeType').value;
     var propertyId = document.getElementById('assignPropertySelect').value || null;
@@ -1829,6 +1798,7 @@
     statusEl.classList.add('show');
     fmSetButtonLoading(confirmBtn, true, 'Wird zugewiesen …');
     try {
+      await VeraDocumentAccess.requireReady(client);
       var targetFolder = await fmEnsureScopedFolder(scope);
       var fileIds = [];
       var updateRes;
@@ -1864,16 +1834,7 @@
         if(updateRes.error) throw updateRes.error;
         fileIds = [fmAssignTarget.item.id];
       }
-      if(scope.type === 'contact' && scope.contact_profile_id && fileIds.length){
-        await fmShareFileIdsWithProfiles(fileIds, [scope.contact_profile_id], false);
-        statusEl.textContent = 'Kontaktakte zugewiesen und Kontakt freigegeben.';
-      } else if(document.getElementById('assignShareResidents').checked && (scope.property_id || scope.unit_id)){
-        var residents = await fmResidentProfileIds(scope.property_id, scope.unit_id);
-        if(residents.length && fileIds.length) await fmShareFileIdsWithProfiles(fileIds, residents, false);
-        statusEl.textContent = residents.length ? 'Zugewiesen und Bewohner freigegeben.' : 'Zugewiesen. Keine aktiven Bewohner gefunden.';
-      } else {
-        statusEl.textContent = 'Zugewiesen.';
-      }
+      statusEl.textContent = 'Zugewiesen. Bestehende Freigaben bleiben unverändert.';
       setTimeout(function(){ fmCloseAssignModal(); fmSelected = null; fmLoadCurrentFolder(); }, 900);
     } catch(err) {
       statusEl.textContent = 'Zuweisung fehlgeschlagen: ' + (err.message || err);

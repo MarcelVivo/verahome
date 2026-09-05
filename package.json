@@ -4,6 +4,7 @@
   "private": true,
   "description": "Vera Home Website und Vera Portal mit Capacitor-iOS-Testhülle.",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
     "mobile:prepare": "node scripts/prepare-capacitor-web.js",
     "ios:add": "npm run mobile:prepare && npx cap add ios",
     "ios:sync": "npm run mobile:prepare && npx cap sync ios",
@@ -16,6 +17,8 @@
     "@capacitor/ios": "^7.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.0.0"
+    "@capacitor/cli": "^7.0.0",
+    "@electric-sql/pglite": "^0.5.8",
+    "typescript": "^5.9.3"
   }
 }

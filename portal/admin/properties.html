@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="/public/css/portal.css">
 <link rel="stylesheet" href="/public/css/portal-dashboard.css">
 <script defer src="/public/js/pwa.js"></script>
+  <link rel="stylesheet" href="/public/css/document-access.css">
 </head>
 <body>
 
@@ -223,6 +224,7 @@
 <script src="/public/js/supabase-config.js"></script>
 <script src="/public/js/portal-auth.js"></script>
 <script src="/public/js/portal-dashboard.js"></script>
+  <script src="/public/js/document-access.js"></script>
 <script src="/public/js/nav.js"></script>
 <script>
 (function(){
@@ -1002,7 +1004,7 @@
 
   async function sendDocumentShareNotice(fileIds, profileIds, statusEl, successMessage){
     try {
-      var mailRes = await client.functions.invoke('send-document-share', { body: { fileIds: fileIds, profileIds: profileIds } });
+      var mailRes = await client.functions.invoke('notify-document-share', { body: { fileIds: fileIds, profileIds: profileIds } });
       if(mailRes.error){
         showFormStatus(statusEl, (successMessage || 'Dokument freigegeben') + ', aber E-Mail konnte nicht versendet werden: ' + mailRes.error.message);
         return;
@@ -1040,6 +1042,9 @@
     var result = { uploaded: 0, linked: 0, errors: [] };
     var files = options.files || [];
     var existingIds = options.existingIds || [];
+    if(!files.length && !existingIds.length) return result;
+    try { await VeraDocumentAccess.requireReady(client); }
+    catch(err){ result.errors.push(err.message); return result; }
     var property = options.property || allProperties.filter(function(p){ return p.id === options.propertyId; })[0] || { id: options.propertyId, label: 'Liegenschaft' };
     var unit = options.unit || (options.unitId ? (allUnits.filter(function(u){ return u.id === options.unitId; })[0] || { id: options.unitId, label: 'Einheit' }) : null);
     var folder = await ensureObjectDocumentFolder(property, unit, options.archiveCategory);
@@ -1088,34 +1093,29 @@
         result.errors.push(updateRes.error.message);
         continue;
       }
-      var shareResetRes = await replaceDocumentShares(existingIds[j], []);
-      if(shareResetRes.error){
-        result.errors.push(shareResetRes.error.message);
-        continue;
-      }
       result.linked++;
     }
 
     return result;
   }
 
+  function currentDocumentRelation(row){
+    var today = new Intl.DateTimeFormat('sv-SE', { timeZone:'Europe/Zurich' }).format(new Date());
+    return !row.archived_at && (!row.start_date || row.start_date <= today) && (!row.end_date || row.end_date >= today);
+  }
+
   async function propertyResidentProfileIds(propertyId){
     var ids = new Set();
     var units = allUnits.filter(function(unit){ return unit.property_id === propertyId; });
     var unitIds = units.map(function(unit){ return unit.id; });
-    allOwnerships.filter(function(o){ return o.property_id === propertyId && !o.unit_id; }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-    allOwnerships.filter(function(o){ return unitIds.indexOf(o.unit_id) > -1; }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
-    allTenancies.filter(function(t){ return unitIds.indexOf(t.unit_id) > -1 && t.status === 'active'; }).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
+    allOwnerships.filter(function(o){ return o.property_id === propertyId && !o.unit_id && currentDocumentRelation(o); }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+    allOwnerships.filter(function(o){ return unitIds.indexOf(o.unit_id) > -1 && currentDocumentRelation(o); }).forEach(function(o){ if(o.owner_profile_id) ids.add(o.owner_profile_id); });
+    allTenancies.filter(function(t){ return unitIds.indexOf(t.unit_id) > -1 && t.status === 'active' && currentDocumentRelation(t); }).forEach(function(t){ if(t.tenant_profile_id) ids.add(t.tenant_profile_id); });
     return Array.from(ids);
   }
 
   async function replaceDocumentShares(fileId, profileIds){
-    var deleteRes = await client.from('document_shares').delete().eq('file_id', fileId);
-    if(deleteRes.error) return deleteRes;
-    if(!profileIds.length) return { error: null };
-    return client.from('document_shares').insert(profileIds.map(function(profileId){
-      return { file_id: fileId, profile_id: profileId, needs_confirmation: false, created_by: profile.id };
-    }));
+    return client.rpc('replace_document_readers', { p_file_id:fileId, p_profile_ids:profileIds });
   }
 
   var allProperties = [];
@@ -1188,7 +1188,10 @@
     var columnsEl = document.getElementById('objColumns');
     columnsEl.innerHTML = hierarchyHtml();
     wireHierarchyControls();
-    if(selectedDetailType === 'document' && selectedDetailId) loadDocumentSignatureSection(selectedDetailId);
+    if(selectedDetailType === 'document' && selectedDetailId){
+      loadDocumentSignatureSection(selectedDetailId);
+      VeraDocumentAccess.mount(document.getElementById('objectDocumentAccess'), client, selectedDetailId);
+    }
   }
 
   function scrollMobileObjectPane(selector){
@@ -1504,7 +1507,7 @@
         (unit.floor ? '<span>'+VeraDashboard.escapeHtml(unit.floor)+'</span>' : '') +
         (unit.visibility === 'public' ? '<span>Inserat online</span>' : '<span>privat</span>') +
       '</div>' +
-      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Mieterakte, Verträge, Kautionen, Nebenkosten und Korrespondenz werden nur für explizit berechtigte Personen freigegeben.</div>' +
+      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Persönliche Akten benötigen eine gezielte Freigabe. Prüfen Sie am Dokument, wer es öffnen kann.</div>' +
       objectDossierHtml(property, unit) +
       nextStepsHtml(property, unit) +
       '<div class="dash-btn-row">' +
@@ -1677,7 +1680,7 @@
       '<span class="obj-step-label">Dokument / Vertrag</span>' +
       '<h2>'+VeraDashboard.escapeHtml(doc.title)+'</h2>' +
       '<p class="doc-meta">'+VeraDashboard.escapeHtml(doc.mime_type || 'Datei')+' · '+VeraDashboard.formatDate(doc.created_at)+'</p>' +
-      '<div class="obj-privacy-note"><strong>Datenschutz:</strong> Sichtbar nur für Personen mit expliziter Freigabe in document_shares.</div>' +
+      '<div class="document-access" id="objectDocumentAccess" aria-live="polite"></div>' +
       '<div class="dash-btn-row">' +
         '<button type="button" class="btn btn-primary" data-open-tree-doc="'+doc.file_path+'">Öffnen</button>' +
         '<a class="dash-btn-sm" href="/portal/documents.html?file='+encodeURIComponent(doc.id)+'">Im Dokumentenmanager bearbeiten</a>' +
@@ -2739,6 +2742,7 @@
     setActionButtonLoading(button, true, 'Lädt hoch …');
     var path = null;
     try {
+      await VeraDocumentAccess.requireReady(client);
       var fileId = crypto.randomUUID();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       var property = allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' };
@@ -2802,12 +2806,13 @@
       return;
     }
     if(!recipientId){
-      showFormStatus(statusEl, 'Bitte Empfänger wählen, damit die Mieterakte datenschutzkonform freigegeben wird.');
+      showFormStatus(statusEl, 'Bitte die Person auswählen, die diese Akte öffnen darf.');
       return;
     }
     showFormStatus(statusEl, 'Bestehendes Dokument wird zugewiesen …');
     setActionButtonLoading(button, true, 'Weist zu …');
     try {
+      await VeraDocumentAccess.requireReady(client);
       var updatePayload = {
         folder_id: (await ensureObjectDocumentFolder(
           allProperties.filter(function(p){ return p.id === unit.property_id; })[0] || { id: unit.property_id, label: 'Liegenschaft' },
@@ -2868,6 +2873,7 @@
     setActionButtonLoading(submitBtn, true, 'Legt ab …');
     var path = null;
     try {
+      await VeraDocumentAccess.requireReady(client);
       var fileId = crypto.randomUUID();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       var folder = await ensureObjectDocumentFolder(property, unit, node.key);
@@ -2941,6 +2947,7 @@
     showFormStatus(statusEl, 'Dokument wird verknüpft …');
     setActionButtonLoading(submitBtn, true, 'Verknüpft …');
     try {
+      await VeraDocumentAccess.requireReady(client);
       var updatePayload = {
         folder_id: (await ensureObjectDocumentFolder(property, unit, node.key)).id,
         property_id: property.id,
@@ -3676,6 +3683,7 @@
     setActionButtonLoading(submitBtn, true, 'Lädt hoch …');
     var path = null;
     try {
+      await VeraDocumentAccess.requireReady(client);
       var docId = crypto.randomUUID();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
@@ -3742,7 +3750,7 @@
     table.innerHTML = '<tr><th>Titel</th><th>Akte</th><th>Freigabe</th><th></th></tr>' +
       docs.map(function(d){
         var grantCount = (accessByDoc[d.id] || []).length;
-        var visLabel = grantCount ? ('Freigegeben ('+grantCount+')') : 'Nur Admin / intern';
+        var visLabel = grantCount ? ('Persönliche Freigaben: '+grantCount) : 'Keine persönliche Freigabe';
         return '<tr>' +
           '<td>'+VeraDashboard.escapeHtml(d.title)+'</td>' +
           '<td>'+VeraDashboard.escapeHtml(archiveLabelForKey(d.archive_category))+'</td>' +
@@ -3836,6 +3844,7 @@
     showFormStatus(statusEl, 'Dokument wird mit der Liegenschaft verknüpft …');
     setActionButtonLoading(submitBtn, true, 'Verknüpft …');
     try {
+      await VeraDocumentAccess.requireReady(client);
       var archiveKey = propertyArchiveKeyFromDocCategory(property, category);
       var updatePayload = {
         folder_id: (await ensureObjectDocumentFolder(property, null, archiveKey)).id,

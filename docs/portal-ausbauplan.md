@@ -149,3 +149,8 @@ PLAYWRIGHT_MODULE=/pfad/zu/playwright-core node tests/property-create-browser.cj
 Kernfälle sind Neu-/Sammelerfassung, Null-Einheiten-Liegenschaft, bestehende Liegenschaft, Rücknavigation und Reload, Antwortverlust nach erfolgreichem Insert, fehlgeschlagener Einheiten-Insert, gesperrter Tab-Speicher, fehlender Verwaltungszugang sowie Kontowechsel während einer Erfassung.
 
 Prüfstand der Stufe 2: insgesamt 98 Node-Regressionstests sowie 66 Browserfälle in Chromium und WebKit bei 320, 393 und 1440 Pixeln bestanden. Die mobile Ansicht wurde zusätzlich visuell geprüft. Sitzungsbindung, tokenfreie Entwürfe, ausbleibende Folgeschritte nach Kontowechsel sowie Syntaxprüfung und Vorbereitung der Capacitor-Webdateien wurden geprüft. Es wurden keine produktiven Datensätze für diese Abnahme angelegt.
+
+
+### Dokumentberechtigungen – Umsetzung vorbereitet (5. September 2026)
+
+Ablage und Leserechte sind im neuen Code getrennt. Die Datenbankmigration, serverseitige Leseranzeige mit Entzug, Benachrichtigungen ohne Anhänge sowie RLS- und Browsertests liegen vor. Die Live-Aktivierung in Supabase ist mangels Projektzugang noch offen; ein Git-Push aktiviert diese Regeln nicht. Siehe [Aktivierung, Tests und verbleibende Grenzen](document-privacy-rollout.md). Bis zur bestätigten Datenbankaktivierung verhindert das neue Frontend zusätzliche Dokument-Uploads und Freigaben.
