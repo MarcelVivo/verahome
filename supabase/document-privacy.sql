@@ -56,6 +56,19 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 alter table public.document_files enable row level security;
+alter table public.document_shares enable row level security;
+alter table public.property_documents enable row level security;
+alter table public.property_document_access enable row level security;
+alter table public.documents enable row level security;
+-- Supabase owns storage.objects and does not allow ALTER TABLE here.
+-- Storage RLS must already be enabled by the platform; fail closed otherwise.
+do $$
+begin
+  if not coalesce((select relrowsecurity from pg_class where oid = 'storage.objects'::regclass), false) then
+    raise exception 'Storage RLS ist nicht aktiv; Aktivierung abgebrochen.';
+  end if;
+end;
+$$;
 drop policy if exists document_files_privacy_guard on public.document_files;
 create policy document_files_privacy_guard on public.document_files as restrictive
   for select using (public.document_access_allowed(id));
@@ -142,6 +155,31 @@ begin
 end;
 $$;
 
+-- Legacy documents still have a completion RPC which bypasses table RLS.
+create or replace function public.complete_document(
+  p_document_id uuid, p_fill_content text default null
+)
+returns public.documents
+language plpgsql security definer set search_path = public as $$
+declare
+  result public.documents;
+begin
+  if not public.is_approved() then
+    raise exception 'Keine Berechtigung.' using errcode = '42501';
+  end if;
+  update public.documents
+  set status = 'completed', completed_at = now(), completed_by = auth.uid(),
+      fill_content = coalesce(p_fill_content, fill_content)
+  where id = p_document_id and owner_profile_id = auth.uid()
+    and status = 'pending' and action_type in ('sign','fill')
+  returning * into result;
+  if result.id is null then
+    raise exception 'Dokument nicht gefunden oder keine Berechtigung.';
+  end if;
+  return result;
+end;
+$$;
+
 -- Legacy house information: public means current members of THIS property.
 -- A restricted legacy document still requires an explicit personal grant.
 create or replace function public.can_access_property_scope(p_property_id uuid)
@@ -220,6 +258,7 @@ returns boolean language sql stable security definer set search_path = public as
     and not exists (
       select 1 from (values
         ('public','document_files','document_files_privacy_guard'),
+        ('public','document_shares','document_shares_privacy_guard'),
         ('public','property_documents','property_documents_privacy_guard'),
         ('storage','objects','storage_documents_privacy_guard')
       ) required(schema_name, table_name, policy_name)
@@ -228,7 +267,9 @@ returns boolean language sql stable security definer set search_path = public as
           and p.policyname = required.policy_name and p.permissive = 'RESTRICTIVE')
     )
     and (select bool_and(c.relrowsecurity) from pg_class c
-      where c.oid in ('public.document_files'::regclass, 'public.property_documents'::regclass, 'storage.objects'::regclass));
+      where c.oid in ('public.document_files'::regclass, 'public.document_shares'::regclass,
+        'public.property_documents'::regclass, 'public.property_document_access'::regclass,
+        'public.documents'::regclass, 'storage.objects'::regclass));
 $$;
 notify pgrst, 'reload schema';
 commit;

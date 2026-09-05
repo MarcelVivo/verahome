@@ -2,9 +2,13 @@
 
 ## Stand
 
-Code und isolierte Tests sind vorbereitet. Die Live-Datenbank wurde **nicht** migriert: In dieser Sitzung fehlen Supabase-Management-/SQL-Zugang und authentifizierte Testkonten. Ein lesender RPC-Aufruf bestätigt: `can_access_document_scope` existiert live, `document_privacy_ready` fehlt (PGRST202). Das beweist keine konkrete Offenlegung; die aktiven Policy-Definitionen sind noch zu prüfen.
+Die Dokumentrechte wurden am **5. September 2026 live aktiviert**. Die Migration `document_privacy_explicit_permissions` ist eingespielt; `send-document-share` Version 4 und `notify-document-share` Version 1 sind aktiv und verlangen weiterhin ein gültiges JWT. Der veröffentlichte gemeinsame Funktionscode wurde mit der lokalen Quelle verglichen.
 
-Ein Git-Push veröffentlicht nur die Weboberfläche, keine Supabase-SQL-Migrationen oder Edge Functions. Solange der neue Servercheck fehlt, sperrt die aktualisierte Oberfläche neue Dokument-Uploads, Freigaben und Umzuordnungen. Bestehende Daten werden dadurch nicht gelöscht. **Diese UI-Sperre schützt bestehende Dateien nicht vor Zugriffen über alte Clients oder die API.** Dafür ist die Migration erforderlich.
+Der erste Migrationsversuch wurde wegen eines nicht erlaubten `ALTER TABLE storage.objects` vollständig zurückgerollt. Die korrigierte Migration prüft das von Supabase verwaltete Storage-RLS ausdrücklich und bricht bei fehlendem Schutz ab. Auf den fünf eigenen Tabellen aktiviert sie RLS selbst. Alle vier restriktiven Guards und die drei privaten Dokument-Buckets sind live bestätigt. Hintergrund: [Supabase-Beschränkungen für verwaltete Schemas](https://github.com/orgs/supabase/discussions/34270).
+
+Der Servercheck liefert im aktiven Admin-Kontext `true`; damit ist die bisherige Frontend-Sperre aufgehoben. Echte Tabellen-RLS und Listen-RPCs wurden in einer schreibgeschützten Transaktion mit `authenticated`/`anon` und den vorhandenen Profilkontexten geprüft: Admin darf lesen, Nichtadmin ohne Freigabe sowie archivierte und anonyme Konten sehen keine Dokumente. Der ältere Dokumentabschluss verweigert archivierte/anonyme Zugriffe mit SQLSTATE `42501`. Ein gesperrtes, nicht archiviertes Profil war live nicht vorhanden; dieser Fall ist durch lokale PostgreSQL-Tests abgedeckt.
+
+Datensatzanzahlen blieben unverändert: ein Dokument, keine persönlichen Freigaben, 40 Storage-Objekte insgesamt. Das vorhandene Dokument ist somit nur für aktive Admins sichtbar. Es wurden keine echten Nachrichten versendet und keine produktiven Geschäftsdaten für Tests verändert. Eine vollständige Abnahme mit angemeldeten Testkonten über Storage-HTTP sowie eine Daten-/Dateiwiederherstellung bleiben separate, noch nicht durchgeführte Betriebsprüfungen.
 
 ## Verhalten nach Aktivierung
 
@@ -34,3 +38,15 @@ Temporäre Test-Abhängigkeiten: `@electric-sql/pglite` und `typescript@5.9.3`. 
 Signierte Links bleiben bis zu ihrer Ablaufzeit nutzbar. Neue UI-Links verwenden 60 Sekunden; früher ausgestellte Links können länger gelten. Bereits heruntergeladene oder per alter E-Mail versandte Kopien sind nicht rückholbar. Das bestehende Öffnungsprotokoll ist eine Best-Effort-Protokollierung und kein vollständiger Nachweis aller direkten Storage-Downloads. Andere Fachmodule (Rechnungen, Schadenmeldungen, Signaturaufträge, Nachrichten usw.) benötigen jeweils eigene weitere Berechtigungsprüfungen; diese Änderung ist keine Aussage über vollständige DSG-Konformität.
 
 Technische Grundlagen: [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html), [Supabase private Downloads und signierte URLs](https://supabase.com/docs/guides/storage/serving/downloads).
+
+
+## Fortsetzung und Live-Abgleich (5. September 2026)
+
+- Beim Verknüpfen vorhandener Dateien bleiben persönliche Freigaben erhalten. Eine ausdrücklich zusätzlich gewählte Person wird mit einem einzelnen konfliktfesten Insert ergänzt; Bestätigungen und gleichzeitig ergänzte Freigaben werden nicht überschrieben. Ohne neue Person werden keine Freigaben geschrieben. Die Oberfläche erklärt dies und wählt für bestehende Dokumente keinen Empfänger automatisch vor.
+- Der ältere RPC `complete_document(uuid,text)` prüft jetzt aktive, nicht archivierte Konten. Live existiert nur diese Signatur; kein alter Ein-Parameter-Overload wurde gefunden. Die Migration stellt aktives RLS auf allen sechs betroffenen Tabellen sicher und prüft im Readiness-RPC auch den Schutz von `document_shares`.
+- Der lesende Live-Abgleich ergab ein Dokument in `document_files`, keine persönlichen Freigaben, keine doppelten Dateipfade und keine Einträge in den beiden älteren Dokumenttabellen. Nach Aktivierung bleibt das vorhandene Dokument ausschliesslich für aktive Admins zugänglich, bis eine persönliche Freigabe gesetzt wird. Die Migration legt solche Freigaben nicht automatisch an.
+- Vor der Aktivierung war `send-document-share` in Version 3 aktiv und `notify-document-share` noch nicht deployed. Beide wurden inzwischen wie oben beschrieben veröffentlicht. Die lokalen DeepSign-Funktionen sind im Projekt nicht deployed; ihre separate Rechteprüfung bleibt vor einer späteren Aktivierung erforderlich.
+- Der vorherige Berechtigungsstand (Funktionsdefinitionen, Policies, RLS-/Bucket-Einstellungen, Datensatzanzahlen und bisheriger E-Mail-Funktionscode) wurde ausserhalb des Git-Repositories unter `../work/document-privacy-rollout-2026-09-05/permissions-before.json` gesichert. Das ist eine Konfigurationssicherung, kein vollständiges Datenbank- oder Dateibackup.
+- Prüfstand: **154 Node-Tests und 48 Browserprüfungen** in Chromium/WebKit bei 320, 393 und 1440 Pixeln bestanden. Die neuen Tests führen die echten Zuordnungs-Handler mit simuliertem Backend aus; der ältere Dokumentabschluss wird in PostgreSQL geprüft. Die Tests versenden keine echten Nachrichten und ändern keine produktiven Geschäftsdaten.
+
+Nach ausdrücklicher Freigabe durch den Betreiber wurden Migration und beide Serverfunktionen live aktiviert. Der Quellcode enthält auch die Korrektur zum Erhalt bestehender Freigaben beim Zuordnen.

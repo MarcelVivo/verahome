@@ -7,6 +7,7 @@ const path = require('node:path');
 const { PGlite } = require(process.env.PGLITE_MODULE || '@electric-sql/pglite');
 const root = path.resolve(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'supabase/document-privacy.sql'), 'utf8');
+const schema = fs.readFileSync(path.join(root, 'supabase/schema.sql'), 'utf8');
 const id = n => '00000000-0000-0000-0000-' + String(n).padStart(12, '0');
 let db;
 before(async () => {
@@ -29,14 +30,13 @@ before(async () => {
       created_at timestamptz default now(), unique(file_id, profile_id));
     create table property_documents(id uuid primary key, property_id uuid, visibility text, file_path text);
     create table property_document_access(property_document_id uuid, profile_id uuid);
-    create table documents(id uuid primary key, owner_profile_id uuid, file_path text);
+    create table documents(id uuid primary key, owner_profile_id uuid, file_path text,
+      status text default 'pending', action_type text default 'sign', completed_at timestamptz,
+      completed_by uuid, fill_content text);
     create table storage.buckets(id text primary key, public boolean);
     create table storage.objects(id uuid default gen_random_uuid(), bucket_id text, name text);
     insert into storage.buckets values ('document-vault', true), ('property-documents', true), ('documents', true), ('property-images', true);
-    alter table document_files enable row level security;
-    alter table document_shares enable row level security;
-    alter table property_documents enable row level security;
-    alter table storage.objects enable row level security;
+    -- RLS may have been disabled in a legacy installation; activation must repair it.
     -- Simulate leftover broad policies. Restrictive guards must win over these.
     create policy old_file_read on document_files for select using (true);
     create policy old_share_read on document_shares for select using (true);
@@ -69,13 +69,26 @@ before(async () => {
     insert into property_documents values ('${id(201)}','${id(20)}','public','house-rules'),
       ('${id(202)}','${id(20)}','restricted','legacy-private');
     insert into property_document_access values ('${id(202)}','${id(1)}');
-    insert into documents values ('${id(301)}','${id(1)}','old-contract');
+    insert into documents(id,owner_profile_id,file_path) values
+      ('${id(301)}','${id(1)}','old-contract'),('${id(307)}','${id(7)}','blocked-contract'),
+      ('${id(311)}','${id(11)}','archived-admin-contract'),('${id(312)}','${id(12)}','pending-contract');
     insert into storage.objects(bucket_id,name) select 'document-vault',file_path from document_files;
     insert into storage.objects(bucket_id,name) select 'property-documents',file_path from property_documents;
     insert into storage.objects(bucket_id,name) values ('documents','old-contract'),('document-vault','orphan'),('property-images','photo');
   `);
   // Establish that the fixture really leaks before applying the production SQL.
   await asUser(2, async () => assert.equal((await db.query('select * from document_files')).rows.length, 4));
+  // Install the actual historical RPC, including its SECURITY DEFINER bypass.
+  const legacyCompletion = schema.match(/create or replace function public\.complete_document\(\s*p_document_id uuid,\s*p_fill_content text default null[\s\S]*?\$\$;/);
+  assert.ok(legacyCompletion, 'historical complete_document RPC exists');
+  await db.exec(legacyCompletion[0]);
+  await asUser(7, async () => assert.equal((await db.query('select * from complete_document($1)', [id(307)])).rows[0].status, 'completed'));
+  // Managed Storage must already have RLS. A missing platform prerequisite
+  // aborts the entire transaction instead of silently accepting exposed files.
+  await assert.rejects(db.exec(migration), /Storage RLS ist nicht aktiv/);
+  await db.exec('rollback');
+  assert.equal((await db.query("select to_regprocedure('public.document_privacy_ready()') is null as rolled_back")).rows[0].rolled_back, true);
+  await db.exec('alter table storage.objects enable row level security');
   await db.exec(migration);
   await db.exec(migration); // reapplying must be safe
 });
@@ -167,21 +180,46 @@ test('handover and filing changes do not transfer the previous tenant private fi
 test('document buckets private, public property images preserved',async()=>{
   assert.deepEqual((await db.query('select id from storage.buckets where public order by id')).rows,[{id:'property-images'}]);
 });
+test('legacy completion requires an active unarchived owner and keeps its existing behavior',async()=>{
+  for (const n of [0,2,7,11,12]) await asUser(n,async()=>{
+    const documentId = [7,11,12].includes(n) ? id(300+n) : id(301);
+    await assert.rejects(db.query('select * from complete_document($1,$2)',[documentId,'Private content']));
+  });
+  await asUser(1,async()=>{
+    const completed=(await db.query('select * from complete_document($1,$2)',[id(301),'Completed content'])).rows[0];
+    assert.equal(completed.status,'completed');
+    assert.equal(completed.completed_by,id(1));
+    assert.equal(completed.fill_content,'Completed content');
+    assert.ok(completed.completed_at);
+  });
+  assert.equal((await db.query("select count(*)::int as pending from documents where status='pending'")).rows[0].pending,4);
+});
 test('readiness requires an active admin and all restrictive guards',async()=>{
   for(const n of [1,7,10,11,0]) await asUser(n,async()=>{
     const row=(await db.query('select document_privacy_ready() as ready, is_admin() as admin, is_approved() as approved')).rows[0];
     assert.equal(row.ready,n===10); assert.equal(row.admin,n===10);
     assert.equal(row.approved,[1,10].includes(n));
   });
-  await db.exec('begin');
-  try {
-    await db.exec('drop policy storage_documents_privacy_guard on storage.objects');
-    await db.query("select set_config('request.jwt.claim.sub',$1,true)",[id(10)]);
-    await db.exec('set local role authenticated');
-    assert.equal((await db.query('select document_privacy_ready() as ready')).rows[0].ready,false);
-  } finally {await db.exec('rollback');}
+  const guards = [
+    ['document_files','document_files_privacy_guard'],
+    ['document_shares','document_shares_privacy_guard'],
+    ['property_documents','property_documents_privacy_guard'],
+    ['storage.objects','storage_documents_privacy_guard']
+  ];
+  const tables = ['document_files','document_shares','property_documents','property_document_access','documents','storage.objects'];
+  for (const change of [
+    ...guards.map(([table,policy])=>'drop policy '+policy+' on '+table),
+    ...tables.map(table=>'alter table '+table+' disable row level security')
+  ]) {
+    await db.exec('begin');
+    try {
+      await db.exec(change);
+      await db.query("select set_config('request.jwt.claim.sub',$1,true)",[id(10)]);
+      await db.exec('set local role authenticated');
+      assert.equal((await db.query('select document_privacy_ready() as ready')).rows[0].ready,false,change);
+    } finally {await db.exec('rollback');}
+  }
 });
 test('bootstrap ends with the tested canonical SQL',()=>{
-  const schema=fs.readFileSync(path.join(root,'supabase/schema.sql'),'utf8');
   assert.ok(schema.includes('-- BEGIN DOCUMENT PRIVACY (source: document-privacy.sql)\n'+migration+'-- END DOCUMENT PRIVACY'));
 });

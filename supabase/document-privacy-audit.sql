@@ -14,7 +14,10 @@ order by schemaname, tablename, policyname;
 select p.oid::regprocedure as routine, p.prosecdef, p.proacl, pg_get_functiondef(p.oid)
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.prokind = 'f'
-  and (p.proname in ('is_admin','is_approved') or p.prosrc ~ '(document_files|document_shares|property_documents|document_access_allowed)')
+  and (p.proname in ('is_admin','is_approved','complete_document','can_access_document_scope',
+    'can_access_property_scope','can_access_document_file','can_access_document_file_by_path',
+    'can_access_property_document','can_access_property_document_by_path','document_privacy_ready')
+    or p.prosrc ~ '(document_files|document_shares|property_documents|documents|document_access_log|document_access_allowed)')
 order by p.proname;
 select id, public from storage.buckets where id in ('documents','document-vault','property-documents');
 -- Review workload only: no broad grants are silently converted to personal ones.

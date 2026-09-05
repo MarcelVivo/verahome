@@ -1118,6 +1118,17 @@
     return client.rpc('replace_document_readers', { p_file_id:fileId, p_profile_ids:profileIds });
   }
 
+  async function addDocumentShare(fileId, profileId){
+    // Filing an existing document must not revoke other readers or reset an
+    // existing reader's confirmation. Insert only the explicitly chosen grant.
+    return client.from('document_shares').upsert({
+      file_id: fileId,
+      profile_id: profileId,
+      needs_confirmation: false,
+      created_by: profile.id
+    }, { onConflict: 'file_id,profile_id', ignoreDuplicates: true });
+  }
+
   var allProperties = [];
   var allUnits = [];
   var allProfilesForPicker = [];
@@ -1616,7 +1627,7 @@
       '<p class="doc-meta">'+VeraDashboard.escapeHtml(archivePathLabel(property, unit, node))+'</p>' +
       '<p class="obj-archive-hint">'+VeraDashboard.escapeHtml(node.hint)+'</p>' +
       '<div class="obj-subfolder-tags">' + node.children.map(function(child){ return '<span>'+VeraDashboard.escapeHtml(child)+'</span>'; }).join('') + '</div>' +
-      '<div class="obj-privacy-note"><strong>Regel:</strong> Dokumente werden hier fachlich abgelegt. Sichtbar für Nutzer werden sie erst durch eine konkrete Freigabe oder bestehende Objekt-/Mieter-Berechtigung.</div>' +
+      '<div class="obj-privacy-note"><strong>Regel:</strong> Dokumente werden hier fachlich abgelegt. Zugriff haben die Verwaltung und ausdrücklich freigegebene Personen. Bestehende Freigaben bleiben beim Verknüpfen erhalten.</div>' +
       '<div class="obj-archive-docs">' +
         '<strong>Abgelegt</strong>' +
         (docs.length ? docs.map(function(doc){
@@ -1635,14 +1646,15 @@
       '<form class="auth-form obj-existing-doc-form" id="archiveExistingForm">' +
         '<span class="obj-modal-section-label">Bereits abgelegtes Dokument verknüpfen</span>' +
         '<select id="archiveExistingDoc">'+existingDocumentOptionsHtml(docs.map(function(doc){ return doc.id; }))+'</select>' +
-        '<select id="archiveExistingRecipient">'+recipientOptions+'</select>' +
+        '<select id="archiveExistingRecipient">'+archiveRecipientOptionsHtml(property, unit, node, true)+'</select>' +
+        '<p class="doc-meta">Die ausgewählte Person erhält zusätzlich Zugriff. Vorhandene Freigaben bleiben erhalten.</p>' +
         '<button type="submit" class="dash-btn-sm">Bestehendes Dokument hier verknüpfen</button>' +
         '<p class="form-status" id="archiveExistingStatus"></p>' +
       '</form>' +
     '</div>';
   }
 
-  function archiveRecipientOptionsHtml(property, unit, node){
+  function archiveRecipientOptionsHtml(property, unit, node, existingDocument){
     var rows = [];
     if(unit){
       allTenancies.filter(function(t){ return t.unit_id === unit.id && t.status === 'active'; }).forEach(function(t){
@@ -1668,8 +1680,8 @@
       if(a.preferred !== b.preferred) return a.preferred ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-    return '<option value="">Keine direkte Personen-Freigabe</option>' + rows.map(function(row){
-      return '<option value="'+row.id+'"'+(row.preferred && rows.length === 1 ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(row.label)+'</option>';
+    return '<option value="">'+(existingDocument ? (node.tenant ? 'Person für zusätzliche Freigabe wählen …' : 'Keine zusätzliche Personen-Freigabe') : 'Keine direkte Personen-Freigabe')+'</option>' + rows.map(function(row){
+      return '<option value="'+row.id+'"'+(!existingDocument && row.preferred && rows.length === 1 ? ' selected' : '')+'>'+VeraDashboard.escapeHtml(row.label)+'</option>';
     }).join('');
   }
 
@@ -2457,6 +2469,7 @@
             '<div class="obj-private-doc-form obj-existing-doc-form">' +
               '<select id="unitExistingDocSelect-'+unitId+'">'+existingDocumentOptionsHtml([])+'</select>' +
               '<select id="unitExistingDocRecipient-'+unitId+'"><option value="">Empfänger wählen …</option></select>' +
+              '<p class="doc-meta">Die ausgewählte Person erhält zusätzlich Zugriff. Vorhandene Freigaben bleiben erhalten.</p>' +
               '<button type="button" class="dash-btn-sm" id="unitExistingDocLink-'+unitId+'">Bestehendes Dokument dieser Einheit zuweisen</button>' +
             '</div>' +
             '<a class="dash-btn-sm" href="/portal/documents.html">Alle Dokumente verwalten</a>' +
@@ -2825,7 +2838,7 @@
       if(supportsArchiveCategory) updatePayload.archive_category = 'unit_mieter';
       var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
       if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
-      var shareRes = await replaceDocumentShares(fileId, [recipientId]);
+      var shareRes = await addDocumentShare(fileId, recipientId);
       if(shareRes.error){
         showFormStatus(statusEl, 'Dokument zugewiesen, aber Freigabe fehlgeschlagen: ' + shareRes.error.message);
         return;
@@ -2956,12 +2969,12 @@
       if(supportsArchiveCategory) updatePayload.archive_category = node.key;
       var updateRes = await client.from('document_files').update(updatePayload).eq('id', fileId);
       if(updateRes.error){ showFormStatus(statusEl, 'Fehler: ' + updateRes.error.message); return; }
-      var shareRes = await replaceDocumentShares(fileId, recipientId ? [recipientId] : []);
-      if(shareRes.error){
-        showFormStatus(statusEl, 'Dokument verknüpft, aber Freigabe konnte nicht aktualisiert werden: ' + shareRes.error.message);
-        return;
-      }
       if(recipientId){
+        var shareRes = await addDocumentShare(fileId, recipientId);
+        if(shareRes.error){
+          showFormStatus(statusEl, 'Dokument verknüpft, aber zusätzliche Freigabe fehlgeschlagen: ' + shareRes.error.message);
+          return;
+        }
         await sendDocumentShareNotice([fileId], [recipientId], statusEl, 'Dokument verknüpft und freigegeben');
       }
       if(!recipientId) showFormStatus(statusEl, 'Dokument verknüpft.');
