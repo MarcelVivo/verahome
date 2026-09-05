@@ -121,7 +121,7 @@
 
       <div class="dash-card" id="reconcileCard" style="display:none;">
         <h2>Zahlungseingänge abgleichen</h2>
-        <p class="dash-lead">Kontoauszug im camt.053-Format (XML) hochladen — von praktisch jeder Schweizer Bank im E-Banking exportierbar. Nichts wird automatisch als bezahlt markiert; jeder Vorschlag muss einzeln bestätigt werden.</p>
+        <p class="dash-lead">Kontoauszug im camt.053-Format (XML) hochladen. Vorschläge gibt es nur für einzelne gebuchte Zahlungen in CHF mit passendem Gesamtbetrag. Teilzahlungen, andere Währungen und unklare Zuordnungen müssen separat geprüft werden. Jeder Vorschlag muss einzeln bestätigt werden.</p>
         <input type="file" id="camtFileInput" accept=".xml">
         <div id="reconcileResults" style="margin-top:14px;"></div>
       </div>
@@ -328,54 +328,159 @@
       }).join('');
   }
 
-  /* Liest einen camt.053-Kontoauszug (ISO-20022-XML, von jeder
-     Schweizer Bank exportierbar) und schlaegt fuer jede eingehende
-     Gutschrift (CdtDbtInd=CRDT) eine passende offene Rechnung vor --
-     zuerst per Rechnungsnummer im Zahlungszweck (die QR-Rechnung trägt
-     "Rechnung <Nr.>" als unstrukturierte Mitteilung), sonst per exaktem
-     Betrag. Nichts wird automatisch gebucht; jede Zeile braucht eine
-     explizite Bestätigung durch den Admin. */
+  /* Konservative Importhilfe, keine bankseitige Zahlungsabstimmung:
+     Nur einzelne gebuchte CHF-Gutschriften mit passendem Gesamtbetrag
+     anbieten. Explizite Referenzen niemals durch einen Betragsfund ersetzen. */
+  var camtImportToken = 0;
+
+  function camtChild(node, name){
+    return Array.prototype.filter.call(node.children || [], function(child){ return child.localName === name; })[0] || null;
+  }
+
+  function camtDescendants(node, name){
+    return Array.prototype.slice.call(node.getElementsByTagNameNS('*', name));
+  }
+
   function parseCamtEntries(xmlText){
     var xml = new DOMParser().parseFromString(xmlText, 'text/xml');
-    if(xml.querySelector('parsererror')) throw new Error('Die Datei ist kein gültiges XML.');
-    var entries = Array.prototype.slice.call(xml.getElementsByTagName('Ntry'));
+    if(camtDescendants(xml, 'parsererror').length) throw new Error('Die Datei ist kein gültiges XML.');
+    var entries = camtDescendants(xml, 'Ntry');
     return entries.map(function(ntry){
-      var amtEl = ntry.getElementsByTagName('Amt')[0];
-      var indEl = ntry.getElementsByTagName('CdtDbtInd')[0];
-      var dateEl = ntry.querySelector('BookgDt Dt') || ntry.querySelector('BookgDt DtTm');
-      var ustrdEls = ntry.getElementsByTagName('Ustrd');
-      var remittance = Array.prototype.map.call(ustrdEls, function(el){ return el.textContent; }).join(' ');
+      var amtEl = camtChild(ntry, 'Amt');
+      var indEl = camtChild(ntry, 'CdtDbtInd');
+      var dateEl = camtChild(ntry, 'BookgDt');
+      var statusEl = camtChild(ntry, 'Sts');
+      var reversalEl = camtChild(ntry, 'RvslInd');
+      var remittance = camtDescendants(ntry, 'Ustrd').map(function(el){ return el.textContent.trim(); }).join(' ');
+      var references = camtDescendants(ntry, 'CdtrRefInf').map(function(el){
+        var ref = camtChild(el, 'Ref');
+        return ref ? ref.textContent.trim() : '';
+      }).filter(Boolean);
+      var batchCounts = camtDescendants(ntry, 'NbOfTxs');
       return {
-        amount: amtEl ? parseFloat(amtEl.textContent) : null,
+        amount: amtEl && amtEl.textContent.trim() ? Number(amtEl.textContent.trim()) : null,
         currency: amtEl ? amtEl.getAttribute('Ccy') : null,
-        isCredit: indEl && indEl.textContent === 'CRDT',
-        date: dateEl ? dateEl.textContent : null,
-        remittance: remittance.trim()
+        isCredit: !!indEl && indEl.textContent.trim() === 'CRDT',
+        isBooked: !!statusEl && statusEl.textContent.trim() === 'BOOK',
+        isReversal: !!reversalEl && /^(true|1)$/i.test(reversalEl.textContent.trim()),
+        isBatch: camtDescendants(ntry, 'TxDtls').length > 1 || camtDescendants(ntry, 'NtryDtls').length > 1 || batchCounts.some(function(el){ return Number(el.textContent.trim()) > 1; }),
+        date: dateEl ? dateEl.textContent.trim() : null,
+        remittance: remittance.trim(),
+        structuredReferences: references
       };
-    }).filter(function(e){ return e.isCredit && e.amount != null; });
+    }).filter(function(e){ return e.isCredit; });
+  }
+
+  function camtCents(amount){
+    if(amount === null || amount === undefined || amount === '') return null;
+    var cents = Number(amount) * 100;
+    if(!Number.isFinite(cents) || cents <= 0 || !Number.isSafeInteger(Math.round(cents)) || Math.abs(cents - Math.round(cents)) > 0.000001) return null;
+    return Math.round(cents);
+  }
+
+  function camtCurrency(currency){ return String(currency || '').trim().toUpperCase(); }
+
+  function camtReview(reason, candidateIds){
+    return { invoice: null, confidence: 'keine', reason: reason, candidateIds: candidateIds || [] };
   }
 
   function matchEntryToInvoice(entry, openInvoices){
-    var numMatch = entry.remittance.match(/\b(20\d{2}-\d{5})\b/);
-    if(numMatch){
-      var byNumber = openInvoices.filter(function(inv){ return inv.invoice_number === numMatch[1]; })[0];
-      if(byNumber) return { invoice: byNumber, confidence: 'sicher' };
+    var structured = entry.structuredReferences || [];
+    var referenceText = [entry.remittance || ''].concat(structured).join(' ');
+    var numbers = Array.from(new Set(referenceText.match(/\b\d{4}-\d{5}\b/g) || []));
+    var candidates = openInvoices.filter(function(inv){
+      return inv.status === 'offen' && !inv.archived_at && numbers.indexOf(inv.invoice_number) !== -1;
+    });
+    var candidateIds = candidates.map(function(inv){ return inv.id; });
+    if(entry.isBatch) return camtReview('Sammelbuchung: Zahlungen einzeln prüfen.', candidateIds);
+    if(entry.isReversal) return camtReview('Rückbuchung: Zahlung separat prüfen.', candidateIds);
+    if(!entry.isBooked) return camtReview('Zahlung ist nicht als gebucht ausgewiesen.', candidateIds);
+    if(numbers.length > 1) return camtReview('Mehrere Rechnungsnummern im Zahlungszweck.', candidateIds);
+    if(structured.some(function(ref){ return numbers.length !== 1 || ref.trim() !== numbers[0]; })){
+      return camtReview('Strukturierte Referenz ist nicht eindeutig zuordenbar.', candidateIds);
     }
-    var byAmount = openInvoices.filter(function(inv){ return Math.abs(Number(inv.total) - entry.amount) < 0.005; });
-    if(byAmount.length === 1) return { invoice: byAmount[0], confidence: 'unsicher' };
-    return { invoice: null, confidence: 'keine' };
+    if(numbers.length && candidates.length !== 1) return camtReview('Referenz passt zu keiner eindeutigen offenen Rechnung.', candidateIds);
+    if(!numbers.length && /\b(?:rechnung(?:s(?:nummer|[- ]?nr))?|invoice|referenz|reference)\b/i.test(referenceText)){
+      return camtReview('Angegebene Referenz konnte nicht zugeordnet werden.');
+    }
+    if(camtCurrency(entry.currency) !== 'CHF') return camtReview('Nur Zahlungen in CHF können hier bestätigt werden.', candidateIds);
+    var cents = camtCents(entry.amount);
+    if(cents === null) return camtReview('Zahlungsbetrag fehlt oder ist ungültig.', candidateIds);
+    if(numbers.length){
+      var byNumber = candidates[0];
+      if(camtCurrency(byNumber.currency) !== 'CHF' || camtCents(byNumber.total) !== cents){
+        return camtReview('Betrag oder Währung stimmt nicht mit der Rechnung überein.', candidateIds);
+      }
+      return { invoice: byNumber, confidence: 'sicher', candidateIds: candidateIds };
+    }
+    var byAmount = openInvoices.filter(function(inv){
+      return inv.status === 'offen' && !inv.archived_at && camtCurrency(inv.currency) === 'CHF' && camtCents(inv.total) === cents;
+    });
+    candidateIds = byAmount.map(function(inv){ return inv.id; });
+    if(byAmount.length === 1) return { invoice: byAmount[0], confidence: 'unsicher', candidateIds: candidateIds };
+    return camtReview(byAmount.length ? 'Mehrere offene Rechnungen haben diesen Betrag.' : 'Keine passende offene Rechnung gefunden.', candidateIds);
+  }
+
+  function matchCamtEntries(entries, openInvoices, bookedRows){
+    var matches = entries.map(function(entry, idx){
+      return { entry: entry, match: bookedRows && bookedRows[idx] ? camtReview('Bereits gebucht.') : matchEntryToInvoice(entry, openInvoices) };
+    });
+    var counts = {};
+    matches.forEach(function(row){ row.match.candidateIds.forEach(function(id){ counts[id] = (counts[id] || 0) + 1; }); });
+    matches.forEach(function(row){
+      if(row.match.invoice && counts[row.match.invoice.id] > 1){
+        row.match = camtReview('Mehrere Zahlungseingänge kommen für diese Rechnung infrage.', row.match.candidateIds);
+      }
+    });
+    return matches;
+  }
+
+  function formatCamtAmount(entry){
+    var currency = camtCurrency(entry.currency) || 'Währung fehlt';
+    var amount = entry.amount === null || !Number.isFinite(Number(entry.amount)) ? '–' : Number(entry.amount).toLocaleString('de-CH', { minimumFractionDigits:2, maximumFractionDigits:5 });
+    return currency + ' ' + amount;
+  }
+
+  async function loadOpenInvoicesForCamt(){
+    var invoices = [];
+    var expectedCount = null;
+    var seen = new Set();
+    do {
+      // Supabase begrenzt Abfragen standardmässig. Ein Betrag ist nur dann
+      // eindeutig, wenn wirklich alle offenen Rechnungen geprüft wurden.
+      var page = await client.from('invoices')
+        .select('*, recipient:profiles!recipient_profile_id(first_name,last_name)', { count: 'exact' })
+        .eq('status', 'offen').is('archived_at', null)
+        .order('id').range(invoices.length, invoices.length + 499);
+      if(page.error) throw new Error('Offene Rechnungen konnten nicht erneut geprüft werden: ' + page.error.message);
+      if(!Number.isSafeInteger(page.count) || page.count < 0 || (expectedCount !== null && page.count !== expectedCount)){
+        throw new Error('Die Liste der offenen Rechnungen ist unvollständig oder wurde während der Prüfung geändert. Bitte erneut prüfen.');
+      }
+      expectedCount = page.count;
+      var rows = page.data || [];
+      if((!rows.length && invoices.length < expectedCount) || invoices.length + rows.length > expectedCount){
+        throw new Error('Nicht alle offenen Rechnungen konnten geladen werden. Bitte erneut prüfen.');
+      }
+      rows.forEach(function(inv){
+        if(seen.has(inv.id)) throw new Error('Die Rechnungsliste wurde während der Prüfung geändert. Bitte erneut prüfen.');
+        seen.add(inv.id);
+        invoices.push(inv);
+      });
+    } while(invoices.length < expectedCount);
+    return invoices;
   }
 
   async function handleCamtFile(e){
     var file = e.target.files[0];
     if(!file) return;
+    var importToken = ++camtImportToken;
     var resultsEl = document.getElementById('reconcileResults');
     resultsEl.innerHTML = '<p class="dash-empty">Wird eingelesen …</p>';
 
-    var text = await file.text();
     var entries;
-    try { entries = parseCamtEntries(text); }
-    catch(err){ resultsEl.innerHTML = '<p class="dash-empty">Fehler: '+VeraDashboard.escapeHtml(err.message)+'</p>'; return; }
+    try { entries = parseCamtEntries(await file.text()); }
+    catch(err){ if(importToken === camtImportToken) resultsEl.innerHTML = '<p class="dash-empty">Fehler: '+VeraDashboard.escapeHtml(err.message)+'</p>'; return; }
+    if(importToken !== camtImportToken) return;
 
     if(!entries.length){
       resultsEl.innerHTML = '<p class="dash-empty">Keine eingehenden Gutschriften in dieser Datei gefunden.</p>';
@@ -383,42 +488,65 @@
     }
 
     var openInvoices = allInvoicesData.filter(function(inv){ return inv.status === 'offen'; });
-    var matches = entries.map(function(entry){ return { entry: entry, match: matchEntryToInvoice(entry, openInvoices) }; });
+    var bookedRows = {};
+    var busy = false;
+    var matches;
+    renderResults();
 
-    resultsEl.innerHTML = '<div class="dash-table-wrap"><table class="dash-table"><tr><th>Datum</th><th>Betrag</th><th>Zahlungszweck</th><th>Vorschlag</th><th></th></tr>' +
+    function renderResults(){
+      matches = matchCamtEntries(entries, openInvoices, bookedRows);
+      resultsEl.innerHTML = '<div class="dash-table-wrap"><table class="dash-table"><tr><th>Datum</th><th>Betrag</th><th>Zahlungszweck</th><th>Vorschlag</th><th></th></tr>' +
       matches.map(function(m, idx){
         var inv = m.match.invoice;
         var recLabel = inv && inv.recipient ? (inv.recipient.last_name+' '+inv.recipient.first_name) : '';
-        var suggestion = inv
-          ? VeraDashboard.escapeHtml(inv.invoice_number) + ' — ' + VeraDashboard.escapeHtml(recLabel) + (m.match.confidence === 'unsicher' ? ' (nur Betrag passt)' : '')
-          : 'Keine passende offene Rechnung gefunden';
+        var suggestion = bookedRows[idx] ? VeraDashboard.escapeHtml(bookedRows[idx]) : inv
+          ? VeraDashboard.escapeHtml(inv.invoice_number) + ' — ' + VeraDashboard.escapeHtml(recLabel) + (m.match.confidence === 'unsicher' ? ' (nur CHF-Betrag passt)' : '')
+          : 'Zur Prüfung: ' + VeraDashboard.escapeHtml(m.match.reason);
         return '<tr>' +
           '<td>'+VeraDashboard.escapeHtml(m.entry.date||'–')+'</td>' +
-          '<td>'+fmtCHF(m.entry.amount)+'</td>' +
-          '<td>'+VeraDashboard.escapeHtml(m.entry.remittance||'–')+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml(formatCamtAmount(m.entry))+'</td>' +
+          '<td>'+VeraDashboard.escapeHtml([m.entry.remittance].concat(m.entry.structuredReferences || []).filter(Boolean).join(' · ') || '–')+'</td>' +
           '<td>'+suggestion+'</td>' +
-          '<td>'+(inv ? '<button type="button" class="dash-btn-sm confirm-camt-btn" data-idx="'+idx+'">Als bezahlt markieren</button>' : '')+'</td>' +
+          '<td>'+(bookedRows[idx] ? '✓ Gebucht' : inv ? '<button type="button" class="dash-btn-sm confirm-camt-btn" data-idx="'+idx+'"'+(busy ? ' disabled' : '')+'>Als bezahlt markieren</button>' : '')+'</td>' +
         '</tr>';
       }).join('') +
       '</table></div>';
 
-    resultsEl.querySelectorAll('.confirm-camt-btn').forEach(function(btn){
-      btn.addEventListener('click', async function(){
-        var idx = parseInt(btn.getAttribute('data-idx'), 10);
-        var match = matches[idx].match;
-        var inv = match.invoice;
-        if(match.confidence === 'unsicher'){
-          var ok = window.confirm('Nur der Betrag passt zu dieser Rechnung. Wirklich als bezahlt markieren?');
-          if(!ok) return;
-        }
-        btn.disabled = true;
-        btn.textContent = 'Wird gebucht …';
-        var res = await VeraPortal.markInvoicePaid(inv.id);
-        if(res.error){ window.alert('Fehler: ' + res.error.message); btn.disabled = false; btn.textContent = 'Als bezahlt markieren'; return; }
-        btn.textContent = '✓ Gebucht';
-        openInvoices = openInvoices.filter(function(o){ return o.id !== inv.id; });
+      resultsEl.querySelectorAll('.confirm-camt-btn').forEach(function(btn){
+        btn.addEventListener('click', async function(){
+          if(busy || importToken !== camtImportToken) return;
+          var idx = parseInt(btn.getAttribute('data-idx'), 10);
+          var originalInvoice = matches[idx].match.invoice;
+          if(!originalInvoice || bookedRows[idx]) return;
+          busy = true;
+          document.getElementById('camtFileInput').disabled = true;
+          renderResults();
+          try {
+            // Vor dem Klick gültige Daten können inzwischen veraltet sein.
+            openInvoices = await loadOpenInvoicesForCamt();
+            matches = matchCamtEntries(entries, openInvoices, bookedRows);
+            var match = matches[idx].match;
+            if(!match.invoice || match.invoice.id !== originalInvoice.id){
+              window.alert('Der Vorschlag ist nicht mehr eindeutig oder die Rechnung wurde geändert. Bitte die aktualisierte Zuordnung prüfen.');
+              return;
+            }
+            if(match.confidence === 'unsicher' && !window.confirm('Nur der CHF-Betrag passt. Bitte Zahlungszweck und Empfänger prüfen. Diese Rechnung wirklich als bezahlt markieren?')) return;
+            var res = await VeraPortal.markInvoicePaid(match.invoice.id);
+            if(res.error) throw new Error(res.error.message);
+            bookedRows[idx] = match.invoice.invoice_number;
+            openInvoices = openInvoices.filter(function(inv){ return inv.id !== match.invoice.id; });
+            allInvoicesData.forEach(function(inv){ if(inv.id === match.invoice.id) inv.status = 'bezahlt'; });
+            renderAllInvoicesTable(allInvoicesData);
+          } catch(err){
+            window.alert('Fehler: ' + err.message);
+          } finally {
+            busy = false;
+            document.getElementById('camtFileInput').disabled = false;
+            if(importToken === camtImportToken) renderResults();
+          }
+        });
       });
-    });
+    }
   }
 
   async function initIssueForm(){

@@ -164,13 +164,13 @@
   var editingTenancyId = null;
 
   async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').eq('category', 'mieter').is('archived_at', null).order('last_name');
+    var profilesRes = await VeraDashboard.fetchProfilesForRoles(client, ['mieter']);
     var tenants = profilesRes.data || [];
 
     var unitsRes = await client.from('units').select('*, properties(label)').is('archived_at', null).order('label');
     allUnits = unitsRes.data || [];
 
-    document.getElementById('t_tenant').innerHTML = '<option value="" disabled selected>Mieter wählen *</option>' +
+    document.getElementById('t_tenant').innerHTML = '<option value="" disabled selected>' + (profilesRes.error ? 'Kontakte konnten nicht geladen werden – Seite neu laden' : 'Mieter wählen *') + '</option>' +
       tenants.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
     document.getElementById('t_unit').innerHTML = '<option value="" disabled selected>Einheit wählen *</option>' +
       allUnits.map(function(u){ return '<option value="'+u.id+'">'+VeraDashboard.escapeHtml((u.properties?u.properties.label+' – ':'')+u.label)+'</option>'; }).join('');

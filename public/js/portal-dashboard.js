@@ -940,18 +940,75 @@ window.VeraDashboard = (function () {
     return { session: session, profile: profile, roles: roles };
   }
 
-  /* Eine Person kann mehreren Kategorien gleichzeitig angehoeren (z.B.
-     Mieter UND Eigentuemer) -- profile_role_assignments ist dafuer die
-     vollstaendige Quelle (siehe admin/users.html). Faellt bei jedem
-     Fehler oder wenn noch keine Zuordnung existiert auf die einzelne
-     profiles.category zurueck, damit die Navigation nie leer bleibt. */
+  function profileRoles(profile, additionalRoles) {
+    var roles = profile.category ? [profile.category] : [];
+    (additionalRoles || []).forEach(function (role) {
+      if (role && roles.indexOf(role) === -1) roles.push(role);
+    });
+    return roles;
+  }
+
+  /* Die Primaerrolle bleibt neben allen Zusatzrollen erhalten, auch
+     wenn profile_role_assignments noch nicht vollstaendig befuellt ist.
+     Bei Ladefehlern bleibt die Navigation der Primaerrolle verfuegbar. */
   async function fetchOwnRoles(profile) {
     try {
       var res = await VeraPortal.getClient().from("profile_role_assignments").select("category").eq("profile_id", profile.id);
-      var roles = (res.data || []).map(function (r) { return r.category; });
-      return roles.length ? roles : [profile.category];
+      return profileRoles(profile, res.error ? [] : (res.data || []).map(function (r) { return r.category; }));
     } catch (e) {
-      return [profile.category];
+      return profileRoles(profile);
+    }
+  }
+
+  /* Admin pickers use the union of the primary category and additional
+     roles. A contact stays selectable under its primary category even
+     if the role-assignment table has not been fully backfilled. */
+  function profilesForRoles(profiles, assignments, allowedRoles) {
+    var rolesByProfile = Object.create(null);
+    (assignments || []).forEach(function (assignment) {
+      if (!assignment.profile_id || !assignment.category) return;
+      var roles = rolesByProfile[assignment.profile_id] || (rolesByProfile[assignment.profile_id] = []);
+      if (roles.indexOf(assignment.category) === -1) roles.push(assignment.category);
+    });
+    var seen = new Set();
+    return (profiles || []).reduce(function (rows, profile) {
+      if (!profile.id || profile.archived_at || seen.has(profile.id)) return rows;
+      var roles = profileRoles(profile, rolesByProfile[profile.id]);
+      if (!roles.some(function (role) { return allowedRoles.indexOf(role) > -1; })) return rows;
+      seen.add(profile.id);
+      rows.push(Object.assign({}, profile, { roles: roles }));
+      return rows;
+    }, []);
+  }
+
+  async function fetchProfilesForRoles(client, allowedRoles) {
+    // Read all pages: the role table can contain several rows per contact.
+    async function readRows(makeQuery) {
+      var rows = [];
+      var pageSize = 500;
+      for (var offset = 0; ; offset += pageSize) {
+        var result = await makeQuery().range(offset, offset + pageSize - 1);
+        if (result.error) return result;
+        var page = result.data || [];
+        rows = rows.concat(page);
+        if (page.length < pageSize) return { data: rows, error: null };
+      }
+    }
+    try {
+      var results = await Promise.all([
+        readRows(function () {
+          return client.from("profiles").select("id, first_name, last_name, member_number, category, archived_at")
+            .is("archived_at", null).order("last_name").order("id");
+        }),
+        readRows(function () {
+          return client.from("profile_role_assignments").select("profile_id, category").order("profile_id").order("category");
+        })
+      ]);
+      var error = results[0].error || results[1].error;
+      if (error) return { data: [], error: error };
+      return { data: profilesForRoles(results[0].data, results[1].data, allowedRoles), error: null };
+    } catch (error) {
+      return { data: [], error: error };
     }
   }
 
@@ -973,6 +1030,8 @@ window.VeraDashboard = (function () {
     downloadIcs: downloadIcs,
     downloadCsv: downloadCsv,
     fetchOwnRoles: fetchOwnRoles,
+    profilesForRoles: profilesForRoles,
+    fetchProfilesForRoles: fetchProfilesForRoles,
     renderAdminEmailModeSwitch: renderAdminEmailModeSwitch,
     renderAdminContentEditorButton: renderAdminContentEditorButton,
     renderAdminPortalEditorButton: renderAdminPortalEditorButton,

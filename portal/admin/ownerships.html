@@ -134,7 +134,7 @@
   var editingOwnershipId = null;
 
   async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').eq('category', 'eigentuemer').is('archived_at', null).order('last_name');
+    var profilesRes = await VeraDashboard.fetchProfilesForRoles(client, ['eigentuemer']);
     var owners = profilesRes.data || [];
 
     var propertiesRes = await client.from('properties').select('*').is('archived_at', null).order('label');
@@ -142,7 +142,7 @@
     var unitsRes = await client.from('units').select('*, properties(label)').is('archived_at', null).order('label');
     var units = unitsRes.data || [];
 
-    document.getElementById('o_owner').innerHTML = '<option value="" disabled selected>Eigentümer wählen *</option>' +
+    document.getElementById('o_owner').innerHTML = '<option value="" disabled selected>' + (profilesRes.error ? 'Kontakte konnten nicht geladen werden – Seite neu laden' : 'Eigentümer wählen *') + '</option>' +
       owners.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p))+'</option>'; }).join('');
     document.getElementById('o_property').innerHTML = '<option value="">– kein Objekt –</option>' +
       properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');

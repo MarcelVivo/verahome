@@ -150,16 +150,20 @@
   var editingJobId = null;
 
   async function init(){
-    var profilesRes = await client.from('profiles').select('id, first_name, last_name, member_number, category').is('archived_at', null).order('last_name');
-    var jobProfiles = (profilesRes.data || []).filter(function(p){ return p.category === 'partner' || p.category === 'handwerker' || p.category === 'hauswart'; });
+    var jobRoles = ['partner', 'handwerker', 'hauswart'];
+    var profilesRes = await VeraDashboard.fetchProfilesForRoles(client, jobRoles);
+    var jobProfiles = profilesRes.data || [];
 
     var propertiesRes = await client.from('properties').select('*').is('archived_at', null).order('label');
     var properties = propertiesRes.data || [];
     var unitsRes = await client.from('units').select('*, properties(label)').is('archived_at', null).order('label');
     var units = unitsRes.data || [];
 
-    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>Partner/Handwerker/Hauswart wählen *</option>' +
-      jobProfiles.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+VeraDashboard.categoryLabel(p.category))+'</option>'; }).join('');
+    document.getElementById('j_profile').innerHTML = '<option value="" disabled selected>' + (profilesRes.error ? 'Kontakte konnten nicht geladen werden – Seite neu laden' : 'Partner/Handwerker/Hauswart wählen *') + '</option>' +
+      jobProfiles.map(function(p){
+        var roleLabel = p.roles.filter(function(role){ return jobRoles.indexOf(role) > -1; }).map(VeraDashboard.categoryLabel).join(', ');
+        return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(profileLabel(p)+' – '+roleLabel)+'</option>';
+      }).join('');
     document.getElementById('j_property').innerHTML = '<option value="">– kein Objekt –</option>' +
       properties.map(function(p){ return '<option value="'+p.id+'">'+VeraDashboard.escapeHtml(p.label)+'</option>'; }).join('');
     document.getElementById('j_unit').innerHTML = '<option value="">– keine Einheit –</option>' +
