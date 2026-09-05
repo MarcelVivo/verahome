@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0D2440">
+  <link rel="manifest" href="/public/manifest-portal.webmanifest">
+  <link rel="apple-touch-icon" href="/public/images/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Liegenschaft erfassen | Vera Portal</title>
+  <link rel="icon" type="image/svg+xml" href="/public/images/logo/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/css/styles.css">
+  <link rel="stylesheet" href="/public/css/portal.css">
+  <link rel="stylesheet" href="/public/css/property-create.css">
+  <script defer src="/public/js/pwa.js"></script>
+</head>
+<body class="property-create-page">
+  <a class="skip-link" href="#main">Zum Inhalt springen</a>
+  <nav id="navbar" aria-label="Vera Portal">
+    <div class="nav-inner">
+      <a href="/portal/dashboard.html" class="nav-logo pc-brand" aria-label="Vera Portal – Übersicht">
+        <img src="/public/images/logo/logo-gold.svg" alt="" width="32" height="40">
+        <span>Vera Home<small>Portal</small></span>
+      </a>
+      <a href="/portal/admin/properties.html" class="pc-exit" id="pcExit">Zur Objektübersicht <span aria-hidden="true">↗</span></a>
+    </div>
+  </nav>
+
+  <main id="main" class="pc-page">
+    <div id="pcLoading" role="status">Erfassung wird vorbereitet …</div>
+    <div id="pcLoadError" class="pc-notice" hidden>
+      <p id="pcLoadErrorText" role="alert"></p>
+      <button type="button" class="pc-button pc-button-primary" id="pcReload">Erneut laden</button>
+    </div>
+    <div id="pcWorkspace" hidden>
+      <div class="pc-heading">
+        <p class="pc-eyebrow">Objekte · Neue Erfassung</p>
+        <h1 id="pcTitle">Liegenschaft erfassen</h1>
+        <p id="pcLead">Erst das Gebäude, dann die Einheiten. Weitere Angaben ergänzen Sie anschliessend.</p>
+      </div>
+      <div class="pc-draft-line">
+        <span id="pcDraftStatus" role="status">Entwurf bleibt in diesem Tab erhalten.</span>
+        <button type="button" class="pc-text-button" id="pcDiscard">Entwurf verwerfen</button>
+      </div>
+      <ol class="pc-steps" aria-label="Erfassungsschritte" id="pcSteps">
+        <li><button type="button" data-step="1"><span>1</span>Adresse</button></li>
+        <li><button type="button" data-step="2"><span>2</span>Einheiten</button></li>
+        <li><button type="button" data-step="3"><span>3</span>Kontrolle</button></li>
+      </ol>
+
+      <form id="pcForm" novalidate>
+        <div class="pc-panel" id="pcStep1">
+          <h2 tabindex="-1">Wo liegt die Liegenschaft?</h2>
+          <fieldset class="pc-type-fieldset">
+            <legend>Verwaltungsart</legend>
+            <div class="pc-property-types">
+              <label><input type="radio" name="property_type" value="mietobjekt" checked><span>Mietliegenschaft</span></label>
+              <label><input type="radio" name="property_type" value="stweg" id="pcStweg"><span>Stockwerkeigentum</span></label>
+            </div>
+            <p class="pc-hint" id="pcTypeHint" hidden>Stockwerkeigentum ist in dieser Datenbank noch nicht eingerichtet.</p>
+          </fieldset>
+          <label for="pcStreet">Strasse und Hausnummer</label>
+          <input id="pcStreet" autocomplete="off" maxlength="200" placeholder="z. B. Hauptstrasse 39">
+          <div class="pc-address-row">
+            <div><label for="pcZip">PLZ</label><input id="pcZip" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="5070"></div>
+            <div><label for="pcCity">Ort</label><input id="pcCity" autocomplete="off" maxlength="100" placeholder="Frick"></div>
+          </div>
+          <details class="pc-label-details" id="pcLabelDetails">
+            <summary>Bezeichnung anpassen</summary>
+            <label for="pcPropertyLabel">Bezeichnung der Liegenschaft</label>
+            <input id="pcPropertyLabel" maxlength="200" placeholder="Wird aus der Adresse vorgeschlagen">
+            <p class="pc-hint">Auch mit einer eigenen Bezeichnung können Sie beginnen und die Adresse später ergänzen.</p>
+          </details>
+          <p class="pc-address-preview" id="pcAddressPreview"></p>
+        </div>
+
+        <div class="pc-panel" id="pcStep2" hidden>
+          <h2 tabindex="-1">Welche Einheiten gehören dazu?</h2>
+          <p class="pc-context" id="pcPropertyContext"></p>
+          <div class="pc-add-units">
+            <div class="pc-bulk-row">
+              <div><label for="pcUnitType">Art der Einheit</label><select id="pcUnitType"></select></div>
+              <div><label for="pcUnitCount">Anzahl</label><input id="pcUnitCount" type="number" inputmode="numeric" min="1" max="100" step="1" value="1"></div>
+            </div>
+            <button type="button" class="pc-button pc-button-secondary" id="pcAddUnits">+ Einheiten hinzufügen</button>
+          </div>
+          <div class="pc-list-heading"><h3 id="pcUnitsHeading">Noch keine Einheiten</h3><span class="pc-hint">Namen und Angaben sind einzeln änderbar.</span></div>
+          <div id="pcUnitsList"></div>
+          <p class="pc-hint" id="pcEmptyHint">Noch nicht alle Angaben bekannt? Sie können die Liegenschaft zunächst ohne Einheiten speichern.</p>
+        </div>
+
+        <div class="pc-panel" id="pcStep3" hidden>
+          <h2 tabindex="-1">Alles richtig?</h2>
+          <div id="pcReview"></div>
+          <div class="pc-internal-note"><span aria-hidden="true">✓</span><p><strong>Intern erfassen</strong><br>Die neuen Einheiten werden intern gespeichert. Ein Inserat können Sie später gezielt veröffentlichen.</p></div>
+        </div>
+        <p class="pc-notice" id="pcFormError" role="alert" hidden></p>
+        <div class="pc-save-progress" id="pcSaveProgress" role="status" hidden></div>
+        <div class="pc-actions">
+          <button type="button" class="pc-button pc-button-secondary" id="pcBack">Zurück</button>
+          <button type="submit" class="pc-button pc-button-primary" id="pcNext">Weiter zu den Einheiten <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+      <p class="pc-advanced"><a href="/portal/admin/properties.html?create=property" id="pcAdvanced">Ausführliches Formular öffnen</a></p>
+    </div>
+
+    <div class="pc-panel pc-success" id="pcSuccess" hidden>
+      <div class="pc-success-icon" aria-hidden="true">✓</div>
+      <p class="pc-eyebrow">Gespeichert</p>
+      <h1 id="pcSuccessTitle" tabindex="-1">Die Liegenschaft ist erfasst.</h1>
+      <p id="pcSuccessSummary"></p>
+      <a class="pc-button pc-button-primary" id="pcOpenProperty" href="/portal/admin/properties.html">Liegenschaft öffnen</a>
+      <p class="pc-hint">Dort ergänzen Sie Personen, Verträge, Bilder, Dokumente und Geräte.</p>
+      <div class="pc-success-links" id="pcCreatedUnits"></div>
+      <button type="button" class="pc-text-button" id="pcStartAgain">Weitere Liegenschaft erfassen</button>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/public/js/supabase-config.js"></script>
+  <script src="/public/js/portal-auth.js"></script>
+  <script src="/public/js/property-create-core.js"></script>
+  <script src="/public/js/property-create.js"></script>
+</body>
+</html>

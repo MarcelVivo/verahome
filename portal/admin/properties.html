@@ -47,12 +47,9 @@
     <aside id="dashSidebar" class="dash-sidebar"></aside>
     <section class="dash-content">
       <h1>Objekte</h1>
-      <p class="dash-lead">Objekte sind Gebäude/Liegenschaften. Darunter werden nur echte Einheiten wie Wohnungen, Studios, Gewerbe, Garagen, Parkplätze oder Lager erfasst. Rollen, Dokumente und Geräte werden anschliessend genau dort zugewiesen, wo sie rechtlich hingehören.</p>
-      <div class="obj-flow-guide" aria-label="Logische Erfassungsreihenfolge">
-        <div><span>1</span><strong>Gebäude / Liegenschaft</strong><small>Adresse, Eigentümer, Hauswart, Hausordnung, Gebäudegeräte.</small></div>
-        <div><span>2</span><strong>Einheiten darunter</strong><small>Wohnungen, Studios, Gewerbe, Garagen, Parkplätze, Lager.</small></div>
-        <div><span>3</span><strong>Rollen & Rechte</strong><small>Mieter, Eigentümer, Hauswart und Dokument-Freigaben gezielt zuweisen.</small></div>
-        <div><span>4</span><strong>Dokumente & Geräte</strong><small>Nur dort erfassen, wo sie fachlich hingehören.</small></div>
+      <p class="dash-lead">Liegenschaften und ihre Wohnungen, Parkplätze und weiteren Einheiten. Personen, Dokumente und Geräte ergänzen Sie beim passenden Objekt.</p>
+      <div class="dash-btn-row">
+        <a class="btn btn-primary" href="/portal/admin/property-create.html">Liegenschaft erfassen</a>
       </div>
 
       <div class="obj-columns-wrap">
@@ -295,6 +292,12 @@
     return UNIT_TYPE_LABELS[type] ? type : (LEGACY_UNIT_TYPE_MAP[type] || 'sonstiges');
   }
 
+  function unitTypeLabel(type){
+    if(UNIT_TYPE_SINGULAR[type]) return UNIT_TYPE_SINGULAR[type];
+    var label = String(type || 'Einheit').replace(/_/g, ' ');
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
   var ARCHIVE_PLANS = {
     stweg: [
       { key:'stweg_verwaltung', code:'01', label:'Verwaltung', hint:'Eigentümerverzeichnis, Versammlungen, Beschlüsse, Hauswartung, Versicherungen, Korrespondenz.', children:['Eigentümerverzeichnis','Versammlungen & Protokolle','Beschlüsse & Verträge','Hauswartung','Versicherungen','Korrespondenz'] },
@@ -399,7 +402,7 @@
   function updateUnitLabelAuto(){
     if(unitLabelManualOverride) return;
     var rooms = document.getElementById('u_rooms').value.trim();
-    var typeName = UNIT_TYPE_SINGULAR[document.getElementById('u_type').value] || 'Einheit';
+    var typeName = unitTypeLabel(document.getElementById('u_type').value);
     var floor = document.getElementById('u_floor').value.trim();
     var main = rooms ? (rooms + '-Zimmer-' + typeName) : typeName;
     document.getElementById('u_label').value = [main, floor].filter(Boolean).join(' ');
@@ -427,6 +430,7 @@
   var UNIT_TYPES_WITHOUT_ROOMS_ONLY = ['gewerbe', 'lager', 'sonstiges'];
   var UNIT_TYPES_NON_RESIDENTIAL_AREA = ['gewerbe', 'lager', 'sonstiges'];
   function applyUnitTypeFieldVisibility(type){
+    type = normalizeUnitType(type);
     var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
     var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
 
@@ -441,6 +445,7 @@
   }
 
   function applyExistingUnitTypeFieldVisibility(unitId, type, clearHiddenFields){
+    type = normalizeUnitType(type);
     var hideAll = UNIT_TYPES_WITHOUT_AREA_ROOMS.indexOf(type) > -1;
     var hideRooms = hideAll || UNIT_TYPES_WITHOUT_ROOMS_ONLY.indexOf(type) > -1;
     setUnitFieldWrap('unitAreaWrap-'+unitId, 'unitArea-'+unitId, hideAll, clearHiddenFields);
@@ -718,7 +723,12 @@
 
     loadAll().then(function(){
       applyGlobalSearchParam();
+      var returnSelection = applyPropertySelectionParam();
       renderAllColumns();
+      var detailedCreateOpened = applyDetailedCreateParam();
+      if(returnSelection && !detailedCreateOpened){
+        scrollMobileObjectPane(returnSelection.unit ? '.obj-pane-detail' : '.obj-pane-units');
+      }
     });
   }
 
@@ -730,6 +740,38 @@
     var q = new URLSearchParams(window.location.search).get('q');
     if(!q) return;
     ['objekte'].concat(UNIT_TYPE_ORDER).forEach(function(key){ columnSearchState[key] = q; });
+  }
+
+  // Wizard return links select existing active records without changing them.
+  function applyPropertySelectionParam(){
+    var params = new URLSearchParams(window.location.search);
+    var propertyId = params.get('property');
+    var property = allProperties.filter(function(p){ return p.id === propertyId && !p.archived_at; })[0];
+    if(!property) return;
+    selectedPropertyId = property.id;
+    var unitId = params.get('unit');
+    var unit = allUnits.filter(function(u){ return u.id === unitId && u.property_id === property.id && !u.archived_at; })[0];
+    selectedUnitId = unit ? unit.id : null;
+    selectedDetailType = null;
+    selectedDetailId = null;
+    columnSearchState.objekte = '';
+    columnSearchState.units = '';
+    // An unavailable/mismatched unit must not scroll to another unit's view.
+    if(unitId && !unit) return null;
+    return { property: property.id, unit: selectedUnitId };
+  }
+
+  function applyDetailedCreateParam(){
+    var params = new URLSearchParams(window.location.search);
+    if(params.get('create') === 'property'){
+      openDetailedCreateModal('objekte');
+      return true;
+    } else if(params.get('create') === 'unit'){
+      var propertyId = params.get('property');
+      if(propertyId && !allProperties.some(function(p){ return p.id === propertyId && !p.archived_at; })) return;
+      openDetailedCreateModal(params.get('type') || 'wohnung', propertyId);
+      return true;
+    }
   }
 
   function closeNewPropertyModal(){
@@ -758,17 +800,22 @@
   }
 
   function unitTypeOptionsHtml(selected){
-    return UNIT_TYPE_ORDER.map(function(t){
-      return '<option value="'+t+'"'+(t===selected?' selected':'')+'>'+UNIT_TYPE_SINGULAR[t]+'</option>';
+    var types = UNIT_TYPE_ORDER.slice();
+    // Keep a stored subtype (e.g. studio) until Julia explicitly changes it.
+    if(selected && types.indexOf(selected) === -1) types.unshift(selected);
+    return types.map(function(t){
+      return '<option value="'+VeraDashboard.escapeHtml(t)+'"'+(t===selected?' selected':'')+'>'+VeraDashboard.escapeHtml(unitTypeLabel(t))+'</option>';
     }).join('');
   }
 
   function unitTypeCardsHtml(selected, targetId, compact){
-    return UNIT_TYPE_ORDER.map(function(type){
+    var types = UNIT_TYPE_ORDER.slice();
+    if(selected && types.indexOf(selected) === -1) types.unshift(selected);
+    return types.map(function(type){
       var active = type === selected;
-      return '<button type="button" class="obj-type-card'+(active?' active':'')+(compact?' compact':'')+'" data-unit-type-target="'+targetId+'" data-unit-type="'+type+'" aria-pressed="'+(active?'true':'false')+'">' +
-        '<span class="obj-type-icon">'+VeraDashboard.escapeHtml(UNIT_TYPE_ICONS[type] || '•')+'</span>' +
-        '<span><strong>'+VeraDashboard.escapeHtml(UNIT_TYPE_SINGULAR[type])+'</strong><small>'+VeraDashboard.escapeHtml(UNIT_TYPE_HINTS[type] || '')+'</small></span>' +
+      return '<button type="button" class="obj-type-card'+(active?' active':'')+(compact?' compact':'')+'" data-unit-type-target="'+VeraDashboard.escapeHtml(targetId)+'" data-unit-type="'+VeraDashboard.escapeHtml(type)+'" aria-pressed="'+(active?'true':'false')+'">' +
+        '<span class="obj-type-icon">'+VeraDashboard.escapeHtml(UNIT_TYPE_ICONS[normalizeUnitType(type)] || '•')+'</span>' +
+        '<span><strong>'+VeraDashboard.escapeHtml(unitTypeLabel(type))+'</strong><small>'+VeraDashboard.escapeHtml(UNIT_TYPE_HINTS[type] || '')+'</small></span>' +
       '</button>';
     }).join('');
   }
@@ -1995,6 +2042,17 @@
   }
 
   function openCreateModal(key, propertyId){
+    var url = '/portal/admin/property-create.html';
+    if(key !== 'objekte'){
+      var params = new URLSearchParams();
+      if(propertyId) params.set('property', propertyId);
+      params.set('type', key === 'unit-for-property' ? 'wohnung' : key);
+      url += '?' + params.toString();
+    }
+    window.location.href = url;
+  }
+
+  function openDetailedCreateModal(key, propertyId){
     if(key === 'objekte'){
       refreshNewDocumentSelectors();
       document.getElementById('newPropertyModalBackdrop').hidden = false;
@@ -2301,7 +2359,7 @@
 
   function unitModalHtml(unit){
     var unitId = unit.id;
-    var selectedType = normalizeUnitType(unit.unit_type);
+    var selectedType = unit.unit_type || 'sonstiges';
     return '<h3>'+VeraDashboard.escapeHtml(unit.label)+'</h3>' +
       '<form class="auth-form unit-listing-form" id="unitListingForm-'+unitId+'">' +
         '<span class="obj-modal-section-label">Art dieser Einheit</span>' +

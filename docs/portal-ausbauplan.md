@@ -125,3 +125,27 @@ node --test tests/*.test.cjs
 Sie prüfen lokale Logik und simulierte Daten. Sie ersetzen keine Prüfung der tatsächlich deployten Supabase-Regeln, Bankanbindung oder kompletten Rollenabläufe mit Testkonten.
 
 Prüfstand des ersten Pakets: 55 Regressionstests bestanden; die drei Personen-Auswahldialoge und der CAMT-Upload wurden mit Chromium und WebKit bei 393 und 1440 Pixeln geprüft. Die Browserprüfung verwendete die tatsächlichen Seitenskripte, native XML-Parser und ausschliesslich simulierte Backenddaten. Teilzahlung, Fremdwährung, Sammelbuchung, doppelte und unbekannte Referenzen, ungültiges XML, geänderte Rechnung und gültige Bestätigung wurden durchgespielt. Syntaxprüfung, Diffprüfung und Vorbereitung der Capacitor-Webdateien waren erfolgreich. Eine vollständige native iOS- oder Live-RLS-Abnahme ist damit nicht behauptet.
+
+## Stufe 2: kurze Objekterfassung
+
+Der neue Einstieg unter **Objekte → Liegenschaft erfassen** führt über `/portal/admin/property-create.html` durch Adresse, Einheiten und Kontrolle. Die Bezeichnung wird aus der Adresse vorgeschlagen und bleibt änderbar. Bis zu 100 Einheiten lassen sich pro Erfassung gesammelt hinzufügen, einzeln benennen, kopieren oder entfernen; Stockwerk, Zimmer und Fläche sind optional. Studio und vorhandene detaillierte Einheitstypen bleiben eigene Werte. Eine neue Liegenschaft darf zunächst ohne Einheiten gespeichert werden.
+
+Das Plus bei einer bestehenden Liegenschaft übernimmt sie als Kontext und beginnt direkt mit den Einheiten. Nach Erfolg führen Links zur erfassten Liegenschaft oder Einheit; auf dem iPhone springt die Übersicht zum zugehörigen Bereich. Die bestehenden Detailformulare für Personen, Bilder, Dokumente, Geräte, Waschplan und Inserate bleiben erreichbar. Vor Beginn eines Kurz-Entwurfs ist auch das bisherige ausführliche Erfassungsformular verfügbar.
+
+Entwürfe werden pro angemeldetem Verwaltungskonto **im aktuellen Browser-Tab** gesichert und nach Neuladen wieder aufgenommen. Sie werden noch nicht zwischen Geräten synchronisiert und stehen nach Schliessen des Tabs nicht als Cloud-Entwurf bereit. Zugangstokens und Dateien werden darin nicht abgelegt. Bei gesperrtem Tab-Speicher beginnt keine Datenbankanlage.
+
+Vor der ersten Speicherung wird ein fester Plan mit UUIDs gesichert. Die Liegenschaft wird zuerst angelegt, danach die fehlenden Einheiten gemeinsam; bereits vorhandene IDs werden geprüft. Verlorene Antworten und wiederholtes Speichern erzeugen dadurch keine zweite Anlage desselben Plans. Ein unklarer oder teilweise gespeicherter Plan bleibt zur Wiederaufnahme erhalten und wird nicht durch eine neue Anlage ersetzt. Es gibt keine gemeinsame Transaktion über beide Tabellen und keine automatische Löschung zur Fehlerbereinigung. Zwischenzeitlich abweichende oder archivierte Datensätze werden nicht überschrieben. Neue Datensätze verwenden ausdrücklich `visibility: private`.
+
+Die Sitzung wird vor Speicherung erneut geprüft; ein Versuch verwendet einen an dieses Konto gebundenen Client. Kontowechsel und Abmeldung verbergen den Entwurf und stoppen weitere Schritte. Technische Grundlage sind die dokumentierte [Client-Konfiguration mit eigener Fetch-Funktion](https://supabase.com/docs/reference/javascript/initializing) und [Benachrichtigungen über Sitzungsänderungen](https://supabase.com/docs/reference/javascript/auth-onauthstatechange). Datenbankrechte bleiben zusätzlich massgeblich.
+
+Für diese Stufe ist keine neue Migration erforderlich. Eine noch nicht vorhandene `property_type`-Spalte wird von einem Verbindungsfehler unterschieden; STWEG wird in diesem Fall nicht still als Mietliegenschaft gespeichert. Der tatsächlich deployte Einheitstyp-Constraint bleibt verbindlich. Die vorhandenen SQL-Erweiterungen werden durch den Frontend-Push nicht automatisch eingespielt.
+
+Die zusätzliche Browserabnahme lädt die tatsächlichen lokalen Seiten und Skripte mit simuliertem Login und isolierten Tabellendaten. Sie erzeugt keine produktiven Liegenschaften und benötigt eine vorhandene Playwright-Installation:
+
+```sh
+PLAYWRIGHT_MODULE=/pfad/zu/playwright-core node tests/property-create-browser.cjs
+```
+
+Kernfälle sind Neu-/Sammelerfassung, Null-Einheiten-Liegenschaft, bestehende Liegenschaft, Rücknavigation und Reload, Antwortverlust nach erfolgreichem Insert, fehlgeschlagener Einheiten-Insert, gesperrter Tab-Speicher, fehlender Verwaltungszugang sowie Kontowechsel während einer Erfassung.
+
+Prüfstand der Stufe 2: insgesamt 98 Node-Regressionstests sowie 66 Browserfälle in Chromium und WebKit bei 320, 393 und 1440 Pixeln bestanden. Die mobile Ansicht wurde zusätzlich visuell geprüft. Sitzungsbindung, tokenfreie Entwürfe, ausbleibende Folgeschritte nach Kontowechsel sowie Syntaxprüfung und Vorbereitung der Capacitor-Webdateien wurden geprüft. Es wurden keine produktiven Datensätze für diese Abnahme angelegt.
