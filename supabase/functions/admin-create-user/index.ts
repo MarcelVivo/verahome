@@ -44,7 +44,8 @@ async function outboundEmailsDisabled(adminClient: any): Promise<boolean> {
 }
 
 function randomTemporaryPassword(): string {
-  return `${crypto.randomUUID()}-${crypto.randomUUID()}-Aa1!`;
+  // Supabase Auth (bcrypt) akzeptiert max. 72 Zeichen; zwei UUIDs (78) sind zu lang.
+  return `${crypto.randomUUID()}-Aa1!`;
 }
 
 Deno.serve(async (req) => {

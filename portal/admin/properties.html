@@ -1780,6 +1780,8 @@
         .eq('file_id', fileId)
         .order('created_at', { ascending: false })
         .limit(1);
+      // E-Signatur (document-esignature.sql) noch nicht eingerichtet: Abschnitt ausblenden statt Fehler zeigen.
+      if(reqRes.error && ['PGRST205', '42P01'].indexOf(reqRes.error.code) >= 0){ holder.style.display = 'none'; return; }
       if(reqRes.error){ holder.innerHTML = '<p class="doc-meta">Unterschrift-Status konnte nicht geladen werden.</p>'; return; }
       var request = (reqRes.data || [])[0];
       holder.innerHTML = request ? documentSignatureStatusHtml(request) : documentSignaturePickerHtml(doc);
